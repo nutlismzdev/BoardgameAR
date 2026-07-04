@@ -1,0 +1,138 @@
+{
+  "_note": "เนื้อหาอ้างอิงพระบรมราชานุสาวรีย์ 7 พระองค์ ณ อุทยานราชภักดิ์ — ปีศักราชและข้อเท็จจริงควรผ่านการตรวจสอบโดยครูประวัติศาสตร์ก่อนเผยแพร่",
+  "kings": [
+    {
+      "id": "king_ramkhamhaeng",
+      "order": 1,
+      "name": "พ่อขุนรามคำแหงมหาราช",
+      "era": "สุโขทัย",
+      "reignPeriod": "พ.ศ. 1822–1841 (โดยประมาณ)",
+      "shortBio": "พระมหากษัตริย์แห่งกรุงสุโขทัย ผู้ทรงประดิษฐ์อักษรไทย และทำให้สุโขทัยรุ่งเรืองด้านการค้าและศาสนา",
+      "achievements": [
+        "ทรงประดิษฐ์อักษรไทย (ลายสือไท) พ.ศ. 1826",
+        "ศิลาจารึกหลักที่ 1",
+        "ส่งเสริมการค้าเสรี 'ใครใคร่ค้าช้างค้า ใครใคร่ค้าม้าค้า'"
+      ],
+      "themeColor": "#B8860B",
+      "portrait2D": "assets/kings/ramkhamhaeng.png",
+      "arModel3D": "assets/ar/ramkhamhaeng.glb",
+      "arModelIOS": "assets/ar/ramkhamhaeng.usdz",
+      "arMarkerId": "marker_king_01",
+      "audioNarration": "assets/audio/narration_king01.mp3"
+    },
+    {
+      "id": "king_naresuan",
+      "order": 2,
+      "name": "สมเด็จพระนเรศวรมหาราช",
+      "era": "อยุธยา",
+      "reignPeriod": "พ.ศ. 2133–2148",
+      "shortBio": "วีรกษัตริย์ผู้ทรงกอบกู้เอกราชของกรุงศรีอยุธยาจากพม่า และทรงกระทำยุทธหัตถีอันเลื่องชื่อ",
+      "achievements": [
+        "ประกาศอิสรภาพจากพม่า พ.ศ. 2127",
+        "ชนะยุทธหัตถี พ.ศ. 2135",
+        "ขยายพระราชอำนาจของกรุงศรีอยุธยา"
+      ],
+      "themeColor": "#8B0000",
+      "portrait2D": "assets/kings/naresuan.png",
+      "arModel3D": "assets/ar/naresuan.glb",
+      "arModelIOS": "assets/ar/naresuan.usdz",
+      "arMarkerId": "marker_king_02",
+      "audioNarration": "assets/audio/narration_king02.mp3"
+    },
+    {
+      "id": "king_narai",
+      "order": 3,
+      "name": "สมเด็จพระนารายณ์มหาราช",
+      "era": "อยุธยา",
+      "reignPeriod": "พ.ศ. 2199–2231",
+      "shortBio": "ยุคทองแห่งการทูตและวรรณคดี ทรงเจริญสัมพันธไมตรีกับฝรั่งเศสและนานาชาติ",
+      "achievements": [
+        "เจริญสัมพันธไมตรีกับฝรั่งเศส ส่งราชทูตโกษาปาน",
+        "ยุคทองของวรรณคดีไทย",
+        "ความก้าวหน้าด้านดาราศาสตร์และวิทยาการ"
+      ],
+      "themeColor": "#1565C0",
+      "portrait2D": "assets/kings/narai.png",
+      "arModel3D": "assets/ar/narai.glb",
+      "arModelIOS": "assets/ar/narai.usdz",
+      "arMarkerId": "marker_king_03",
+      "audioNarration": "assets/audio/narration_king03.mp3"
+    },
+    {
+      "id": "king_taksin",
+      "order": 4,
+      "name": "สมเด็จพระเจ้าตากสินมหาราช",
+      "era": "ธนบุรี",
+      "reignPeriod": "พ.ศ. 2310–2325",
+      "shortBio": "ผู้ทรงกอบกู้เอกราชหลังการเสียกรุงศรีอยุธยาครั้งที่ 2 และสถาปนากรุงธนบุรีเป็นราชธานี",
+      "achievements": [
+        "กอบกู้เอกราชหลังเสียกรุงครั้งที่ 2 พ.ศ. 2310",
+        "สถาปนากรุงธนบุรีเป็นราชธานี",
+        "รวบรวมแผ่นดินไทยให้เป็นปึกแผ่น"
+      ],
+      "themeColor": "#2E7D32",
+      "portrait2D": "assets/kings/taksin.png",
+      "arModel3D": "assets/ar/taksin.glb",
+      "arModelIOS": "assets/ar/taksin.usdz",
+      "arMarkerId": "marker_king_04",
+      "audioNarration": "assets/audio/narration_king04.mp3"
+    },
+    {
+      "id": "king_rama1",
+      "order": 5,
+      "name": "พระบาทสมเด็จพระพุทธยอดฟ้าจุฬาโลกมหาราช (รัชกาลที่ ๑)",
+      "era": "รัตนโกสินทร์",
+      "reignPeriod": "พ.ศ. 2325–2352",
+      "shortBio": "ปฐมกษัตริย์แห่งราชวงศ์จักรี ผู้ทรงสถาปนากรุงเทพมหานครเป็นราชธานี",
+      "achievements": [
+        "สถาปนากรุงรัตนโกสินทร์ (กรุงเทพมหานคร) พ.ศ. 2325",
+        "ทรงตั้งราชวงศ์จักรี",
+        "ชำระกฎหมายตราสามดวง"
+      ],
+      "themeColor": "#6A1B9A",
+      "portrait2D": "assets/kings/rama1.png",
+      "arModel3D": "assets/ar/rama1.glb",
+      "arModelIOS": "assets/ar/rama1.usdz",
+      "arMarkerId": "marker_king_05",
+      "audioNarration": "assets/audio/narration_king05.mp3"
+    },
+    {
+      "id": "king_rama4",
+      "order": 6,
+      "name": "พระบาทสมเด็จพระจอมเกล้าเจ้าอยู่หัว (รัชกาลที่ ๔)",
+      "era": "รัตนโกสินทร์",
+      "reignPeriod": "พ.ศ. 2394–2411",
+      "shortBio": "พระบิดาแห่งวิทยาศาสตร์ไทย ทรงคำนวณการเกิดสุริยุปราคาที่ตำบลหว้ากอได้อย่างแม่นยำ",
+      "achievements": [
+        "ทรงคำนวณสุริยุปราคาเต็มดวงที่หว้ากอ พ.ศ. 2411",
+        "ทรงเปิดประเทศสู่การทูตสมัยใหม่",
+        "ได้รับการยกย่องเป็น 'พระบิดาแห่งวิทยาศาสตร์ไทย'"
+      ],
+      "themeColor": "#00838F",
+      "portrait2D": "assets/kings/rama4.png",
+      "arModel3D": "assets/ar/rama4.glb",
+      "arModelIOS": "assets/ar/rama4.usdz",
+      "arMarkerId": "marker_king_06",
+      "audioNarration": "assets/audio/narration_king06.mp3"
+    },
+    {
+      "id": "king_rama5",
+      "order": 7,
+      "name": "พระบาทสมเด็จพระจุลจอมเกล้าเจ้าอยู่หัว (รัชกาลที่ ๕)",
+      "era": "รัตนโกสินทร์",
+      "reignPeriod": "พ.ศ. 2411–2453",
+      "shortBio": "พระปิยมหาราช ผู้ทรงเลิกทาสและปฏิรูปประเทศให้ทันสมัยโดยไม่เสียเอกราช",
+      "achievements": [
+        "ทรงเลิกทาสโดยไม่เสียเลือดเนื้อ",
+        "ปฏิรูปการปกครองและระบบราชการ",
+        "ริเริ่มการรถไฟ ไปรษณีย์ และสาธารณูปโภคสมัยใหม่"
+      ],
+      "themeColor": "#D84315",
+      "portrait2D": "assets/kings/rama5.png",
+      "arModel3D": "assets/ar/rama5.glb",
+      "arModelIOS": "assets/ar/rama5.usdz",
+      "arMarkerId": "marker_king_07",
+      "audioNarration": "assets/audio/narration_king07.mp3"
+    }
+  ]
+}

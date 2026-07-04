@@ -1,0 +1,413 @@
+import { useEffect, useRef, useState } from 'react';
+import type { King, QuizCard } from '@/core/types';
+import { color, radius, elevation } from '@/theme/tokens';
+
+// ── ช่องทอง = บทเรียน AR ── ส่องกล้อง → คลิปวิดีโอ 15 วิ (placeholder) →
+// ลากคำตอบที่ถูกไปวางในช่อง (drag-to-slot) ในหน้ากล้อง AR → ถูก = ได้เหรียญกษัตริย์
+const VIDEO_SECONDS = 15;
+
+export function ARGoldChallenge({
+  king,
+  quiz,
+  onDone,
+  useCamera = true,
+}: {
+  king: King;
+  quiz: QuizCard;
+  onDone: (correct: boolean) => void;
+  useCamera?: boolean; // ปิดได้ในโหมดครู — เล่นบทเรียนบนพื้นหลังเข้มแทน (ยังชนะได้)
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [camReady, setCamReady] = useState(false);
+  const [stage, setStage] = useState<'video' | 'question' | 'done'>('video');
+  const [secondsLeft, setSecondsLeft] = useState(VIDEO_SECONDS);
+
+  // เปิดกล้องแบบ best-effort (ถ้าไม่ได้ ใช้พื้นหลังเข้มแทน — flow ยังเล่นต่อได้)
+  useEffect(() => {
+    if (!useCamera) return;
+    let cancelled = false;
+    (async () => {
+      if (!navigator.mediaDevices?.getUserMedia) return;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false,
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => {});
+        }
+        setCamReady(true);
+      } catch {
+        /* ไม่มีสิทธิ์กล้อง — ใช้พื้นหลังเข้ม */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    };
+  }, []);
+
+  // นับถอยหลังคลิปวิดีโอ 15 วิ แล้วเข้าสู่คำถาม
+  useEffect(() => {
+    if (stage !== 'video') return;
+    if (secondsLeft <= 0) {
+      setStage('question');
+      return;
+    }
+    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [stage, secondsLeft]);
+
+  const stopCam = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  };
+
+  const bail = () => {
+    stopCam();
+    onDone(false); // ออกก่อนตอบ = ไม่ได้เหรียญ (ลองใหม่รอบหน้า)
+  };
+
+  const claim = () => {
+    stopCam();
+    onDone(true);
+  };
+
+  const shortName = king.name.split('(')[0].trim();
+
+  return (
+    <div style={shell}>
+      <video ref={videoRef} playsInline muted style={videoStyle(camReady)} />
+      <div style={shade} />
+
+      <button onClick={bail} style={backBtn}>
+        ← ออก (ยังไม่รับเหรียญ)
+      </button>
+
+      <div style={badge}>🪙 ช่องทอง · เหรียญกษัตริย์</div>
+
+      {stage === 'video' && (
+        <VideoStage king={king} shortName={shortName} secondsLeft={secondsLeft} onSkip={() => setStage('question')} />
+      )}
+
+      {stage === 'question' && (
+        <DragQuestion quiz={quiz} onCorrect={() => setStage('done')} />
+      )}
+
+      {stage === 'done' && (
+        <div style={centerCard}>
+          <div style={{ fontSize: 64 }}>🎉🪙</div>
+          <h2 style={{ margin: '6px 0', fontSize: 28, color: color.primary }}>
+            ได้เหรียญ {shortName}!
+          </h2>
+          <p style={{ margin: '0 0 16px', fontSize: 18, color: color.textMuted }}>
+            เก่งมาก! เรียนรู้ผ่าน AR สำเร็จ
+          </p>
+          <button onClick={claim} style={primaryBtn}>
+            รับเหรียญกษัตริย์ →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── สเตจวิดีโอ 15 วิ (placeholder — ยังไม่มีไฟล์จริง) ──
+function VideoStage({
+  king,
+  shortName,
+  secondsLeft,
+  onSkip,
+}: {
+  king: King;
+  shortName: string;
+  secondsLeft: number;
+  onSkip: () => void;
+}) {
+  const pct = ((VIDEO_SECONDS - secondsLeft) / VIDEO_SECONDS) * 100;
+  return (
+    <div style={centerCard}>
+      <div style={{ fontSize: 15, fontWeight: 800, color: color.info }}>🎬 คลิปวิดีโอ 15 วินาที</div>
+      <div style={videoBox(king.themeColor)}>
+        <div style={medal(king.themeColor)}>{king.order}</div>
+        <div style={{ fontSize: 22, fontWeight: 900, marginTop: 10 }}>{shortName}</div>
+        <div style={{ fontSize: 16, opacity: 0.85 }}>
+          {king.era} · {king.reignPeriod}
+        </div>
+        <ul style={{ textAlign: 'left', fontSize: 16, lineHeight: 1.6, margin: '10px 0 0', paddingLeft: 20 }}>
+          {king.achievements.slice(0, 2).map((a, i) => (
+            <li key={i}>{a}</li>
+          ))}
+        </ul>
+        <div style={{ marginTop: 10, fontSize: 13, opacity: 0.6 }}>
+          (ตัวอย่าง — เสียบไฟล์วิดีโอจริงภายหลังผ่าน king.arVideo)
+        </div>
+      </div>
+      <div style={{ height: 8, background: '#00000018', borderRadius: 99, marginTop: 12, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${pct}%`, background: color.secondary, transition: 'width 1s linear' }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+        <span style={{ fontSize: 16, fontWeight: 700, color: color.textMuted }}>เหลือ {secondsLeft} วิ</span>
+        <button onClick={onSkip} style={skipBtn}>
+          ข้ามวิดีโอ →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── คำถามแบบลากคำตอบไปวางในช่อง (drag-to-slot) ──
+function DragQuestion({ quiz, onCorrect }: { quiz: QuizCard; onCorrect: () => void }) {
+  const slotRef = useRef<HTMLDivElement | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [attempts, setAttempts] = useState(0);
+  const [wrongPulse, setWrongPulse] = useState(0);
+
+  useEffect(() => {
+    if (activeIndex === null) return;
+    const move = (e: PointerEvent) => setPos({ x: e.clientX, y: e.clientY });
+    const up = (e: PointerEvent) => {
+      const idx = activeIndex;
+      setActiveIndex(null);
+      const r = slotRef.current?.getBoundingClientRect();
+      const over =
+        r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+      if (!over) return;
+      if (quiz.choices[idx]?.correct) onCorrect();
+      else {
+        setAttempts((a) => a + 1);
+        setWrongPulse((w) => w + 1);
+      }
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+  }, [activeIndex]);
+
+  return (
+    <div style={{ ...centerCard, maxWidth: 'min(640px, 94vw)' }}>
+      <div style={{ fontSize: 15, fontWeight: 800, color: '#B8860B' }}>
+        🖐️ ลากคำตอบที่ถูกไปวางในช่อง
+      </div>
+      <p style={{ fontSize: 20, fontWeight: 700, margin: '8px 0 14px' }}>{quiz.question}</p>
+
+      {/* ช่องวางคำตอบ */}
+      <div
+        ref={slotRef}
+        key={wrongPulse}
+        style={{
+          minHeight: 68,
+          borderRadius: radius.lg,
+          border: `3px dashed ${color.secondary}`,
+          background: '#FFF9E6',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 18,
+          fontWeight: 700,
+          color: color.textMuted,
+          marginBottom: 16,
+          animation: attempts > 0 ? 'goldShake .4s ease' : undefined,
+        }}
+      >
+        {attempts > 0 ? '❌ ยังไม่ใช่ ลากคำตอบอื่นมาลอง' : 'วางคำตอบที่นี่'}
+      </div>
+
+      {/* คำตอบให้ลาก */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {quiz.choices.map((c, i) => (
+          <div
+            key={i}
+            onPointerDown={(e) => {
+              setActiveIndex(i);
+              setPos({ x: e.clientX, y: e.clientY });
+            }}
+            style={{
+              touchAction: 'none',
+              userSelect: 'none',
+              cursor: 'grab',
+              fontSize: 18,
+              fontWeight: 700,
+              textAlign: 'center',
+              padding: '14px 12px',
+              minHeight: 56,
+              borderRadius: radius.md,
+              border: `2px solid ${color.secondary}`,
+              background: activeIndex === i ? '#EEE' : '#fff',
+              color: color.text,
+              opacity: activeIndex === i ? 0.4 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {c.text}
+          </div>
+        ))}
+      </div>
+
+      {/* ชิปที่กำลังลาก (ลอยตามนิ้ว) */}
+      {activeIndex !== null && (
+        <div
+          style={{
+            position: 'fixed',
+            left: pos.x,
+            top: pos.y,
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'none',
+            zIndex: 400,
+            fontSize: 18,
+            fontWeight: 800,
+            padding: '14px 18px',
+            borderRadius: radius.md,
+            background: color.secondary,
+            color: '#fff',
+            boxShadow: '0 8px 24px rgba(0,0,0,.4)',
+          }}
+        >
+          {quiz.choices[activeIndex].text}
+        </div>
+      )}
+
+      <style>{`@keyframes goldShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}`}</style>
+    </div>
+  );
+}
+
+// ── styles ──
+const shell: React.CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 300,
+  background: 'linear-gradient(160deg, #1a1206, #2a1e0a)',
+  color: '#fff',
+  overflow: 'hidden',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 16,
+};
+
+function videoStyle(ready: boolean): React.CSSProperties {
+  return {
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    opacity: ready ? 1 : 0,
+  };
+}
+
+const shade: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  background: 'linear-gradient(180deg, rgba(0,0,0,.5), rgba(0,0,0,.2) 40%, rgba(0,0,0,.65))',
+  pointerEvents: 'none',
+};
+
+const backBtn: React.CSSProperties = {
+  position: 'absolute',
+  top: 16,
+  left: 16,
+  zIndex: 10,
+  fontFamily: 'inherit',
+  fontSize: 16,
+  fontWeight: 800,
+  color: '#fff',
+  background: 'rgba(0,0,0,.45)',
+  border: '1px solid rgba(255,255,255,.28)',
+  borderRadius: radius.pill,
+  padding: '10px 16px',
+  cursor: 'pointer',
+  backdropFilter: 'blur(8px)',
+};
+
+const badge: React.CSSProperties = {
+  position: 'absolute',
+  top: 16,
+  right: 16,
+  zIndex: 10,
+  fontSize: 15,
+  fontWeight: 800,
+  color: '#fff',
+  background: 'rgba(184,134,11,.9)',
+  borderRadius: radius.pill,
+  padding: '8px 14px',
+};
+
+const centerCard: React.CSSProperties = {
+  position: 'relative',
+  zIndex: 5,
+  width: 'min(520px, 94vw)',
+  maxHeight: '86vh',
+  overflowY: 'auto',
+  background: 'rgba(255,253,248,.96)',
+  color: color.text,
+  borderRadius: radius.lg,
+  boxShadow: elevation.modal,
+  padding: 22,
+  textAlign: 'center',
+};
+
+function videoBox(themeColor: string): React.CSSProperties {
+  return {
+    marginTop: 10,
+    borderRadius: radius.lg,
+    border: `2px solid ${themeColor}55`,
+    background: `linear-gradient(160deg, #fff, ${themeColor}14)`,
+    padding: 18,
+  };
+}
+
+function medal(themeColor: string): React.CSSProperties {
+  return {
+    width: 60,
+    height: 60,
+    borderRadius: '50%',
+    display: 'grid',
+    placeItems: 'center',
+    margin: '0 auto',
+    background: `radial-gradient(circle at 32% 28%, #ffffffaa, ${themeColor})`,
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 900,
+    border: '3px solid #fff',
+  };
+}
+
+const skipBtn: React.CSSProperties = {
+  fontFamily: 'inherit',
+  fontSize: 16,
+  fontWeight: 800,
+  color: color.info,
+  background: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
+};
+
+const primaryBtn: React.CSSProperties = {
+  fontFamily: 'inherit',
+  width: '100%',
+  fontSize: 20,
+  fontWeight: 800,
+  color: '#fff',
+  background: color.primary,
+  border: 'none',
+  borderRadius: radius.pill,
+  padding: 16,
+  minHeight: 56,
+  cursor: 'pointer',
+};
