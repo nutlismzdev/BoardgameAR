@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { King, QuizCard } from '@/core/types';
 import { useGame, HINT_PRICE } from '@/core/store';
 import { getKingCoinImage } from '@/core/kingAssets';
+import { useHandTracking, type HandStatus, type HandFrame } from '@/core/useHandTracking';
 import { color, radius, elevation } from '@/theme/tokens';
 
 // ── ช่องทอง = บทเรียน AR ── ส่องกล้อง → คลิปวิดีโอ 15 วิ (placeholder) →
@@ -33,7 +34,7 @@ export function ARGoldChallenge({
       if (!navigator.mediaDevices?.getUserMedia) return;
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
+          video: { facingMode: { ideal: 'user' } }, // กล้องหน้า — ให้ยกมือลากคำตอบผ่านกล้อง
           audio: false,
         });
         if (cancelled) {
@@ -101,7 +102,12 @@ export function ARGoldChallenge({
       )}
 
       {stage === 'question' && (
-        <DragQuestion quiz={quiz} onCorrect={() => setStage('done')} />
+        <DragQuestion
+          quiz={quiz}
+          onCorrect={() => setStage('done')}
+          videoRef={videoRef}
+          handEnabled={useCamera && camReady}
+        />
       )}
 
       {stage === 'done' && (
@@ -181,13 +187,28 @@ function VideoStage({
 }
 
 // ── คำถามแบบลากคำตอบไปวางในช่อง (drag-to-slot) ──
-function DragQuestion({ quiz, onCorrect }: { quiz: QuizCard; onCorrect: () => void }) {
+// ลากได้ 2 ทาง: (1) ยกมือ+จีบนิ้วผ่านกล้องหน้า (hand tracking) (2) แตะลากบนจอ (fallback)
+function DragQuestion({
+  quiz,
+  onCorrect,
+  videoRef,
+  handEnabled,
+}: {
+  quiz: QuizCard;
+  onCorrect: () => void;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  handEnabled: boolean;
+}) {
   const slotRef = useRef<HTMLDivElement | null>(null);
+  const choiceRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const pinchPrevRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [attempts, setAttempts] = useState(0);
   const [wrongPulse, setWrongPulse] = useState(0);
   const [hidden, setHidden] = useState<number[]>([]); // คำตอบผิดที่ถูกคำใบ้ตัดออก
+  const [cursor, setCursor] = useState<{ x: number; y: number; present: boolean }>({ x: 0, y: 0, present: false });
+  const [handStatus, setHandStatus] = useState<HandStatus>('loading');
   const coins = useGame((s) => s.players[s.currentPlayerIndex]?.coins ?? 0);
   const buyHint = useGame((s) => s.buyHint);
 
@@ -199,21 +220,65 @@ function DragQuestion({ quiz, onCorrect }: { quiz: QuizCard; onCorrect: () => vo
     setHidden(wrong.sort(() => Math.random() - 0.5).slice(0, 2));
   };
 
+  // หาช่องคำตอบที่อยู่ใต้พิกัด (x,y) — ใช้ตอน "จับ" ด้วยนิ้ว
+  const hitTestChoice = (x: number, y: number): number | null => {
+    for (let i = 0; i < choiceRefs.current.length; i++) {
+      const el = choiceRefs.current[i];
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return i;
+    }
+    return null;
+  };
+
+  // ปล่อยคำตอบที่พิกัด (x,y) — ตรวจว่าอยู่ในช่องวางไหม แล้วตัดสินถูก/ผิด (ใช้ร่วมกันทั้งนิ้ว+แตะจอ)
+  const resolveDrop = (x: number, y: number, idx: number) => {
+    const r = slotRef.current?.getBoundingClientRect();
+    const over = r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    if (!over) return;
+    if (quiz.choices[idx]?.correct) onCorrect();
+    else {
+      setAttempts((a) => a + 1);
+      setWrongPulse((w) => w + 1);
+    }
+  };
+
+  // hand tracking: ปลายนิ้ว = cursor, จีบนิ้ว = จับ/วาง (edge detection)
+  const handleFrame = useCallback(
+    (f: HandFrame) => {
+      setCursor({ x: f.x, y: f.y, present: f.present });
+      if (!f.present) {
+        pinchPrevRef.current = false;
+        return;
+      }
+      if (activeIndex !== null) setPos({ x: f.x, y: f.y });
+      const was = pinchPrevRef.current;
+      pinchPrevRef.current = f.pinching;
+      if (f.pinching && !was && activeIndex === null) {
+        const idx = hitTestChoice(f.x, f.y);
+        if (idx !== null && !hidden.includes(idx)) {
+          setActiveIndex(idx);
+          setPos({ x: f.x, y: f.y });
+        }
+      } else if (!f.pinching && was && activeIndex !== null) {
+        const idx = activeIndex;
+        setActiveIndex(null);
+        resolveDrop(f.x, f.y, idx);
+      }
+    },
+    [activeIndex, hidden],
+  );
+
+  useHandTracking({ videoRef, enabled: handEnabled, onFrame: handleFrame, onStatus: setHandStatus });
+
+  // fallback: แตะลากบนจอ (pointer)
   useEffect(() => {
     if (activeIndex === null) return;
     const move = (e: PointerEvent) => setPos({ x: e.clientX, y: e.clientY });
     const up = (e: PointerEvent) => {
       const idx = activeIndex;
       setActiveIndex(null);
-      const r = slotRef.current?.getBoundingClientRect();
-      const over =
-        r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
-      if (!over) return;
-      if (quiz.choices[idx]?.correct) onCorrect();
-      else {
-        setAttempts((a) => a + 1);
-        setWrongPulse((w) => w + 1);
-      }
+      resolveDrop(e.clientX, e.clientY, idx);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
@@ -226,8 +291,15 @@ function DragQuestion({ quiz, onCorrect }: { quiz: QuizCard; onCorrect: () => vo
   return (
     <div style={{ ...centerCard, maxWidth: 'min(640px, 94vw)' }}>
       <div style={{ fontSize: 15, fontWeight: 800, color: '#B8860B' }}>
-        🖐️ ลากคำตอบที่ถูกไปวางในช่อง
+        {handEnabled ? '🖐️ ยกมือหน้ากล้อง แล้วจีบนิ้วเพื่อจับ–วางคำตอบ' : '🖐️ ลากคำตอบที่ถูกไปวางในช่อง'}
       </div>
+      {handEnabled && (
+        <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4, color: handStatus === 'ready' ? color.success : handStatus === 'error' ? color.danger : color.textMuted }}>
+          {handStatus === 'loading' && '⏳ กำลังเปิดระบบตรวจจับมือ…'}
+          {handStatus === 'ready' && (cursor.present ? '✋ เจอมือแล้ว — จีบนิ้วเพื่อจับคำตอบ' : '👋 ยกมือขึ้นให้กล้องเห็น')}
+          {handStatus === 'error' && '⚠️ ตรวจจับมือไม่ได้ — ใช้นิ้วแตะลากบนจอแทนได้'}
+        </div>
+      )}
       <p style={{ fontSize: 20, fontWeight: 700, margin: '8px 0 14px' }}>{quiz.question}</p>
 
       {/* ช่องวางคำตอบ */}
@@ -259,6 +331,9 @@ function DragQuestion({ quiz, onCorrect }: { quiz: QuizCard; onCorrect: () => vo
           return (
             <div
               key={i}
+              ref={(el) => {
+                choiceRefs.current[i] = el;
+              }}
               onPointerDown={(e) => {
                 if (isHidden) return;
                 setActiveIndex(i);
@@ -336,6 +411,27 @@ function DragQuestion({ quiz, onCorrect }: { quiz: QuizCard; onCorrect: () => vo
         </div>
       )}
 
+      {/* จุดปลายนิ้ว (hand cursor) — โชว์ตำแหน่งมือที่ตรวจจับได้ */}
+      {handEnabled && cursor.present && (
+        <div
+          style={{
+            position: 'fixed',
+            left: cursor.x,
+            top: cursor.y,
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'none',
+            zIndex: 450,
+            width: activeIndex !== null ? 26 : 34,
+            height: activeIndex !== null ? 26 : 34,
+            borderRadius: '50%',
+            border: '3px solid #fff',
+            background: activeIndex !== null ? color.secondary : 'rgba(201,162,39,.35)',
+            boxShadow: '0 0 0 2px rgba(0,0,0,.35), 0 4px 14px rgba(0,0,0,.5)',
+            transition: 'width .1s, height .1s, background .1s',
+          }}
+        />
+      )}
+
       <style>{`@keyframes goldShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}`}</style>
     </div>
   );
@@ -363,6 +459,7 @@ function videoStyle(ready: boolean): React.CSSProperties {
     height: '100%',
     objectFit: 'cover',
     opacity: ready ? 1 : 0,
+    transform: 'scaleX(-1)', // mirror กล้องหน้า — ขยับมือขวาไปทางขวาบนจอ
   };
 }
 
