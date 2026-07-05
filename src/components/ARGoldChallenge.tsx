@@ -8,6 +8,7 @@ import { color, radius, elevation } from '@/theme/tokens';
 // ── ช่องทอง = บทเรียน AR ── ส่องกล้อง → คลิปวิดีโอ 15 วิ (placeholder) →
 // ลากคำตอบที่ถูกไปวางในช่อง (drag-to-slot) ในหน้ากล้อง AR → ถูก = ได้เหรียญกษัตริย์
 const VIDEO_SECONDS = 15;
+const SLOT_MARGIN = 48; // px ขยายพื้นที่รับรอบช่องวาง ให้เล็งด้วยนิ้วง่ายขึ้น
 
 export function ARGoldChallenge({
   king,
@@ -202,8 +203,10 @@ function DragQuestion({
   const slotRef = useRef<HTMLDivElement | null>(null);
   const choiceRefs = useRef<(HTMLDivElement | null)[]>([]);
   const pinchPrevRef = useRef(false);
+  const lastOverSlotRef = useRef(0); // เวลาล่าสุดที่นิ้ว (ตอนจีบ) ลอยเหนือช่องวาง
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [overSlot, setOverSlot] = useState(false); // นิ้วที่ถือคำตอบลอยเหนือช่องอยู่ไหม (ไฮไลต์)
   const [attempts, setAttempts] = useState(0);
   const [wrongPulse, setWrongPulse] = useState(0);
   const [hidden, setHidden] = useState<number[]>([]); // คำตอบผิดที่ถูกคำใบ้ตัดออก
@@ -231,11 +234,16 @@ function DragQuestion({
     return null;
   };
 
-  // ปล่อยคำตอบที่พิกัด (x,y) — ตรวจว่าอยู่ในช่องวางไหม แล้วตัดสินถูก/ผิด (ใช้ร่วมกันทั้งนิ้ว+แตะจอ)
-  const resolveDrop = (x: number, y: number, idx: number) => {
+  // ช่องวางอยู่ใต้พิกัด (x,y) ไหม — ขยายขอบรับ (margin) ให้เล็งง่ายขึ้น
+  const isOverSlot = (x: number, y: number): boolean => {
     const r = slotRef.current?.getBoundingClientRect();
-    const over = r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
-    if (!over) return;
+    if (!r) return false;
+    const m = SLOT_MARGIN;
+    return x >= r.left - m && x <= r.right + m && y >= r.top - m && y <= r.bottom + m;
+  };
+
+  // ตัดสินถูก/ผิด (เรียกเมื่อยืนยันว่าวางลงช่องแล้ว)
+  const commitDrop = (idx: number) => {
     if (quiz.choices[idx]?.correct) onCorrect();
     else {
       setAttempts((a) => a + 1);
@@ -251,9 +259,16 @@ function DragQuestion({
         pinchPrevRef.current = false;
         return;
       }
-      if (activeIndex !== null) setPos({ x: f.x, y: f.y });
       const was = pinchPrevRef.current;
       pinchPrevRef.current = f.pinching;
+
+      if (activeIndex !== null) {
+        setPos({ x: f.x, y: f.y });
+        const over = isOverSlot(f.x, f.y);
+        if (over) lastOverSlotRef.current = performance.now();
+        setOverSlot((prev) => (prev !== over ? over : prev));
+      }
+
       if (f.pinching && !was && activeIndex === null) {
         const idx = hitTestChoice(f.x, f.y);
         if (idx !== null && !hidden.includes(idx)) {
@@ -263,7 +278,12 @@ function DragQuestion({
       } else if (!f.pinching && was && activeIndex !== null) {
         const idx = activeIndex;
         setActiveIndex(null);
-        resolveDrop(f.x, f.y, idx);
+        setOverSlot(false);
+        // ปล่อยแล้วนับว่าวางลงช่อง ถ้าอยู่เหนือช่อง หรือ "เพิ่งลอยเหนือช่อง" ภายใน 450ms
+        // (กันจังหวะแบมือที่นิ้วขยับหลุดช่องเล็กน้อย — สาเหตุที่วางไม่ค่อยติด)
+        if (isOverSlot(f.x, f.y) || performance.now() - lastOverSlotRef.current < 450) {
+          commitDrop(idx);
+        }
       }
     },
     [activeIndex, hidden],
@@ -278,7 +298,7 @@ function DragQuestion({
     const up = (e: PointerEvent) => {
       const idx = activeIndex;
       setActiveIndex(null);
-      resolveDrop(e.clientX, e.clientY, idx);
+      if (isOverSlot(e.clientX, e.clientY)) commitDrop(idx);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
@@ -302,26 +322,29 @@ function DragQuestion({
       )}
       <p style={{ fontSize: 20, fontWeight: 700, margin: '8px 0 14px' }}>{quiz.question}</p>
 
-      {/* ช่องวางคำตอบ */}
+      {/* ช่องวางคำตอบ — ไฮไลต์เมื่อนิ้วที่ถือคำตอบลอยเหนือช่อง (พร้อมปล่อย) */}
       <div
         ref={slotRef}
         key={wrongPulse}
         style={{
-          minHeight: 68,
+          minHeight: 88,
           borderRadius: radius.lg,
-          border: `3px dashed ${color.secondary}`,
-          background: '#FFF9E6',
+          border: `3px ${overSlot ? 'solid' : 'dashed'} ${overSlot ? color.success : color.secondary}`,
+          background: overSlot ? '#E6F6E9' : '#FFF9E6',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: 18,
           fontWeight: 700,
-          color: color.textMuted,
+          color: overSlot ? color.success : color.textMuted,
           marginBottom: 16,
+          transform: overSlot ? 'scale(1.03)' : 'scale(1)',
+          boxShadow: overSlot ? `0 0 0 4px ${color.success}33` : 'none',
+          transition: 'transform .12s, background .12s, box-shadow .12s',
           animation: attempts > 0 ? 'goldShake .4s ease' : undefined,
         }}
       >
-        {attempts > 0 ? '❌ ยังไม่ใช่ ลากคำตอบอื่นมาลอง' : 'วางคำตอบที่นี่'}
+        {overSlot ? '✅ ปล่อยนิ้วเพื่อวางที่นี่' : attempts > 0 ? '❌ ยังไม่ใช่ ลากคำตอบอื่นมาลอง' : 'วางคำตอบที่นี่'}
       </div>
 
       {/* คำตอบให้ลาก */}
