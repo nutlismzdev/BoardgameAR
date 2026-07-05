@@ -36,8 +36,10 @@ export function BoardImage({ size }: { size: number }) {
   }, []);
 
   const currentPos = players[currentIdx]?.position ?? 0;
-  // ขนาดหมาก/ไอคอนอิงความกว้างกระดานจริง (boardW) เพื่อให้ตรงพิกัด % เสมอทุกขนาดจอ
+  // ขนาดไอคอน/เลข/วงแหวน อิงความกว้างกระดานจริง (boardW) เพื่อให้ตรงพิกัด % เสมอทุกขนาดจอ
   const pawn = Math.max(26, boardW * 0.038);
+  // ขนาดรูปหมากกษัตริย์ (standee) ใหญ่กว่าไอคอนให้เด่น — แยกตัวแปรเพื่อไม่ให้ไอคอน/เลขโตตาม
+  const pawnFig = Math.max(40, boardW * 0.06);
 
   return (
     <div
@@ -213,8 +215,8 @@ export function BoardImage({ size }: { size: number }) {
                       position: 'absolute',
                       left: `${pt.x}%`,
                       top: `${pt.y}%`,
-                      width: pawn * 0.8,
-                      height: pawn * 0.28,
+                      width: pawnFig * 0.7,
+                      height: pawnFig * 0.22,
                       transform: 'translate(-50%, -10%)',
                       transition: 'left .18s, top .18s',
                       borderRadius: '50%',
@@ -238,7 +240,7 @@ export function BoardImage({ size }: { size: number }) {
                   >
                     {occupants.map((p) => (
                       <div key={p.id} style={{ animation: 'pawnBounce 1.6s ease-in-out infinite' }}>
-                        <KingPawnToken kingId={p.kingTokenId} size={pawn} label={`${p.name} ${p.token}`} />
+                        <KingPawnToken kingId={p.kingTokenId} size={pawnFig} label={`${p.name} ${p.token}`} />
                       </div>
                     ))}
                   </div>
