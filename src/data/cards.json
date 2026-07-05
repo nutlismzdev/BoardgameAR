@@ -1,414 +1,735 @@
 {
-  "_note": "คลังการ์ด: quiz | mission | knowledge | chance — ครูสามารถเพิ่ม/แก้ไขได้โดยไม่ต้องแตะโค้ด. mission เป็นโจทย์ปรนัย ก/ข/ค/ง. knowledge เก็บสะสมได้สูงสุด 10 ใบ/คน สุ่มไม่ซ้ำ. เนื้อหาตัวอย่างควรผ่านการตรวจสอบก่อนใช้จริง",
-
+  "_note": "ควิซ (question/ช่องทอง) + ความรู้ (ช่องชมพู) เท่านั้น — mission/chance ถูกถอดแล้ว",
   "quiz": [
     {
-      "id": "q_king01_01", "kingId": "king_ramkhamhaeng", "difficulty": "easy", "reward": 50, "timeLimitSec": 20,
+      "id": "q_king01_01",
+      "kingId": "king_ramkhamhaeng",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 20,
       "question": "พ่อขุนรามคำแหงมหาราชทรงประดิษฐ์สิ่งใดที่คนไทยยังใช้จนถึงปัจจุบัน?",
       "choices": [
-        { "text": "อักษรไทย", "correct": true },
-        { "text": "เลขโรมัน", "correct": false },
-        { "text": "ปฏิทินจันทรคติ", "correct": false },
-        { "text": "ธงชาติ", "correct": false }
+        {
+          "text": "อักษรไทย",
+          "correct": true
+        },
+        {
+          "text": "เลขโรมัน",
+          "correct": false
+        },
+        {
+          "text": "ปฏิทินจันทรคติ",
+          "correct": false
+        },
+        {
+          "text": "ธงชาติ",
+          "correct": false
+        }
       ],
       "explanation": "ทรงประดิษฐ์ 'ลายสือไท' เมื่อ พ.ศ. 1826 เป็นต้นแบบของอักษรไทยในปัจจุบัน"
     },
     {
-      "id": "q_king02_01", "kingId": "king_naresuan", "difficulty": "medium", "reward": 70, "timeLimitSec": 20,
+      "id": "q_king02_01",
+      "kingId": "king_naresuan",
+      "difficulty": "medium",
+      "reward": 70,
+      "timeLimitSec": 20,
       "question": "สมเด็จพระนเรศวรมหาราชทรงมีชัยชนะครั้งสำคัญด้วยการรบรูปแบบใด?",
       "choices": [
-        { "text": "ยุทธหัตถี (ชนช้าง)", "correct": true },
-        { "text": "รบทางเรือ", "correct": false },
-        { "text": "ยิงปืนใหญ่", "correct": false },
-        { "text": "รบด้วยม้า", "correct": false }
+        {
+          "text": "ยุทธหัตถี (ชนช้าง)",
+          "correct": true
+        },
+        {
+          "text": "รบทางเรือ",
+          "correct": false
+        },
+        {
+          "text": "ยิงปืนใหญ่",
+          "correct": false
+        },
+        {
+          "text": "รบด้วยม้า",
+          "correct": false
+        }
       ],
       "explanation": "ทรงกระทำยุทธหัตถีชนะพระมหาอุปราชา เมื่อ พ.ศ. 2135"
     },
     {
-      "id": "q_king04_01", "kingId": "king_taksin", "difficulty": "medium", "reward": 70, "timeLimitSec": 20,
+      "id": "q_king04_01",
+      "kingId": "king_taksin",
+      "difficulty": "medium",
+      "reward": 70,
+      "timeLimitSec": 20,
       "question": "สมเด็จพระเจ้าตากสินมหาราชทรงสถาปนาราชธานีใดหลังกอบกู้เอกราช?",
       "choices": [
-        { "text": "กรุงธนบุรี", "correct": true },
-        { "text": "กรุงศรีอยุธยา", "correct": false },
-        { "text": "กรุงสุโขทัย", "correct": false },
-        { "text": "กรุงเทพมหานคร", "correct": false }
+        {
+          "text": "กรุงธนบุรี",
+          "correct": true
+        },
+        {
+          "text": "กรุงศรีอยุธยา",
+          "correct": false
+        },
+        {
+          "text": "กรุงสุโขทัย",
+          "correct": false
+        },
+        {
+          "text": "กรุงเทพมหานคร",
+          "correct": false
+        }
       ],
       "explanation": "ทรงสถาปนากรุงธนบุรีเป็นราชธานีหลังเสียกรุงศรีอยุธยาครั้งที่ 2"
     },
     {
-      "id": "q_king01_02", "kingId": "king_ramkhamhaeng", "difficulty": "medium", "reward": 70, "timeLimitSec": 20,
+      "id": "q_king01_02",
+      "kingId": "king_ramkhamhaeng",
+      "difficulty": "medium",
+      "reward": 70,
+      "timeLimitSec": 20,
       "question": "หลักฐานสำคัญที่บันทึกเรื่องราวสมัยพ่อขุนรามคำแหงคือข้อใด?",
       "choices": [
-        { "text": "ศิลาจารึกหลักที่ 1", "correct": true },
-        { "text": "พงศาวดารกรุงศรีอยุธยา", "correct": false },
-        { "text": "ไตรภูมิพระร่วง", "correct": false },
-        { "text": "กฎหมายตราสามดวง", "correct": false }
+        {
+          "text": "ศิลาจารึกหลักที่ 1",
+          "correct": true
+        },
+        {
+          "text": "พงศาวดารกรุงศรีอยุธยา",
+          "correct": false
+        },
+        {
+          "text": "ไตรภูมิพระร่วง",
+          "correct": false
+        },
+        {
+          "text": "กฎหมายตราสามดวง",
+          "correct": false
+        }
       ],
       "explanation": "ศิลาจารึกหลักที่ 1 บันทึกเรื่องราวความเป็นอยู่และการปกครองสมัยสุโขทัย"
     },
     {
-      "id": "q_king02_02", "kingId": "king_naresuan", "difficulty": "easy", "reward": 50, "timeLimitSec": 20,
+      "id": "q_king02_02",
+      "kingId": "king_naresuan",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 20,
       "question": "สมเด็จพระนเรศวรมหาราชทรงกอบกู้เอกราชของกรุงศรีอยุธยาจากชาติใด?",
       "choices": [
-        { "text": "พม่า", "correct": true },
-        { "text": "เขมร", "correct": false },
-        { "text": "ฝรั่งเศส", "correct": false },
-        { "text": "จีน", "correct": false }
+        {
+          "text": "พม่า",
+          "correct": true
+        },
+        {
+          "text": "เขมร",
+          "correct": false
+        },
+        {
+          "text": "ฝรั่งเศส",
+          "correct": false
+        },
+        {
+          "text": "จีน",
+          "correct": false
+        }
       ],
       "explanation": "ทรงประกาศอิสรภาพจากพม่าเมื่อ พ.ศ. 2127"
     },
     {
-      "id": "q_king03_01", "kingId": "king_narai", "difficulty": "easy", "reward": 50, "timeLimitSec": 20,
+      "id": "q_king03_01",
+      "kingId": "king_narai",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 20,
       "question": "รัชสมัยสมเด็จพระนารายณ์มหาราชทรงเจริญสัมพันธไมตรีกับชาติใดเป็นพิเศษ?",
       "choices": [
-        { "text": "ฝรั่งเศส", "correct": true },
-        { "text": "ญี่ปุ่น", "correct": false },
-        { "text": "อังกฤษ", "correct": false },
-        { "text": "รัสเซีย", "correct": false }
+        {
+          "text": "ฝรั่งเศส",
+          "correct": true
+        },
+        {
+          "text": "ญี่ปุ่น",
+          "correct": false
+        },
+        {
+          "text": "อังกฤษ",
+          "correct": false
+        },
+        {
+          "text": "รัสเซีย",
+          "correct": false
+        }
       ],
       "explanation": "ทรงส่งราชทูตโกษาปานไปเจริญสัมพันธไมตรีกับฝรั่งเศสในสมัยพระเจ้าหลุยส์ที่ 14"
     },
     {
-      "id": "q_king03_02", "kingId": "king_narai", "difficulty": "hard", "reward": 100, "timeLimitSec": 25,
+      "id": "q_king03_02",
+      "kingId": "king_narai",
+      "difficulty": "hard",
+      "reward": 100,
+      "timeLimitSec": 25,
       "question": "ราชทูตที่สมเด็จพระนารายณ์ทรงส่งไปฝรั่งเศสมีชื่อว่าอะไร?",
       "choices": [
-        { "text": "ออกพระวิสูตรสุนทร (โกษาปาน)", "correct": true },
-        { "text": "เจ้าพระยาโกษาเหล็ก", "correct": false },
-        { "text": "ออกญาเสนาภิมุข", "correct": false },
-        { "text": "เจ้าพระยาบวรราชนายก", "correct": false }
+        {
+          "text": "ออกพระวิสูตรสุนทร (โกษาปาน)",
+          "correct": true
+        },
+        {
+          "text": "เจ้าพระยาโกษาเหล็ก",
+          "correct": false
+        },
+        {
+          "text": "ออกญาเสนาภิมุข",
+          "correct": false
+        },
+        {
+          "text": "เจ้าพระยาบวรราชนายก",
+          "correct": false
+        }
       ],
       "explanation": "โกษาปานเป็นหัวหน้าคณะราชทูตไปเข้าเฝ้าพระเจ้าหลุยส์ที่ 14 เมื่อ พ.ศ. 2229"
     },
     {
-      "id": "q_king04_02", "kingId": "king_taksin", "difficulty": "hard", "reward": 100, "timeLimitSec": 25,
+      "id": "q_king04_02",
+      "kingId": "king_taksin",
+      "difficulty": "hard",
+      "reward": 100,
+      "timeLimitSec": 25,
       "question": "กรุงศรีอยุธยาเสียแก่พม่าครั้งที่ 2 ในปีใด ก่อนที่พระเจ้าตากสินจะกอบกู้เอกราช?",
       "choices": [
-        { "text": "พ.ศ. 2310", "correct": true },
-        { "text": "พ.ศ. 2135", "correct": false },
-        { "text": "พ.ศ. 2112", "correct": false },
-        { "text": "พ.ศ. 2325", "correct": false }
+        {
+          "text": "พ.ศ. 2310",
+          "correct": true
+        },
+        {
+          "text": "พ.ศ. 2135",
+          "correct": false
+        },
+        {
+          "text": "พ.ศ. 2112",
+          "correct": false
+        },
+        {
+          "text": "พ.ศ. 2325",
+          "correct": false
+        }
       ],
       "explanation": "กรุงศรีอยุธยาเสียครั้งที่ 2 เมื่อ พ.ศ. 2310 และพระเจ้าตากสินทรงกอบกู้ได้ในปีเดียวกัน"
     },
     {
-      "id": "q_king05_01", "kingId": "king_rama1", "difficulty": "easy", "reward": 50, "timeLimitSec": 20,
+      "id": "q_king05_01",
+      "kingId": "king_rama1",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 20,
       "question": "รัชกาลที่ ๑ ทรงสถาปนาราชธานีใหม่ชื่อว่าอะไร?",
       "choices": [
-        { "text": "กรุงเทพมหานคร (กรุงรัตนโกสินทร์)", "correct": true },
-        { "text": "กรุงธนบุรี", "correct": false },
-        { "text": "กรุงศรีอยุธยา", "correct": false },
-        { "text": "กรุงสุโขทัย", "correct": false }
+        {
+          "text": "กรุงเทพมหานคร (กรุงรัตนโกสินทร์)",
+          "correct": true
+        },
+        {
+          "text": "กรุงธนบุรี",
+          "correct": false
+        },
+        {
+          "text": "กรุงศรีอยุธยา",
+          "correct": false
+        },
+        {
+          "text": "กรุงสุโขทัย",
+          "correct": false
+        }
       ],
       "explanation": "ทรงสถาปนากรุงรัตนโกสินทร์เป็นราชธานีเมื่อ พ.ศ. 2325 และตั้งราชวงศ์จักรี"
     },
     {
-      "id": "q_king05_02", "kingId": "king_rama1", "difficulty": "medium", "reward": 70, "timeLimitSec": 20,
+      "id": "q_king05_02",
+      "kingId": "king_rama1",
+      "difficulty": "medium",
+      "reward": 70,
+      "timeLimitSec": 20,
       "question": "ประมวลกฎหมายที่รัชกาลที่ ๑ โปรดให้ชำระขึ้นใหม่มีชื่อว่าอะไร?",
       "choices": [
-        { "text": "กฎหมายตราสามดวง", "correct": true },
-        { "text": "กฎหมายลักษณะอาญา", "correct": false },
-        { "text": "พระธรรมนูญ", "correct": false },
-        { "text": "กฎมณเฑียรบาล", "correct": false }
+        {
+          "text": "กฎหมายตราสามดวง",
+          "correct": true
+        },
+        {
+          "text": "กฎหมายลักษณะอาญา",
+          "correct": false
+        },
+        {
+          "text": "พระธรรมนูญ",
+          "correct": false
+        },
+        {
+          "text": "กฎมณเฑียรบาล",
+          "correct": false
+        }
       ],
       "explanation": "ทรงโปรดให้ชำระกฎหมายและประทับตรา 3 ดวง จึงเรียก 'กฎหมายตราสามดวง'"
     },
     {
-      "id": "q_king06_01", "kingId": "king_rama4", "difficulty": "easy", "reward": 50, "timeLimitSec": 20,
+      "id": "q_king06_01",
+      "kingId": "king_rama4",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 20,
       "question": "รัชกาลที่ ๔ ได้รับการยกย่องให้เป็น 'พระบิดา' ของศาสตร์ใด?",
       "choices": [
-        { "text": "วิทยาศาสตร์ไทย", "correct": true },
-        { "text": "การแพทย์ไทย", "correct": false },
-        { "text": "ดนตรีไทย", "correct": false },
-        { "text": "กฎหมายไทย", "correct": false }
+        {
+          "text": "วิทยาศาสตร์ไทย",
+          "correct": true
+        },
+        {
+          "text": "การแพทย์ไทย",
+          "correct": false
+        },
+        {
+          "text": "ดนตรีไทย",
+          "correct": false
+        },
+        {
+          "text": "กฎหมายไทย",
+          "correct": false
+        }
       ],
       "explanation": "ทรงได้รับยกย่องเป็น 'พระบิดาแห่งวิทยาศาสตร์ไทย' จากการคำนวณสุริยุปราคาที่หว้ากอ"
     },
     {
-      "id": "q_king06_02", "kingId": "king_rama4", "difficulty": "hard", "reward": 100, "timeLimitSec": 25,
+      "id": "q_king06_02",
+      "kingId": "king_rama4",
+      "difficulty": "hard",
+      "reward": 100,
+      "timeLimitSec": 25,
       "question": "รัชกาลที่ ๔ ทรงคำนวณการเกิดสุริยุปราคาเต็มดวงได้อย่างแม่นยำที่ตำบลใด?",
       "choices": [
-        { "text": "หว้ากอ จ.ประจวบคีรีขันธ์", "correct": true },
-        { "text": "บางปะอิน จ.พระนครศรีอยุธยา", "correct": false },
-        { "text": "ปากน้ำ จ.สมุทรปราการ", "correct": false },
-        { "text": "หัวหิน จ.ประจวบคีรีขันธ์", "correct": false }
+        {
+          "text": "หว้ากอ จ.ประจวบคีรีขันธ์",
+          "correct": true
+        },
+        {
+          "text": "บางปะอิน จ.พระนครศรีอยุธยา",
+          "correct": false
+        },
+        {
+          "text": "ปากน้ำ จ.สมุทรปราการ",
+          "correct": false
+        },
+        {
+          "text": "หัวหิน จ.ประจวบคีรีขันธ์",
+          "correct": false
+        }
       ],
       "explanation": "ทรงคำนวณและเสด็จทอดพระเนตรสุริยุปราคาที่หว้ากอเมื่อ พ.ศ. 2411"
     },
     {
-      "id": "q_king07_01", "kingId": "king_rama5", "difficulty": "easy", "reward": 50, "timeLimitSec": 20,
+      "id": "q_king07_01",
+      "kingId": "king_rama5",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 20,
       "question": "พระราชกรณียกิจสำคัญของรัชกาลที่ ๕ ที่ทำให้ได้พระนาม 'พระปิยมหาราช' คือข้อใด?",
       "choices": [
-        { "text": "การเลิกทาส", "correct": true },
-        { "text": "การสร้างพระบรมมหาราชวัง", "correct": false },
-        { "text": "การประดิษฐ์อักษรไทย", "correct": false },
-        { "text": "การทำยุทธหัตถี", "correct": false }
+        {
+          "text": "การเลิกทาส",
+          "correct": true
+        },
+        {
+          "text": "การสร้างพระบรมมหาราชวัง",
+          "correct": false
+        },
+        {
+          "text": "การประดิษฐ์อักษรไทย",
+          "correct": false
+        },
+        {
+          "text": "การทำยุทธหัตถี",
+          "correct": false
+        }
       ],
       "explanation": "ทรงเลิกทาสโดยไม่เสียเลือดเนื้อ และปฏิรูปประเทศให้ทันสมัย"
     },
     {
-      "id": "q_king07_02", "kingId": "king_rama5", "difficulty": "medium", "reward": 70, "timeLimitSec": 20,
+      "id": "q_king07_02",
+      "kingId": "king_rama5",
+      "difficulty": "medium",
+      "reward": 70,
+      "timeLimitSec": 20,
       "question": "สาธารณูปโภคสมัยใหม่ใดที่ริเริ่มขึ้นในรัชสมัยรัชกาลที่ ๕?",
       "choices": [
-        { "text": "การรถไฟและไปรษณีย์โทรเลข", "correct": true },
-        { "text": "รถไฟฟ้าใต้ดิน", "correct": false },
-        { "text": "สนามบินสุวรรณภูมิ", "correct": false },
-        { "text": "โทรทัศน์", "correct": false }
+        {
+          "text": "การรถไฟและไปรษณีย์โทรเลข",
+          "correct": true
+        },
+        {
+          "text": "รถไฟฟ้าใต้ดิน",
+          "correct": false
+        },
+        {
+          "text": "สนามบินสุวรรณภูมิ",
+          "correct": false
+        },
+        {
+          "text": "โทรทัศน์",
+          "correct": false
+        }
       ],
       "explanation": "ทรงริเริ่มกิจการรถไฟ ไปรษณีย์ โทรเลข และสาธารณูปโภคสมัยใหม่หลายอย่าง"
     }
   ],
-
-  "mission": [
-    {
-      "id": "m_king01_01", "kingId": "king_ramkhamhaeng", "reward": 80,
-      "question": "ศิลาจารึกหลักที่ 1 บันทึกด้วยตัวอักษรที่พ่อขุนรามคำแหงทรงประดิษฐ์ขึ้น เรียกว่าอะไร?",
-      "choices": [
-        { "text": "ลายสือไท", "correct": true },
-        { "text": "อักษรขอม", "correct": false },
-        { "text": "อักษรมอญ", "correct": false },
-        { "text": "อักษรพราหมี", "correct": false }
-      ]
-    },
-    {
-      "id": "m_king02_01", "kingId": "king_naresuan", "reward": 80,
-      "question": "การทำ 'ยุทธหัตถี' ของสมเด็จพระนเรศวรเป็นการต่อสู้บนหลังสัตว์ชนิดใด?",
-      "choices": [
-        { "text": "ช้าง", "correct": true },
-        { "text": "ม้า", "correct": false },
-        { "text": "วัว", "correct": false },
-        { "text": "เรือ", "correct": false }
-      ]
-    },
-    {
-      "id": "m_king03_01", "kingId": "king_narai", "reward": 80,
-      "question": "ราชธานีของไทยในรัชสมัยสมเด็จพระนารายณ์มหาราชคือกรุงใด?",
-      "choices": [
-        { "text": "กรุงศรีอยุธยา", "correct": true },
-        { "text": "กรุงสุโขทัย", "correct": false },
-        { "text": "กรุงธนบุรี", "correct": false },
-        { "text": "กรุงรัตนโกสินทร์", "correct": false }
-      ]
-    },
-    {
-      "id": "m_king04_01", "kingId": "king_taksin", "reward": 80,
-      "question": "สมเด็จพระเจ้าตากสินมหาราชทรงสถาปนาราชธานีใหม่ที่ใด?",
-      "choices": [
-        { "text": "กรุงธนบุรี", "correct": true },
-        { "text": "ลพบุรี", "correct": false },
-        { "text": "นครศรีธรรมราช", "correct": false },
-        { "text": "เชียงใหม่", "correct": false }
-      ]
-    },
-    {
-      "id": "m_king05_01", "kingId": "king_rama1", "reward": 80,
-      "question": "รัชกาลที่ ๑ ทรงสถาปนาราชวงศ์ใดขึ้นปกครองกรุงรัตนโกสินทร์?",
-      "choices": [
-        { "text": "ราชวงศ์จักรี", "correct": true },
-        { "text": "ราชวงศ์บ้านพลูหลวง", "correct": false },
-        { "text": "ราชวงศ์สุโขทัย", "correct": false },
-        { "text": "ราชวงศ์อู่ทอง", "correct": false }
-      ]
-    },
-    {
-      "id": "m_king06_01", "kingId": "king_rama4", "reward": 80,
-      "question": "รัชกาลที่ ๔ ทรงเชี่ยวชาญและคำนวณปรากฏการณ์ทางวิทยาศาสตร์สาขาใดเป็นพิเศษ?",
-      "choices": [
-        { "text": "ดาราศาสตร์", "correct": true },
-        { "text": "เคมี", "correct": false },
-        { "text": "ชีววิทยา", "correct": false },
-        { "text": "ธรณีวิทยา", "correct": false }
-      ]
-    },
-    {
-      "id": "m_king07_01", "kingId": "king_rama5", "reward": 80,
-      "question": "พระราชกรณียกิจใดของรัชกาลที่ ๕ ที่ปลดปล่อยผู้คนให้เป็นอิสระโดยไม่เสียเลือดเนื้อ?",
-      "choices": [
-        { "text": "การเลิกทาส", "correct": true },
-        { "text": "การเลิกภาษี", "correct": false },
-        { "text": "การเลิกบรรดาศักดิ์", "correct": false },
-        { "text": "การเลิกใช้ธนบัตร", "correct": false }
-      ]
-    }
-  ],
-
   "knowledge": [
     {
-      "id": "k_king01_01", "kingId": "king_ramkhamhaeng",
+      "id": "k_king01_01",
+      "kingId": "king_ramkhamhaeng",
       "title": "อักษรไทยกำเนิดที่สุโขทัย",
       "body": "พ่อขุนรามคำแหงทรงประดิษฐ์ลายสือไทเมื่อ พ.ศ. 1826 ปรากฏหลักฐานในศิลาจารึกหลักที่ 1 ซึ่งบันทึกเรื่องราวความเป็นอยู่ของชาวสุโขทัย",
       "question": "พ่อขุนรามคำแหงทรงประดิษฐ์อักษรไทย (ลายสือไท) เมื่อ พ.ศ. ใด?",
       "choices": [
-        { "text": "พ.ศ. 1826", "correct": true },
-        { "text": "พ.ศ. 2310", "correct": false },
-        { "text": "พ.ศ. 2325", "correct": false },
-        { "text": "พ.ศ. 2411", "correct": false }
+        {
+          "text": "พ.ศ. 1826",
+          "correct": true
+        },
+        {
+          "text": "พ.ศ. 2310",
+          "correct": false
+        },
+        {
+          "text": "พ.ศ. 2325",
+          "correct": false
+        },
+        {
+          "text": "พ.ศ. 2411",
+          "correct": false
+        }
       ]
     },
     {
-      "id": "k_king01_02", "kingId": "king_ramkhamhaeng",
+      "id": "k_king01_02",
+      "kingId": "king_ramkhamhaeng",
       "title": "การค้าเสรีสมัยสุโขทัย",
       "body": "สุโขทัยสมัยพ่อขุนรามคำแหงส่งเสริมการค้าเสรี 'ใครใคร่ค้าช้างค้า ใครใคร่ค้าม้าค้า' ไม่เก็บภาษีผ่านด่าน ทำให้บ้านเมืองมั่งคั่ง",
       "question": "คำว่า 'ใครใคร่ค้าช้างค้า ใครใคร่ค้าม้าค้า' สะท้อนเรื่องใดของสุโขทัย?",
       "choices": [
-        { "text": "การค้าเสรี", "correct": true },
-        { "text": "การเก็บภาษีสูง", "correct": false },
-        { "text": "การห้ามค้าขาย", "correct": false },
-        { "text": "การทำสงคราม", "correct": false }
+        {
+          "text": "การค้าเสรี",
+          "correct": true
+        },
+        {
+          "text": "การเก็บภาษีสูง",
+          "correct": false
+        },
+        {
+          "text": "การห้ามค้าขาย",
+          "correct": false
+        },
+        {
+          "text": "การทำสงคราม",
+          "correct": false
+        }
       ]
     },
     {
-      "id": "k_king02_01", "kingId": "king_naresuan",
+      "id": "k_king02_01",
+      "kingId": "king_naresuan",
       "title": "วีรกรรมยุทธหัตถี",
       "body": "สมเด็จพระนเรศวรมหาราชทรงกระทำยุทธหัตถีชนะพระมหาอุปราชาบนหลังช้างศึก เมื่อ พ.ศ. 2135 เป็นวีรกรรมที่คนไทยจดจำถึงความกล้าหาญ",
       "question": "ยุทธหัตถีของสมเด็จพระนเรศวรเกิดขึ้นเมื่อ พ.ศ. ใด?",
       "choices": [
-        { "text": "พ.ศ. 2135", "correct": true },
-        { "text": "พ.ศ. 2127", "correct": false },
-        { "text": "พ.ศ. 2310", "correct": false },
-        { "text": "พ.ศ. 1826", "correct": false }
+        {
+          "text": "พ.ศ. 2135",
+          "correct": true
+        },
+        {
+          "text": "พ.ศ. 2127",
+          "correct": false
+        },
+        {
+          "text": "พ.ศ. 2310",
+          "correct": false
+        },
+        {
+          "text": "พ.ศ. 1826",
+          "correct": false
+        }
       ]
     },
     {
-      "id": "k_king02_02", "kingId": "king_naresuan",
+      "id": "k_king02_02",
+      "kingId": "king_naresuan",
       "title": "ประกาศอิสรภาพที่เมืองแครง",
       "body": "สมเด็จพระนเรศวรมหาราชทรงประกาศอิสรภาพของกรุงศรีอยุธยาจากพม่าที่เมืองแครง เมื่อ พ.ศ. 2127 นับเป็นการกอบกู้เอกราช",
       "question": "สมเด็จพระนเรศวรทรงประกาศอิสรภาพจากชาติใด?",
       "choices": [
-        { "text": "พม่า", "correct": true },
-        { "text": "เขมร", "correct": false },
-        { "text": "จีน", "correct": false },
-        { "text": "ฝรั่งเศส", "correct": false }
+        {
+          "text": "พม่า",
+          "correct": true
+        },
+        {
+          "text": "เขมร",
+          "correct": false
+        },
+        {
+          "text": "จีน",
+          "correct": false
+        },
+        {
+          "text": "ฝรั่งเศส",
+          "correct": false
+        }
       ]
     },
     {
-      "id": "k_king03_01", "kingId": "king_narai",
+      "id": "k_king03_01",
+      "kingId": "king_narai",
       "title": "ยุคทองแห่งการทูต",
       "body": "รัชสมัยสมเด็จพระนารายณ์มหาราชเป็นยุคทองของวรรณคดีและการทูต ทรงส่งคณะราชทูตโกษาปานไปเจริญสัมพันธไมตรีถึงราชสำนักฝรั่งเศส",
       "question": "คณะราชทูตที่ส่งไปฝรั่งเศสในสมัยพระนารายณ์นำโดยใคร?",
       "choices": [
-        { "text": "โกษาปาน", "correct": true },
-        { "text": "โกษาเหล็ก", "correct": false },
-        { "text": "ออกญาเสนาภิมุข", "correct": false },
-        { "text": "เจ้าพระยาบวรราชนายก", "correct": false }
+        {
+          "text": "โกษาปาน",
+          "correct": true
+        },
+        {
+          "text": "โกษาเหล็ก",
+          "correct": false
+        },
+        {
+          "text": "ออกญาเสนาภิมุข",
+          "correct": false
+        },
+        {
+          "text": "เจ้าพระยาบวรราชนายก",
+          "correct": false
+        }
       ]
     },
     {
-      "id": "k_king03_02", "kingId": "king_narai",
+      "id": "k_king03_02",
+      "kingId": "king_narai",
       "title": "ดาราศาสตร์ที่ลพบุรี",
       "body": "สมัยสมเด็จพระนารายณ์มีการสร้างหอดูดาวและศึกษาดาราศาสตร์ร่วมกับชาวฝรั่งเศสที่เมืองลพบุรี ซึ่งเป็นราชธานีที่สอง",
       "question": "เมืองใดเป็นราชธานีที่สองในสมัยสมเด็จพระนารายณ์?",
       "choices": [
-        { "text": "ลพบุรี", "correct": true },
-        { "text": "ธนบุรี", "correct": false },
-        { "text": "เชียงใหม่", "correct": false },
-        { "text": "นครปฐม", "correct": false }
+        {
+          "text": "ลพบุรี",
+          "correct": true
+        },
+        {
+          "text": "ธนบุรี",
+          "correct": false
+        },
+        {
+          "text": "เชียงใหม่",
+          "correct": false
+        },
+        {
+          "text": "นครปฐม",
+          "correct": false
+        }
       ]
     },
     {
-      "id": "k_king04_01", "kingId": "king_taksin",
+      "id": "k_king04_01",
+      "kingId": "king_taksin",
       "title": "กอบกู้เอกราชในเวลาเพียงปีเดียว",
       "body": "หลังกรุงศรีอยุธยาเสียแก่พม่า พ.ศ. 2310 สมเด็จพระเจ้าตากสินมหาราชทรงรวบรวมกำลังกอบกู้เอกราชได้ในปีเดียวกัน และสถาปนากรุงธนบุรี",
       "question": "กรุงศรีอยุธยาเสียแก่พม่าครั้งที่ 2 เมื่อ พ.ศ. ใด?",
       "choices": [
-        { "text": "พ.ศ. 2310", "correct": true },
-        { "text": "พ.ศ. 2135", "correct": false },
-        { "text": "พ.ศ. 2325", "correct": false },
-        { "text": "พ.ศ. 1826", "correct": false }
+        {
+          "text": "พ.ศ. 2310",
+          "correct": true
+        },
+        {
+          "text": "พ.ศ. 2135",
+          "correct": false
+        },
+        {
+          "text": "พ.ศ. 2325",
+          "correct": false
+        },
+        {
+          "text": "พ.ศ. 1826",
+          "correct": false
+        }
       ]
     },
     {
-      "id": "k_king04_02", "kingId": "king_taksin",
+      "id": "k_king04_02",
+      "kingId": "king_taksin",
       "title": "สถาปนากรุงธนบุรี",
       "body": "สมเด็จพระเจ้าตากสินมหาราชทรงสถาปนากรุงธนบุรีเป็นราชธานีริมแม่น้ำเจ้าพระยา เพื่อรวบรวมแผ่นดินไทยให้เป็นปึกแผ่นอีกครั้ง",
       "question": "กรุงธนบุรีตั้งอยู่ริมแม่น้ำใด?",
       "choices": [
-        { "text": "เจ้าพระยา", "correct": true },
-        { "text": "ท่าจีน", "correct": false },
-        { "text": "แม่กลอง", "correct": false },
-        { "text": "ป่าสัก", "correct": false }
+        {
+          "text": "เจ้าพระยา",
+          "correct": true
+        },
+        {
+          "text": "ท่าจีน",
+          "correct": false
+        },
+        {
+          "text": "แม่กลอง",
+          "correct": false
+        },
+        {
+          "text": "ป่าสัก",
+          "correct": false
+        }
       ]
     },
     {
-      "id": "k_king05_01", "kingId": "king_rama1",
+      "id": "k_king05_01",
+      "kingId": "king_rama1",
       "title": "ปฐมกษัตริย์ราชวงศ์จักรี",
       "body": "รัชกาลที่ ๑ ทรงสถาปนากรุงรัตนโกสินทร์เป็นราชธานีเมื่อ พ.ศ. 2325 ตั้งราชวงศ์จักรี และโปรดให้ชำระกฎหมายตราสามดวง",
       "question": "รัชกาลที่ ๑ ทรงสถาปนากรุงรัตนโกสินทร์เมื่อ พ.ศ. ใด?",
       "choices": [
-        { "text": "พ.ศ. 2325", "correct": true },
-        { "text": "พ.ศ. 2310", "correct": false },
-        { "text": "พ.ศ. 2411", "correct": false },
-        { "text": "พ.ศ. 1826", "correct": false }
+        {
+          "text": "พ.ศ. 2325",
+          "correct": true
+        },
+        {
+          "text": "พ.ศ. 2310",
+          "correct": false
+        },
+        {
+          "text": "พ.ศ. 2411",
+          "correct": false
+        },
+        {
+          "text": "พ.ศ. 1826",
+          "correct": false
+        }
       ]
     },
     {
-      "id": "k_king05_02", "kingId": "king_rama1",
+      "id": "k_king05_02",
+      "kingId": "king_rama1",
       "title": "กฎหมายตราสามดวง",
       "body": "รัชกาลที่ ๑ โปรดให้ชำระกฎหมายและประทับตรา 3 ดวง คือ ตราราชสีห์ ตราคชสีห์ และตราบัวแก้ว จึงเรียกว่า 'กฎหมายตราสามดวง'",
       "question": "กฎหมายตราสามดวงมีตราประทับกี่ดวง?",
       "choices": [
-        { "text": "3 ดวง", "correct": true },
-        { "text": "1 ดวง", "correct": false },
-        { "text": "5 ดวง", "correct": false },
-        { "text": "7 ดวง", "correct": false }
+        {
+          "text": "3 ดวง",
+          "correct": true
+        },
+        {
+          "text": "1 ดวง",
+          "correct": false
+        },
+        {
+          "text": "5 ดวง",
+          "correct": false
+        },
+        {
+          "text": "7 ดวง",
+          "correct": false
+        }
       ]
     },
     {
-      "id": "k_king06_01", "kingId": "king_rama4",
+      "id": "k_king06_01",
+      "kingId": "king_rama4",
       "title": "พระบิดาแห่งวิทยาศาสตร์ไทย",
       "body": "รัชกาลที่ ๔ ทรงคำนวณการเกิดสุริยุปราคาเต็มดวงที่ตำบลหว้ากอได้อย่างแม่นยำล่วงหน้า 2 ปี เมื่อ พ.ศ. 2411",
       "question": "รัชกาลที่ ๔ ทรงคำนวณปรากฏการณ์ทางดาราศาสตร์ใดได้อย่างแม่นยำ?",
       "choices": [
-        { "text": "สุริยุปราคา", "correct": true },
-        { "text": "จันทรุปราคา", "correct": false },
-        { "text": "แผ่นดินไหว", "correct": false },
-        { "text": "น้ำขึ้นน้ำลง", "correct": false }
+        {
+          "text": "สุริยุปราคา",
+          "correct": true
+        },
+        {
+          "text": "จันทรุปราคา",
+          "correct": false
+        },
+        {
+          "text": "แผ่นดินไหว",
+          "correct": false
+        },
+        {
+          "text": "น้ำขึ้นน้ำลง",
+          "correct": false
+        }
       ]
     },
     {
-      "id": "k_king06_02", "kingId": "king_rama4",
+      "id": "k_king06_02",
+      "kingId": "king_rama4",
       "title": "สุริยุปราคาที่หว้ากอ",
       "body": "รัชกาลที่ ๔ เสด็จทอดพระเนตรสุริยุปราคาเต็มดวงที่ตำบลหว้ากอ จังหวัดประจวบคีรีขันธ์ เมื่อ พ.ศ. 2411 ตามที่ทรงคำนวณไว้",
       "question": "สุริยุปราคาที่รัชกาลที่ ๔ เสด็จทอดพระเนตรเกิดที่จังหวัดใด?",
       "choices": [
-        { "text": "ประจวบคีรีขันธ์", "correct": true },
-        { "text": "เพชรบุรี", "correct": false },
-        { "text": "ชุมพร", "correct": false },
-        { "text": "ระยอง", "correct": false }
+        {
+          "text": "ประจวบคีรีขันธ์",
+          "correct": true
+        },
+        {
+          "text": "เพชรบุรี",
+          "correct": false
+        },
+        {
+          "text": "ชุมพร",
+          "correct": false
+        },
+        {
+          "text": "ระยอง",
+          "correct": false
+        }
       ]
     },
     {
-      "id": "k_king07_01", "kingId": "king_rama5",
+      "id": "k_king07_01",
+      "kingId": "king_rama5",
       "title": "พระปิยมหาราชผู้เลิกทาส",
       "body": "รัชกาลที่ ๕ ทรงเลิกทาสอย่างค่อยเป็นค่อยไปโดยไม่เสียเลือดเนื้อ พร้อมปฏิรูปการปกครองและริเริ่มการรถไฟ ไปรษณีย์ ให้ประเทศทันสมัย",
       "question": "พระนาม 'พระปิยมหาราช' ของรัชกาลที่ ๕ มีความหมายว่าอย่างไร?",
       "choices": [
-        { "text": "มหาราชผู้เป็นที่รักของประชาชน", "correct": true },
-        { "text": "มหาราชนักรบ", "correct": false },
-        { "text": "มหาราชนักปราชญ์", "correct": false },
-        { "text": "มหาราชผู้สร้างเมือง", "correct": false }
+        {
+          "text": "มหาราชผู้เป็นที่รักของประชาชน",
+          "correct": true
+        },
+        {
+          "text": "มหาราชนักรบ",
+          "correct": false
+        },
+        {
+          "text": "มหาราชนักปราชญ์",
+          "correct": false
+        },
+        {
+          "text": "มหาราชผู้สร้างเมือง",
+          "correct": false
+        }
       ]
     },
     {
-      "id": "k_king07_02", "kingId": "king_rama5",
+      "id": "k_king07_02",
+      "kingId": "king_rama5",
       "title": "การรถไฟและไปรษณีย์",
       "body": "รัชกาลที่ ๕ ทรงริเริ่มกิจการรถไฟ ไปรษณีย์ และโทรเลข เพื่อพัฒนาประเทศให้ทันสมัยและเชื่อมโยงหัวเมืองต่าง ๆ เข้าด้วยกัน",
       "question": "สาธารณูปโภคสมัยใหม่ใดที่ริเริ่มขึ้นในรัชสมัยรัชกาลที่ ๕?",
       "choices": [
-        { "text": "การรถไฟ", "correct": true },
-        { "text": "รถไฟฟ้าใต้ดิน", "correct": false },
-        { "text": "สนามบิน", "correct": false },
-        { "text": "โทรทัศน์", "correct": false }
+        {
+          "text": "การรถไฟ",
+          "correct": true
+        },
+        {
+          "text": "รถไฟฟ้าใต้ดิน",
+          "correct": false
+        },
+        {
+          "text": "สนามบิน",
+          "correct": false
+        },
+        {
+          "text": "โทรทัศน์",
+          "correct": false
+        }
       ]
     }
-  ],
-
-  "chance": [
-    { "id": "c_01", "title": "ยุทธหัตถีมีชัย!", "body": "กองทัพได้รับชัยชนะ เดินหน้า 3 ช่อง และรับ 50 เหรียญ", "move": 3, "coin": 50 },
-    { "id": "c_02", "title": "เสียกรุงครั้งที่ 2", "body": "บ้านเมืองระส่ำระสาย ถอยหลัง 2 ช่อง", "move": -2, "coin": 0 },
-    { "id": "c_03", "title": "การค้าเสรีรุ่งเรือง", "body": "เศรษฐกิจดี รับ 80 เหรียญ", "move": 0, "coin": 80 },
-    { "id": "c_04", "title": "สร้างทางรถไฟ", "body": "บ้านเมืองเจริญ เดินหน้า 1 ช่อง และรับ 30 เหรียญ", "move": 1, "coin": 30 },
-    { "id": "c_05", "title": "ได้ไอเทม 50:50!", "body": "ได้รับไอเทม ✂️ 50:50 ตัดตัวเลือกผิดออก 2 ข้อในคำถาม", "move": 0, "coin": 0, "item": "fiftyFifty" },
-    { "id": "c_06", "title": "ได้ไอเทมข้ามคำถาม!", "body": "ได้รับไอเทม ⏭️ ข้ามคำถามยากได้ 1 ครั้ง", "move": 0, "coin": 0, "item": "skip" },
-    { "id": "c_07", "title": "ได้ไอเทม ×2 เหรียญ!", "body": "ได้รับไอเทม ✨ เพิ่มเหรียญรางวัลถัดไปเป็น 2 เท่า", "move": 0, "coin": 0, "item": "double" }
   ]
 }

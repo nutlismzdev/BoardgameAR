@@ -1,19 +1,17 @@
 import { useState } from 'react';
 import { useGame } from '@/core/store';
 import { KINGS } from '@/core/content';
-import { getKingPawnImage } from '@/core/kingAssets';
+import { getKingCoinImage } from '@/core/kingAssets';
 import { color, radius } from '@/theme/tokens';
 import { KingDetailModal } from './KingDetailModal';
 import { CollectionMuseumModal } from './CollectionMuseumModal';
 
-// การ์ด 3D "สะสม 7 มหาราช" — แสดงความคืบหน้าเป้าหมายหลักของเกม + สอนพระนามทั้ง 7 พระองค์
-// แตะมหาราชที่ปลดล็อกแล้ว → เปิดการ์ดรายละเอียด (Pokédex)
+// การ์ดสะสมเหรียญกษัตริย์ 7 พระองค์ (เป้าหมายหลัก — เก็บครบ 7 = ชนะ)
+// แตะพระองค์ที่ได้เหรียญแล้ว → เปิดการ์ดรายละเอียด (Pokédex)
 export function KingCollection() {
   const player = useGame((s) => s.players[s.currentPlayerIndex]);
-  const unlocked = player?.unlockedKings ?? [];
   const coins = player?.kingCoins ?? [];
   const knowledgeCount = player?.knowledgeCards.length ?? 0;
-  const progress = player?.lessonProgress ?? {};
   const [detail, setDetail] = useState<string | null>(null);
   const [museumOpen, setMuseumOpen] = useState(false);
 
@@ -70,18 +68,15 @@ export function KingCollection() {
         🏛️ เปิดพิพิธภัณฑ์
       </button>
 
-      {/* รายชื่อมหาราช (เลื่อนได้ถ้าจอเตี้ย) */}
+      {/* รายชื่อมหาราช (เลื่อนได้ถ้าจอเตี้ย) — สถานะอิง "ได้เหรียญหรือยัง" */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', flex: 1 }}>
         {KINGS.map((k) => {
-          const isUnlocked = unlocked.includes(k.id);
-          const hasCoin = coins.includes(k.id);
-          const p = progress[k.id];
-          const done = [p?.knowledge, p?.quiz, p?.mission].filter(Boolean).length;
+          const won = coins.includes(k.id);
           return (
             <button
               key={k.id}
-              disabled={!isUnlocked}
-              onClick={() => isUnlocked && setDetail(k.id)}
+              disabled={!won}
+              onClick={() => won && setDetail(k.id)}
               style={{
                 fontFamily: 'inherit',
                 textAlign: 'left',
@@ -92,46 +87,42 @@ export function KingCollection() {
                 gap: 10,
                 padding: '6px 8px',
                 borderRadius: radius.md,
-                background: isUnlocked ? '#ffffffcc' : 'transparent',
-                boxShadow: isUnlocked ? '0 2px 6px rgba(0,0,0,.08)' : 'none',
-                opacity: isUnlocked ? 1 : 0.55,
+                background: won ? '#ffffffcc' : 'transparent',
+                boxShadow: won ? '0 2px 6px rgba(0,0,0,.08)' : 'none',
+                opacity: won ? 1 : 0.6,
                 transition: 'all .3s',
-                cursor: isUnlocked ? 'pointer' : 'default',
+                cursor: won ? 'pointer' : 'default',
               }}
             >
-              {/* เหรียญ/หมากมหาราช (3D) */}
+              {/* เหรียญมหาราช — ได้แล้ว=ทองเรือง / ยังไม่ได้=จางเส้นประ */}
               <div
                 style={{
                   flexShrink: 0,
                   width: 44,
-                  height: 48,
+                  height: 44,
                   borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 16,
-                  fontWeight: 800,
-                  color: '#fff',
-                  background: isUnlocked
-                    ? `radial-gradient(circle at 32% 28%, #ffffffaa, ${k.themeColor})`
-                    : 'radial-gradient(circle at 32% 28%, #ccc, #8d8d8d)',
-                  boxShadow: isUnlocked
-                    ? `0 3px 8px ${k.themeColor}88, inset 0 1px 2px #ffffffcc`
-                    : 'inset 0 1px 2px #ffffff88',
-                  border: `2px solid ${isUnlocked ? '#fff' : '#e6e0d4'}`,
+                  display: 'grid',
+                  placeItems: 'center',
                   overflow: 'hidden',
+                  background: won
+                    ? 'radial-gradient(circle at 35% 30%, #FFF4C4, #E9B93C)'
+                    : 'rgba(0,0,0,.05)',
+                  border: won ? '2px solid #fff' : '2px dashed rgba(90,60,20,.3)',
+                  boxShadow: won ? '0 0 6px rgba(255,193,7,.8), inset 0 1px 1px #fff' : 'none',
                 }}
               >
-                {isUnlocked ? (
-                  <img
-                    src={getKingPawnImage(k.id)}
-                    alt=""
-                    draggable={false}
-                    style={{ width: '86%', height: '100%', objectFit: 'contain', display: 'block' }}
-                  />
-                ) : (
-                  '🔒'
-                )}
+                <img
+                  src={getKingCoinImage(k.id)}
+                  alt=""
+                  draggable={false}
+                  style={{
+                    width: '86%',
+                    height: '86%',
+                    objectFit: 'contain',
+                    display: 'block',
+                    filter: won ? 'none' : 'grayscale(1) opacity(.4)',
+                  }}
+                />
               </div>
               <div style={{ minWidth: 0 }}>
                 <div
@@ -144,24 +135,12 @@ export function KingCollection() {
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  {isUnlocked ? shortName(k.name) : '❓ ยังไม่ปลดล็อก'}
+                  {won ? shortName(k.name) : '❓ ยังไม่ได้เหรียญ'}
                 </div>
-                <div style={{ fontSize: 14, color: color.textMuted, marginBottom: 4 }}>
-                  {isUnlocked ? k.era : `เรียนรู้ ${done}/3`}
-                </div>
-                <div style={{ display: 'flex', gap: 3 }}>
-                  <StepDot label="รู้" active={!!p?.knowledge} />
-                  <StepDot label="ถาม" active={!!p?.quiz} />
-                  <StepDot label="ทำ" active={!!p?.mission} />
-                </div>
+                <div style={{ fontSize: 14, color: color.textMuted }}>{k.era}</div>
               </div>
               <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-                {hasCoin && (
-                  <span title="ได้เหรียญกษัตริย์แล้ว" style={{ fontSize: 18 }}>
-                    🪙
-                  </span>
-                )}
-                {isUnlocked && <span style={{ fontSize: 15, color: color.info }}>ดู ›</span>}
+                {won && <span style={{ fontSize: 15, color: color.info }}>ดู ›</span>}
               </span>
             </button>
           );
@@ -173,21 +152,6 @@ export function KingCollection() {
       )}
       {museumOpen && <CollectionMuseumModal onClose={() => setMuseumOpen(false)} />}
     </div>
-  );
-}
-
-function StepDot({ label, active }: { label: string; active: boolean }) {
-  return (
-    <span
-      title={label}
-      style={{
-        width: 8,
-        height: 8,
-        borderRadius: '50%',
-        background: active ? color.success : '#00000022',
-        display: 'inline-block',
-      }}
-    />
   );
 }
 

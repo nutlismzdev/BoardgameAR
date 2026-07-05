@@ -77,12 +77,44 @@ export function BoardImage({ size }: { size: number }) {
           const occupants = players.filter((p) => p.position === i);
           const isCurrentTile = i === currentPos;
           const tile = TILES[i];
+          const isBranch = i >= LOOP; // ช่องทางแยกวงใน (เลนลับ)
           const hasIcon = tile && tile.type !== 'blank';
+          // ช่องพิเศษ (รวมช่องทองในเลนลับ) โชว์ไอคอน · ช่องเดินเปล่าในเลนลับโชว์ "เลขย่อย" (33ก/33ข)
           const showIcon = showTileIcons && hasIcon;
+          const isGoldTile = tile?.type === 'goldking'; // ช่องมงกุฎ AR = รางวัลชนะ ทำให้เด่นสุด
           return (
             <div key={i}>
+              {/* เลขย่อยช่องแยก — ป้ายทองแยกจากเลขวงนอก บอกว่าเป็นเลนลับ (เฉพาะช่องเดินเปล่าที่ไม่มีไอคอน) */}
+              {isBranch && tile?.label && !showIcon && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: `${pt.x}%`,
+                    top: `${pt.y}%`,
+                    transform: 'translate(-50%, -50%)',
+                    minWidth: pawn * 0.62,
+                    height: pawn * 0.62,
+                    padding: '0 5px',
+                    borderRadius: pawn * 0.31,
+                    background: 'linear-gradient(160deg,#FFE7A0,#E8B23A)',
+                    color: '#5A3D0A',
+                    fontSize: pawn * 0.34,
+                    fontWeight: 900,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '2px solid #fff',
+                    boxShadow: '0 2px 5px rgba(120,80,10,.5)',
+                    pointerEvents: 'none',
+                    boxSizing: 'border-box',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {tile.label}
+                </div>
+              )}
               {/* เลขช่อง — โชว์เฉพาะช่องที่ไม่มีไอคอน (ช่องเดินเปล่า); ช่องพิเศษโชว์ไอคอนแทน */}
-              {!showIcon && i < LOOP && (
+              {!showIcon && !isBranch && i < LOOP && (
                 <div
                   style={{
                     position: 'absolute',
@@ -115,17 +147,25 @@ export function BoardImage({ size }: { size: number }) {
                     left: `${pt.x}%`,
                     top: `${pt.y}%`,
                     transform: 'translate(-50%, -50%)',
-                    width: pawn * 0.82,
-                    height: pawn * 0.82,
+                    // ช่องมงกุฎ AR เด่นสุด: ทองไล่เฉด + เรืองแสง + ใหญ่กว่าช่องอื่น
+                    width: pawn * (isGoldTile ? 1.02 : 0.86),
+                    height: pawn * (isGoldTile ? 1.02 : 0.86),
                     borderRadius: '50%',
-                    background: '#fff',
-                    border: `2.5px solid ${tileColor[tile.type]}`,
-                    boxShadow: '0 2px 5px rgba(0,0,0,.35)',
+                    // ป้ายสีเต็มวงตามชนิดการ์ด (ขอบขาว) — แต่ละชนิด = สีเดียวชัดเจน
+                    background: isGoldTile
+                      ? 'radial-gradient(circle at 35% 28%, #FFF6CF, #FFC42E 45%, #C8860D 100%)'
+                      : tileColor[tile.type],
+                    border: isGoldTile ? '2.5px solid #FFF7D6' : '2.5px solid #fff',
+                    boxShadow: isGoldTile
+                      ? '0 0 12px 3px rgba(255,193,7,.85), 0 3px 8px rgba(120,80,10,.6)'
+                      : '0 2px 6px rgba(0,0,0,.45)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: pawn * 0.44,
+                    fontSize: pawn * (isGoldTile ? 0.5 : 0.44),
+                    textShadow: '0 1px 2px rgba(0,0,0,.35)',
                     pointerEvents: 'none',
+                    zIndex: isGoldTile ? 2 : 1,
                   }}
                   title={tileLabel[tile.type]}
                 >
@@ -165,6 +205,7 @@ export function BoardImage({ size }: { size: number }) {
                       borderRadius: '50%',
                       background: 'radial-gradient(ellipse, rgba(0,0,0,.4), transparent 70%)',
                       pointerEvents: 'none',
+                      zIndex: 9, // เหนือไอคอนช่องทุกชนิด (ไอคอน gold = 2)
                     }}
                   />
                   <div
@@ -177,6 +218,7 @@ export function BoardImage({ size }: { size: number }) {
                       pointerEvents: 'none',
                       display: 'flex',
                       gap: 3,
+                      zIndex: 10, // หมากผู้เล่นอยู่บนสุดเสมอ ไม่โดนไอคอนช่องบัง
                     }}
                   >
                     {occupants.map((p) => (

@@ -1,6 +1,6 @@
 import { useGame } from '@/core/store';
 import { KINGS, getKing } from '@/core/content';
-import { getKingPawnImage } from '@/core/kingAssets';
+import { getKingCoinImage } from '@/core/kingAssets';
 import { color, radius, elevation } from '@/theme/tokens';
 
 // การ์ดรายละเอียดมหาราช (แบบ Pokédex) — เปิดจากการ์ดสะสม
@@ -14,7 +14,7 @@ export function KingDetailModal({
   onSelect: (id: string) => void;
   onClose: () => void;
 }) {
-  const unlocked = useGame((s) => s.players[s.currentPlayerIndex]?.unlockedKings ?? []);
+  const owned = useGame((s) => s.players[s.currentPlayerIndex]?.kingCoins ?? []);
   const king = getKing(kingId);
   if (!king) return null;
 
@@ -66,10 +66,10 @@ export function KingDetailModal({
             }}
           >
             <img
-              src={getKingPawnImage(king.id)}
+              src={getKingCoinImage(king.id)}
               alt=""
               draggable={false}
-              style={{ width: '88%', height: '100%', objectFit: 'contain', display: 'block' }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
             />
           </div>
           <div style={{ minWidth: 0 }}>
@@ -110,7 +110,7 @@ export function KingDetailModal({
           }}
         >
           {KINGS.map((k) => {
-            const isUnlocked = unlocked.includes(k.id);
+            const isUnlocked = owned.includes(k.id);
             const active = k.id === kingId;
             return (
               <button
@@ -152,10 +152,10 @@ export function KingDetailModal({
                 >
                   {isUnlocked ? (
                     <img
-                      src={getKingPawnImage(k.id)}
+                      src={getKingCoinImage(k.id)}
                       alt=""
                       draggable={false}
-                      style={{ width: '88%', height: '100%', objectFit: 'contain', display: 'block' }}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
                     />
                   ) : (
                     '🔒'

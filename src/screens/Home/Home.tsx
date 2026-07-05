@@ -4,6 +4,7 @@ import { KINGS } from '@/core/content';
 import { getKingPawnImage } from '@/core/kingAssets';
 import { color, radius } from '@/theme/tokens';
 import { SettingsPanel } from '@/screens/Settings/Settings';
+import { MuseumShowcase } from '@/components/MuseumShowcase';
 
 const TOKENS = ['🐘', '⛵', '🛕', '🐉'];
 
@@ -11,6 +12,7 @@ const TOKENS = ['🐘', '⛵', '🛕', '🐉'];
 export function Home() {
   const setupGame = useGame((s) => s.setupGame);
   const [showSettings, setShowSettings] = useState(false);
+  const [showMuseum, setShowMuseum] = useState(false);
   const [count, setCount] = useState(1);
   const [kingTokens, setKingTokens] = useState(() => KINGS.slice(0, 4).map((king) => king.id));
 
@@ -162,6 +164,25 @@ export function Home() {
         ▶ เริ่มเล่น {count > 1 ? `(${count} คน)` : '(คนเดียว)'}
       </button>
       <button
+        onClick={() => setShowMuseum(true)}
+        style={{
+          fontFamily: 'inherit',
+          marginTop: 10,
+          fontSize: 21,
+          fontWeight: 800,
+          color: '#2A2118',
+          background: '#FFF7E7',
+          border: `2px solid ${color.secondary}`,
+          borderRadius: radius.pill,
+          padding: '14px 34px',
+          minHeight: 56,
+          cursor: 'pointer',
+          boxShadow: '0 4px 12px rgba(70,45,15,.16)',
+        }}
+      >
+        🏛️ โหมดพิพิธภัณฑ์
+      </button>
+      <button
         onClick={() => setShowSettings(true)}
         style={{
           fontFamily: 'inherit',
@@ -185,6 +206,7 @@ export function Home() {
       </p>
 
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+      {showMuseum && <MuseumShowcase onClose={() => setShowMuseum(false)} />}
     </div>
   );
 }

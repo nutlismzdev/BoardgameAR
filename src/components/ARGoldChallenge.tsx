@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { King, QuizCard } from '@/core/types';
+import { useGame, HINT_PRICE } from '@/core/store';
+import { getKingCoinImage } from '@/core/kingAssets';
 import { color, radius, elevation } from '@/theme/tokens';
 
 // ── ช่องทอง = บทเรียน AR ── ส่องกล้อง → คลิปวิดีโอ 15 วิ (placeholder) →
@@ -104,7 +106,20 @@ export function ARGoldChallenge({
 
       {stage === 'done' && (
         <div style={centerCard}>
-          <div style={{ fontSize: 64 }}>🎉🪙</div>
+          <img
+            src={getKingCoinImage(king.id)}
+            alt=""
+            draggable={false}
+            style={{
+              width: 128,
+              height: 128,
+              objectFit: 'contain',
+              margin: '0 auto 4px',
+              display: 'block',
+              filter: 'drop-shadow(0 0 16px rgba(255,193,7,.9))',
+              animation: 'coinPopSpin 1.4s ease-out',
+            }}
+          />
           <h2 style={{ margin: '6px 0', fontSize: 28, color: color.primary }}>
             ได้เหรียญ {shortName}!
           </h2>
@@ -114,6 +129,7 @@ export function ARGoldChallenge({
           <button onClick={claim} style={primaryBtn}>
             รับเหรียญกษัตริย์ →
           </button>
+          <style>{`@keyframes coinPopSpin{0%{transform:scale(.3) rotateY(0);opacity:0}45%{opacity:1}100%{transform:scale(1) rotateY(540deg);opacity:1}}`}</style>
         </div>
       )}
     </div>
@@ -171,6 +187,17 @@ function DragQuestion({ quiz, onCorrect }: { quiz: QuizCard; onCorrect: () => vo
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [attempts, setAttempts] = useState(0);
   const [wrongPulse, setWrongPulse] = useState(0);
+  const [hidden, setHidden] = useState<number[]>([]); // คำตอบผิดที่ถูกคำใบ้ตัดออก
+  const coins = useGame((s) => s.players[s.currentPlayerIndex]?.coins ?? 0);
+  const buyHint = useGame((s) => s.buyHint);
+
+  // ซื้อคำใบ้ด้วยเหรียญ → ตัดคำตอบผิดออก 2 ข้อ (ใช้ได้ครั้งเดียว/คำถาม)
+  const useHint = () => {
+    if (hidden.length > 0 || coins < HINT_PRICE) return;
+    if (!buyHint()) return;
+    const wrong = quiz.choices.map((c, i) => (!c.correct ? i : -1)).filter((i) => i >= 0);
+    setHidden(wrong.sort(() => Math.random() - 0.5).slice(0, 2));
+  };
 
   useEffect(() => {
     if (activeIndex === null) return;
@@ -227,36 +254,64 @@ function DragQuestion({ quiz, onCorrect }: { quiz: QuizCard; onCorrect: () => vo
 
       {/* คำตอบให้ลาก */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        {quiz.choices.map((c, i) => (
-          <div
-            key={i}
-            onPointerDown={(e) => {
-              setActiveIndex(i);
-              setPos({ x: e.clientX, y: e.clientY });
-            }}
-            style={{
-              touchAction: 'none',
-              userSelect: 'none',
-              cursor: 'grab',
-              fontSize: 18,
-              fontWeight: 700,
-              textAlign: 'center',
-              padding: '14px 12px',
-              minHeight: 56,
-              borderRadius: radius.md,
-              border: `2px solid ${color.secondary}`,
-              background: activeIndex === i ? '#EEE' : '#fff',
-              color: color.text,
-              opacity: activeIndex === i ? 0.4 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {c.text}
-          </div>
-        ))}
+        {quiz.choices.map((c, i) => {
+          const isHidden = hidden.includes(i);
+          return (
+            <div
+              key={i}
+              onPointerDown={(e) => {
+                if (isHidden) return;
+                setActiveIndex(i);
+                setPos({ x: e.clientX, y: e.clientY });
+              }}
+              style={{
+                touchAction: 'none',
+                userSelect: 'none',
+                cursor: isHidden ? 'default' : 'grab',
+                fontSize: 18,
+                fontWeight: 700,
+                textAlign: 'center',
+                padding: '14px 12px',
+                minHeight: 56,
+                borderRadius: radius.md,
+                border: isHidden ? '2px dashed #bbb' : `2px solid ${color.secondary}`,
+                background: isHidden ? '#f2f2f2' : activeIndex === i ? '#EEE' : '#fff',
+                color: isHidden ? '#bbb' : color.text,
+                opacity: isHidden ? 0.5 : activeIndex === i ? 0.4 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {isHidden ? '✖' : c.text}
+            </div>
+          );
+        })}
       </div>
+
+      {/* คำใบ้ด้วยเหรียญ — ตัดคำตอบผิด 2 ข้อ (ใช้ได้ครั้งเดียว) */}
+      {hidden.length === 0 && (
+        <button
+          onClick={useHint}
+          disabled={coins < HINT_PRICE}
+          style={{
+            fontFamily: 'inherit',
+            marginTop: 12,
+            width: '100%',
+            fontSize: 16,
+            fontWeight: 800,
+            color: coins < HINT_PRICE ? '#999' : '#6B4E1E',
+            background: coins < HINT_PRICE ? '#eee' : 'linear-gradient(160deg,#FFE9A8,#E9B93C)',
+            border: `1.5px solid ${coins < HINT_PRICE ? '#ccc' : '#C9A227'}`,
+            borderRadius: radius.pill,
+            padding: '10px 0',
+            minHeight: 46,
+            cursor: coins < HINT_PRICE ? 'not-allowed' : 'pointer',
+          }}
+        >
+          💡 ใช้คำใบ้ · จ่าย 🪙 {HINT_PRICE} (มี 🪙 {coins})
+        </button>
+      )}
 
       {/* ชิปที่กำลังลาก (ลอยตามนิ้ว) */}
       {activeIndex !== null && (

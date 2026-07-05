@@ -36,20 +36,6 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           ตั้งค่าให้เหมาะกับชั้นเรียน
         </p>
 
-        {/* จำนวนเทิร์น */}
-        <Row label="จำนวนเทิร์นสูงสุดก่อนสรุปผล">
-          <Segmented
-            options={[
-              { label: '15', value: 15 },
-              { label: '25', value: 25 },
-              { label: '35', value: 35 },
-              { label: '50', value: 50 },
-            ]}
-            value={settings.maxRounds}
-            onChange={(v) => update({ maxRounds: v as number })}
-          />
-        </Row>
-
         {/* ระดับความยาก */}
         <Row label="ระดับความยากคำถาม">
           <Segmented
@@ -71,7 +57,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           onToggle={() => update({ timerEnabled: !settings.timerEnabled })}
         />
         <Toggle
-          label="🔊 เสียง + การสั่น"
+          label="🔊 เพลงพื้นหลัง + เสียง + การสั่น"
           on={settings.soundEnabled}
           onToggle={() => update({ soundEnabled: !settings.soundEnabled })}
         />

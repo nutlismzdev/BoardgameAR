@@ -3,29 +3,23 @@ import { useGame } from '@/core/store';
 import {
   getKing,
   getQuizForKing,
-  getRandomChance,
   getRandomKnowledge,
-  getMissionForKing,
   KNOWLEDGE_CAP,
 } from '@/core/content';
 import { color, radius, elevation } from '@/theme/tokens';
 import { ARGoldChallenge } from './ARGoldChallenge';
 import type { Orientation, KnowledgeCard } from '@/core/types';
 
-// ป้ายตัวเลือกภาษาไทย ก/ข/ค/ง สำหรับการ์ดภารกิจ/ความรู้
-const THAI_CHOICE = ['ก', 'ข', 'ค', 'ง'];
-
-// Modal การ์ดรวม (quiz / mission / knowledge / king / chance)
+// Modal การ์ดรวม (question / goldking / knowledge / penalty / bonus)
 // แนวตั้ง = เด้งจากล่าง (bottom sheet), แนวนอน = กลางจอ (center dialog)
 export function CardModal({ orientation }: { orientation: Orientation }) {
   const event = useGame((s) => s.pendingEvent);
   const resolveReward = useGame((s) => s.resolveReward);
   const answerQuiz = useGame((s) => s.answerQuiz);
   const answerKingCoin = useGame((s) => s.answerKingCoin);
-  const completeLessonStep = useGame((s) => s.completeLessonStep);
   const collectKnowledge = useGame((s) => s.collectKnowledge);
   const knowledgeCards = useGame((s) => s.players[s.currentPlayerIndex]?.knowledgeCards ?? []);
-  const applyChance = useGame((s) => s.applyChance);
+  const applyPenalty = useGame((s) => s.applyPenalty);
   const giveItem = useGame((s) => s.giveItem);
   const useItem = useGame((s) => s.useItem);
   const items = useGame((s) => s.items);
@@ -35,8 +29,6 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   const markQuizSeen = useGame((s) => s.markQuizSeen);
   const [answered, setAnswered] = useState<number | null>(null);
   const [hidden, setHidden] = useState<number[]>([]); // ตัวเลือกที่ 50:50 ตัดออก
-  const [knowledgeAnswer, setKnowledgeAnswer] = useState<number | null>(null);
-  const [missionAnswer, setMissionAnswer] = useState<number | null>(null);
   const [arGoldOpen, setArGoldOpen] = useState(false);
 
   const kind = event?.kind;
@@ -50,8 +42,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
     () => (kind === 'question' || isGold ? getQuizForKing(kingId, settings.difficulty, usedQuizIds) : null),
     [event]
   );
-  const chance = useMemo(() => (kind === 'chance' ? getRandomChance() : null), [event]);
-  const mission = useMemo(() => (kind === 'mission' ? getMissionForKing(kingId) : null), [event]);
+  const penalty = kind === 'penalty' ? event?.tile.penalty ?? null : null;
 
   // การ์ดความรู้ = state เพื่อให้กดปุ่ม "สุ่มใหม่" เปลี่ยนคำถามได้ (สุ่มใบที่ยังไม่มี)
   const [knowledge, setKnowledge] = useState<KnowledgeCard | null>(null);
@@ -62,7 +53,6 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   const rerollKnowledge = () => {
     const exclude = knowledge ? [...knowledgeCards, knowledge.id] : knowledgeCards;
     setKnowledge(getRandomKnowledge(exclude));
-    setKnowledgeAnswer(null);
   };
 
   // ── ตัวจับเวลาคำถาม (เปิด/ปิดได้ใน Teacher Mode; หมดเวลา = เฉลยอัตโนมัติ) ──
@@ -74,11 +64,8 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
     setTimeLeft(quiz.timeLimitSec);
     setAnswered(null);
     setHidden([]);
-    setKnowledgeAnswer(null);
   }, [event]);
   useEffect(() => {
-    setKnowledgeAnswer(null);
-    setMissionAnswer(null);
     setArGoldOpen(false);
   }, [event]);
   useEffect(() => {
@@ -118,12 +105,16 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
 
   const header = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-      <span style={{ fontSize: 26 }}>{isGold ? '🪙' : kind === 'bonus' ? '🎁' : '👑'}</span>
-      <strong style={{ fontSize: 20, color: king?.themeColor ?? color.primary }}>
+      <span style={{ fontSize: 26 }}>
+        {isGold ? '🪙' : kind === 'bonus' ? '🎁' : kind === 'penalty' ? '⛓️' : '👑'}
+      </span>
+      <strong style={{ fontSize: 20, color: kind === 'penalty' ? color.danger : king?.themeColor ?? color.primary }}>
         {isGold
           ? `ชิงเหรียญกษัตริย์: ${king ? shortKing(king.name) : ''}`
           : kind === 'bonus'
           ? 'การ์ดโบนัส'
+          : kind === 'penalty'
+          ? 'ช่องทำโทษ'
           : king?.name ?? 'การ์ดโชค'}
       </strong>
     </div>
@@ -288,7 +279,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
                 <PrimaryButton
                   onClick={() => {
                     const correct = answered >= 0 && quiz.choices[answered].correct;
-                    answerQuiz(correct, quiz.reward, correct ? kingId : null);
+                    answerQuiz(correct, quiz.reward);
                     setAnswered(null);
                     closeEvent();
                   }}
@@ -303,7 +294,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
           </div>
         )}
 
-        {/* ── ช่องความรู้ (ชมพู) — เก็บสะสมการ์ด 10 ใบ/คน + คำถามทวน ก/ข/ค/ง ── */}
+        {/* ── ช่องความรู้ (ชมพู) — อ่านเกร็ดแล้วเก็บสะสม 10 ใบ/คน (ไม่มีคำถามทบทวน) ── */}
         {kind === 'knowledge' && knowledge && (
           <div>
             <p
@@ -324,170 +315,42 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             <p style={{ fontSize: 19, lineHeight: 1.65, color: color.text, margin: '12px 0 16px' }}>
               {knowledge.body}
             </p>
-            <div style={{ marginTop: 8 }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 10,
-                  marginBottom: 10,
-                }}
-              >
-                <p style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>ทวนจำ: {knowledge.question}</p>
-                {knowledgeAnswer === null && (
-                  <button onClick={rerollKnowledge} style={itemBtn}>
-                    🎲 สุ่มใหม่
-                  </button>
-                )}
-              </div>
-              <div style={{ display: 'grid', gap: 10 }}>
-                {knowledge.choices.map((choice, i) => {
-                  const revealed = knowledgeAnswer !== null;
-                  const bg = revealed
-                    ? choice.correct
-                      ? color.success
-                      : i === knowledgeAnswer
-                      ? color.danger
-                      : color.bg
-                    : color.bg;
-                  const fg = revealed && (choice.correct || i === knowledgeAnswer) ? '#fff' : color.text;
-                  return (
-                    <button
-                      key={i}
-                      disabled={revealed}
-                      onClick={() => setKnowledgeAnswer(i)}
-                      style={{
-                        fontFamily: 'inherit',
-                        fontSize: 19,
-                        textAlign: 'left',
-                        padding: '14px 16px',
-                        minHeight: 52,
-                        borderRadius: radius.md,
-                        border: `2px solid ${color.secondary}`,
-                        background: bg,
-                        color: fg,
-                        cursor: revealed ? 'default' : 'pointer',
-                      }}
-                    >
-                      {THAI_CHOICE[i]}. {choice.text}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {knowledgeAnswer !== null &&
-                (knowledge.choices[knowledgeAnswer]?.correct ? (
-                  <PrimaryButton
-                    onClick={() => {
-                      collectKnowledge(knowledge.id, knowledge.kingId, 30);
-                      closeEvent();
-                    }}
-                    label={`เก็บการ์ดความรู้! รับ 🪙 30 →`}
-                  />
-                ) : (
-                  <div style={{ marginTop: 12 }}>
-                    <p style={{ fontSize: 18, color: color.danger, fontWeight: 700 }}>
-                      ยังไม่ใช่ ลองอ่านเกร็ดด้านบนอีกครั้ง
-                    </p>
-                    <button onClick={() => setKnowledgeAnswer(null)} style={itemBtn}>
-                      ลองตอบใหม่
-                    </button>
-                  </div>
-                ))}
+            {/* อ่านเกร็ดแล้วเก็บได้เลย — ไม่มีคำถามทบทวน · ปุ่มสุ่มใหม่ให้เปลี่ยนใบที่ยังไม่มี */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+              <button onClick={rerollKnowledge} style={itemBtn}>
+                🎲 สุ่มใหม่
+              </button>
             </div>
-          </div>
-        )}
-
-        {/* ── ช่องภารกิจ (ฟ้า) — โจทย์ปรนัย ก/ข/ค/ง ── */}
-        {kind === 'mission' && mission && (
-          <div>
-            <p
-              style={{
-                fontSize: 15,
-                fontWeight: 700,
-                color: color.info,
-                background: '#E3F2FD',
-                border: `1.5px solid ${color.info}55`,
-                borderRadius: radius.md,
-                padding: '6px 12px',
-                marginBottom: 12,
-              }}
-            >
-              🎯 การ์ดภารกิจ · ตอบให้ถูกเพื่อรับเหรียญ
-            </p>
-            <p style={{ fontSize: 22, fontWeight: 600, marginBottom: 16 }}>❓ {mission.question}</p>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: isPortrait ? '1fr' : '1fr 1fr',
-                gap: 12,
-              }}
-            >
-              {mission.choices.map((c, i) => {
-                const revealed = missionAnswer !== null;
-                const bg = revealed
-                  ? c.correct
-                    ? color.success
-                    : i === missionAnswer
-                    ? color.danger
-                    : '#Eee'
-                  : color.bg;
-                const fg = revealed && (c.correct || i === missionAnswer) ? '#fff' : color.text;
-                return (
-                  <button
-                    key={i}
-                    disabled={revealed}
-                    onClick={() => setMissionAnswer(i)}
-                    style={{
-                      fontFamily: 'inherit',
-                      fontSize: 20,
-                      textAlign: 'left',
-                      padding: '16px 18px',
-                      minHeight: 56,
-                      borderRadius: radius.md,
-                      border: `2px solid ${color.secondary}`,
-                      background: bg,
-                      color: fg,
-                      cursor: revealed ? 'default' : 'pointer',
-                    }}
-                  >
-                    {THAI_CHOICE[i]}. {c.text}
-                  </button>
-                );
-              })}
-            </div>
-
-            {missionAnswer !== null && (
-              <PrimaryButton
-                onClick={() => {
-                  const correct = mission.choices[missionAnswer]?.correct ?? false;
-                  if (correct) completeLessonStep(kingId, 'mission', mission.reward);
-                  else resolveReward(0);
-                  closeEvent();
-                }}
-                label={
-                  mission.choices[missionAnswer]?.correct
-                    ? `ถูกต้อง! รับ 🪙 ${mission.reward} →`
-                    : 'ยังไม่ถูก ไปต่อ →'
-                }
-              />
-            )}
-          </div>
-        )}
-
-        {/* ── ช่องโชค ── */}
-        {kind === 'chance' && chance && (
-          <div>
-            <p style={{ fontSize: 22, fontWeight: 600 }}>🎲 {chance.title}</p>
-            <p style={{ fontSize: 19, margin: '10px 0 20px', lineHeight: 1.55 }}>{chance.body}</p>
             <PrimaryButton
               onClick={() => {
-                applyChance(chance.move, chance.coin);
-                if (chance.item) giveItem(chance.item); // ได้ไอเทมพาวเวอร์อัพ
+                collectKnowledge(knowledge.id, 30);
                 closeEvent();
               }}
-              label="รับผลการ์ดโชค →"
+              label="เก็บการ์ดความรู้! รับ 🪙 30 →"
+            />
+          </div>
+        )}
+
+        {/* ── ช่องทำโทษ (แดง) — ถอยหลัง หรือ หยุดพัก 1 ตา ── */}
+        {kind === 'penalty' && penalty && (
+          <div>
+            <p style={{ fontSize: 22, fontWeight: 700, color: color.danger }}>
+              {penalty.type === 'back' ? '⛓️ โดนสั่งถอย!' : '💤 โดนสั่งพัก!'}
+            </p>
+            <p style={{ fontSize: 19, margin: '10px 0 20px', lineHeight: 1.55 }}>
+              {penalty.type === 'back'
+                ? `โชคร้าย! ต้องเดินย้อนกลับ ${penalty.steps} ช่อง`
+                : `โชคร้าย! ต้องหยุดพัก ${penalty.steps} ตา (อดเล่นเทิร์นถัดไป)`}
+            </p>
+            <PrimaryButton
+              onClick={() => {
+                applyPenalty(
+                  penalty.type === 'back' ? penalty.steps : 0,
+                  penalty.type === 'skip' ? penalty.steps : 0
+                );
+                closeEvent();
+              }}
+              label="ยอมรับกรรม 😵 →"
             />
           </div>
         )}

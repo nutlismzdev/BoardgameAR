@@ -3,9 +3,13 @@
 
 let ctx: AudioContext | null = null;
 let enabled = true;
+let bgMaster: GainNode | null = null;
+let bgTimers: ReturnType<typeof setInterval>[] = [];
+let bgPlaying = false;
 
 export function setSoundEnabled(on: boolean) {
   enabled = on;
+  if (!on) stopBackgroundMusic();
 }
 
 function ac(): AudioContext | null {
@@ -18,6 +22,77 @@ function ac(): AudioContext | null {
   }
   if (ctx.state === 'suspended') ctx.resume();
   return ctx;
+}
+
+function stopBackgroundTimers() {
+  bgTimers.forEach(clearInterval);
+  bgTimers = [];
+}
+
+function backgroundGain(c: AudioContext) {
+  if (!bgMaster) {
+    bgMaster = c.createGain();
+    bgMaster.gain.value = 0.045;
+    bgMaster.connect(c.destination);
+  }
+  return bgMaster;
+}
+
+function musicTone(
+  freq: number,
+  durMs: number,
+  type: OscillatorType,
+  gain: number,
+  delay = 0,
+  destination?: AudioNode
+) {
+  const c = ac();
+  if (!c) return;
+  const t0 = c.currentTime + delay;
+  const osc = c.createOscillator();
+  const g = c.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(gain, t0 + 0.04);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + durMs / 1000);
+  osc.connect(g).connect(destination ?? c.destination);
+  osc.start(t0);
+  osc.stop(t0 + durMs / 1000);
+}
+
+function playBackgroundBar() {
+  const c = ac();
+  if (!c) return;
+  const dest = backgroundGain(c);
+  const melody = [392, 440, 523.25, 493.88, 440, 392, 329.63, 349.23];
+  const bass = [196, 196, 220, 220, 174.61, 174.61, 196, 196];
+
+  melody.forEach((freq, i) => {
+    musicTone(freq, 460, 'sine', 0.08, i * 0.5, dest);
+  });
+  bass.forEach((freq, i) => {
+    musicTone(freq, 900, 'triangle', 0.045, i * 0.5, dest);
+  });
+}
+
+export function startBackgroundMusic() {
+  if (bgPlaying || !enabled) return;
+  const c = ac();
+  if (!c) return;
+
+  bgPlaying = true;
+  const master = backgroundGain(c);
+  master.gain.setValueAtTime(0.045, c.currentTime);
+  playBackgroundBar();
+  bgTimers = [setInterval(playBackgroundBar, 4000)];
+}
+
+export function stopBackgroundMusic() {
+  if (!bgPlaying && bgTimers.length === 0) return;
+  bgPlaying = false;
+  stopBackgroundTimers();
+  if (ctx && bgMaster) bgMaster.gain.setValueAtTime(0.0001, ctx.currentTime);
 }
 
 // เล่นโน้ตสั้น ๆ

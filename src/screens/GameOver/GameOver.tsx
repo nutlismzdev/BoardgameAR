@@ -1,4 +1,5 @@
 import { useGame } from '@/core/store';
+import { KingCoinRow } from '@/components/KingCoinRow';
 import { color, radius, elevation } from '@/theme/tokens';
 import type { Player } from '@/core/types';
 
@@ -62,9 +63,10 @@ export function GameOver() {
           >
             <span style={{ fontSize: 30 }}>{medals[i] ?? '🎖️'}</span>
             <span style={{ fontSize: 30 }}>{p.token}</span>
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 4 }}>
               <strong style={{ fontSize: 18 }}>{p.name}</strong>
               <span style={{ fontSize: 16, color: color.info }}>🏅 {badgeFor(p, i)}</span>
+              <KingCoinRow collected={p.kingCoins} size={20} />
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 20, fontWeight: 700, color: color.secondary }}>
@@ -143,6 +145,10 @@ function SoloSummary({
         <div style={{ display: 'flex', justifyContent: 'space-around' }}>
           <Stat label="เหรียญ" value={`🪙 ${player.coins}`} />
           <Stat label="เหรียญกษัตริย์" value={`👑 ${kings}/7`} />
+        </div>
+        {/* แถวเหรียญกษัตริย์ที่เก็บได้ */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}>
+          <KingCoinRow collected={player.kingCoins} size={30} gap={6} />
         </div>
       </div>
 

@@ -30,7 +30,7 @@ export const elevation = {
 // สีประจำประเภทช่อง (ตรงกับสีกรอบบนภาพกระดานจริง)
 export const tileColor: Record<string, string> = {
   start: '#C9A227', // ทอง
-  question: '#F9A825', // เหลือง
+  question: '#1565C0', // ฟ้าเข้ม (แยกโทนจากทองของช่องทอง)
   mission: '#1565C0', // ฟ้า
   coin: '#F9A825',
   knowledge: '#E91E63', // ชมพู
@@ -38,6 +38,7 @@ export const tileColor: Record<string, string> = {
   goldking: '#C9A227', // ทอง — เหรียญกษัตริย์
   bonus: '#2E9E44', // เขียว
   chance: '#6A1B9A', // ม่วง
+  penalty: '#8E2020', // แดงเข้ม — ช่องทำโทษ
   special: '#607D8B',
 };
 
@@ -51,6 +52,7 @@ export const tileIcon: Record<string, string> = {
   goldking: '👑',
   bonus: '💚',
   chance: '🌀',
+  penalty: '⛓️',
   special: '⏭️',
 };
 
@@ -64,5 +66,6 @@ export const tileLabel: Record<string, string> = {
   goldking: 'เหรียญกษัตริย์',
   bonus: 'โบนัส',
   chance: 'โชค',
+  penalty: 'ทำโทษ',
   special: 'พิเศษ',
 };

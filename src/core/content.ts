@@ -2,7 +2,7 @@
 
 import kingsData from '@/data/kings.json';
 import cardsData from '@/data/cards.json';
-import type { King, QuizCard, ChanceCard, MissionCard, KnowledgeCard, Difficulty } from './types';
+import type { King, QuizCard, KnowledgeCard, Difficulty } from './types';
 
 export const KINGS = kingsData.kings as King[];
 
@@ -12,8 +12,6 @@ export function getKing(id: string | null | undefined): King | undefined {
 }
 
 const QUIZ = cardsData.quiz as QuizCard[];
-const CHANCE = cardsData.chance as ChanceCard[];
-const MISSION = cardsData.mission as MissionCard[];
 const KNOWLEDGE = cardsData.knowledge as KnowledgeCard[];
 
 // สุ่มคำถามของมหาราชพระองค์นั้น + คัดระดับความยาก (fallback ไล่ระดับ)
@@ -30,17 +28,6 @@ export function getQuizForKing(
   const fresh = pool.filter((q) => !excludeIds.includes(q.id));
   if (fresh.length) pool = fresh;
   const list = pool.length ? pool : QUIZ;
-  return list[Math.floor(Math.random() * list.length)];
-}
-
-export function getRandomChance(): ChanceCard {
-  return CHANCE[Math.floor(Math.random() * CHANCE.length)];
-}
-
-// เลือกภารกิจของมหาราชพระองค์นั้น (fallback: สุ่มทั้งคลัง)
-export function getMissionForKing(kingId: string | null): MissionCard {
-  const pool = MISSION.filter((m) => m.kingId === kingId);
-  const list = pool.length ? pool : MISSION;
   return list[Math.floor(Math.random() * list.length)];
 }
 

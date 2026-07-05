@@ -3,7 +3,7 @@
 สื่อการสอนประวัติศาสตร์ไทยแบบบอร์ดเกมเดินช่อง (roll-and-move) + AR
 ธีม: อุทยานราชภักดิ์ · กลุ่มเป้าหมาย: เด็ก 9–14 ปี · แพลตฟอร์ม: เว็บ (React+Vite PWA) บนแท็บเล็ต
 
-> ⚠️ **`DESIGN.md` เป็นเอกสารเก่า (ไม่ตรงกับโค้ดแล้ว)** — อธิบายกติกาชนะแบบเดิม (เรียนครบ 3 ขั้น) ซึ่งถูกแทนที่ด้วยระบบ "เก็บเหรียญกษัตริย์" เมื่อ 2026-07-04 ไฟล์ CLAUDE.md นี้คือแหล่งอ้างอิงกติกาปัจจุบัน
+> ⚠️ **`DESIGN.md` เป็นเอกสารเก่า (ไม่ตรงกับโค้ดแล้ว)** — อธิบายกติกาชนะแบบเดิม (เรียนครบ 3 ขั้น) ซึ่งถูกแทนที่ด้วยระบบ "เก็บเหรียญกษัตริย์" ไฟล์ CLAUDE.md นี้คือแหล่งอ้างอิงกติกาปัจจุบัน (อัปเดตล่าสุด 2026-07-05)
 
 ## คำสั่ง
 
@@ -26,49 +26,56 @@ Stack: React 18 + TypeScript + Zustand (state) + Vite. ไม่มี test runn
 
 - **ผู้เล่น 1–4 คน** (pass-and-play) เลือกจำนวน + เลือก "หมากกษัตริย์" ที่หน้า Home
 - **ชนะเมื่อเก็บ "เหรียญกษัตริย์" ครบ 7 พระองค์** → `Player.kingCoins`
-- เหรียญกษัตริย์ได้จาก **ช่องทอง (goldking) เท่านั้น** และต้อง **ตอบคำถามถูก**
-- เกมจบด้วย 2 เงื่อนไข (`finishTurn` ใน store.ts): มีใครเก็บครบ 7 → ชนะทันที · หรือเล่นครบ `settings.maxRounds`
+- เหรียญกษัตริย์ได้จาก **ช่องทอง (goldking) เท่านั้น** และต้อง **ตอบคำถาม AR ถูก**
+- **เกมจบทางเดียว: มีผู้เล่นเก็บเหรียญกษัตริย์ครบ 7** (`finishTurn` ใน store.ts) — **ถอด `maxRounds`/ลิมิตรอบออกแล้ว** (round ยังนับไว้ภายในแต่ไม่ใช้จบเกม/ไม่โชว์)
 - ทอยได้ 6 = ทอยซ้ำ (bonus roll)
 
-### ⚠️ `kingCoins` ≠ `unlockedKings` (คนละระบบ อย่าปนกัน)
-- `kingCoins`: เหรียญจากช่องทอง — **เงื่อนไขชนะ**
-- `unlockedKings` + `lessonProgress`: สถานะ "เรียนรู้ครบ 3 ขั้น (ความรู้+ควิซ+ภารกิจ)" ของแต่ละพระองค์ — ใช้กับ **พิพิธภัณฑ์/เควส/บอสทบทวน** เท่านั้น ไม่เกี่ยวกับการชนะ
+### ระบบเดียว = `kingCoins` (เก็บครบ 7 ชนะ)
+- `kingCoins`: เหรียญจากช่องทอง — **เงื่อนไขชนะ** · ใช้กับ HUD, หน้าจบเกม, พิพิธภัณฑ์, `KingCollection` (ทุกหน้าจออิงเหรียญล้วน)
+- **ระบบ `unlockedKings`/`lessonProgress`/ดาว/เรียนครบ 3 ขั้น ถูกลบทิ้งหมดแล้ว** (พร้อม mission/chance/เควส/บอส/AR stickers) — ดู "Card / เนื้อหา" ด้านล่าง
 
 ## กระดาน (Board Model)
 
 กระดานเป็น **กราฟ** (ไม่ใช่วงกลม %loop ล้วน) — `board-layout.json`:
-- 46 ช่องวงนอก (index 0–45) + 3 ช่องทางแยกวงใน (46–48)
-- แต่ละช่องมี `next: number[]` — ปกติ 1 ทาง, ช่องแยกมี 2 ทาง
-- `Player.position` เป็น **number** (index) index-aligned กับ `board-points.json` (พิกัด %) และ `TILES[]`
+- **46 ช่องวงนอก (index 0–45) + 31 ช่องทางแยกวงใน 4 เส้น (index 46–76) = รวม 77 ช่อง**
+- แต่ละช่องมี `next: number[]` — ปกติ 1 ทาง, จุดทางแยกมี 2 ทาง (ผู้เล่นเลือก)
+- `Player.position` เป็น **number** (index) index-aligned กับ `board-points.json` (พิกัด %) และ `TILES[]` (77 ช่องเท่ากัน)
 - `Player.kingTokenId` เป็น **id ของพระมหากษัตริย์** ที่ใช้เลือกภาพหมากบนกระดาน (ไม่เกี่ยวกับ `kingCoins`)
+- `LOOP = 46` (loopSize) ใช้กับ `applyChance` (%LOOP) และ fallback ของ runMovement เท่านั้น
 
-### ช่องพิเศษ 15 ช่อง (ตรงกับหมายเลขบนกระดานจริง)
+### ช่องพิเศษ (ตรงกับตำแหน่งบนกระดานจริง) — แต่ละชนิด "สีเดียว" (`tokens.ts`)
 | ช่อง | type | สี/ไอคอน | ผล |
 |---|---|---|---|
-| 0 | start | 🏛️ ทอง | ผ่าน = +100 |
-| 3, 29 | knowledge | 💡 ชมพู | อ่านเกร็ด → สะสมการ์ด (10/คน) + ควิซทวน ก/ข/ค/ง + ปุ่มสุ่มใหม่ (ไม่มี AR) |
-| 6, 12, 20, 35, 43 | mission | 🎯 ฟ้า | โจทย์ปรนัย ก/ข/ค/ง |
-| 10, 37 | question | ❓ เหลือง | ควิซทั่วไป (ได้เหรียญปกติ) |
-| 23 | chance | 🌀 ม่วง | การ์ดโชคสุ่มดี/ร้าย + ไอเทม |
-| 16, 26, 40 | goldking | 👑 ทอง | บทเรียน AR (คลิป 15 วิ + ลากคำตอบ) ชิงเหรียญกษัตริย์ |
-| 32 | bonus | 💚 เขียว | การ์ดโบนัส **+ เป็นจุดทางแยก** |
+| 0, 10, 23, 37 | penalty | ⛓️ แดงเข้ม `#8E2020` | ทำโทษ: 0=หยุดพัก 1 ตา · 10=ถอย 2 ช่อง · 23=หยุดพัก 1 ตา · 37=ถอย 3 ช่อง (ดู `tile.penalty`) |
+| 5, 14, 20, 27, 35, 43 | question | ❓ ฟ้า `#1565C0` | ควิซทั่วไป ก/ข/ค/ง (ได้เหรียญปกติ) |
+| 3, 9, 17, 24, 29, 39 | knowledge | 💡 ชมพู `#E91E63` | อ่านเกร็ด → สะสมการ์ด (10/คน) **ไม่มีคำถามทบทวนแล้ว** + ปุ่มสุ่มใหม่ · ไม่มี AR |
+| 8,16,26,33,40,45 (นอก) + 50,57,65,73 (ใน) | goldking | 👑 ทองเรืองแสง `#C9A227` | บทเรียน AR (คลิป 15 วิ + ลากคำตอบ) ชิงเหรียญกษัตริย์ — **10 ช่อง** ให้เก็บครบ 7 ได้ |
+| 32 | bonus | 💚 เขียว `#2E9E44` | การ์ดโบนัส (เหรียญ+ไอเทม) **+ เป็นจุดทางแยก** |
 
-ช่องที่เหลือ = `blank` (ช่องเดินเปล่า). ช่องแยก 46/48 = `coin`, 47 = `blank`
+- ช่องที่เหลือ = `blank` (ช่องเดินเปล่า โชว์เลข index)
+- **ช่อง 6, 12, 36 = `blank` แต่เป็นจุดทางแยก** (อย่าใส่ช่องพิเศษทับจุดแยก — คำถาม/ไอคอนจะโดน ForkOverlay บัง)
+- **`TileType` เหลือแค่ `question` / `knowledge` / `goldking` / `bonus` / `penalty` / `blank`** — type `start`/`mission`/`chance`/`coin`/`king`/`special` ถูกลบออกจาก type แล้ว (ช่อง 0 = penalty ไม่มี +100 ผ่าน START)
 
-### ทางแยกที่ช่อง 32
-- `32.next = [33, 46]` — 33 = "สายปัญญา" (ผ่านช่องภารกิจ 35), 46 = "สายทรัพย์" (ช่องเหรียญ 46,48)
-- ทั้งสองเส้นมา **บรรจบที่ช่อง 36**
-- เมื่อหมากเดินถึง 32 แล้วยังมีแต้มเหลือ → หยุด `phase: 'forking'` + `pendingFork` → เด้ง `ForkOverlay` ให้เลือก → `chooseBranch(dest)` เดินต่อ
-- ถ้า **ลงพอดี**ช่อง 32 (แต้มเหลือ 0) → ได้การ์ดโบนัสก่อน แล้วทางแยกจะเด้งเทิร์นถัดไป (ก้าวแรก)
+### ทางแยก 4 จุด (fork) — เอนจิน generic ตาม `next.length > 1`
+| จุดแยก | next | เส้นใน (label) | บรรจบ |
+|---|---|---|---|
+| 6 | [7, 61] | เส้น C = 61–69 (`7ก`–`7ฌ`) | 11 |
+| 12 | [13, 70] | เส้น D = 70–76 (`13ก`–`13ช`) | 14 |
+| 32 | [33, 46] | เส้น A = 46–54 (`33ก`–`33ฌ`) | 36 |
+| 36 | [37, 55] | เส้น B = 55–60 (`37ก`–`37ฉ`) | 40 |
 
-### การแสดงเลข/ไอคอนบนกระดาน (`BoardImage.tsx`)
-- ช่องมีไอคอน (พิเศษ) → โชว์ **ไอคอน** (ไม่มีเลข)
-- ช่องเดินเปล่า → โชว์ **เลข index**
-- ช่องแยก (index ≥ 46) → ไม่โชว์เลข (เป็นทางลับ)
-- **ไม่มี toggle `showNumbers` แล้ว** (ถอดออก) — เลขบนช่องเปล่าแสดงเสมอ
-- โหมด `calibrate` (โหมดครู): โชว์เลขทุกช่อง + ลากปรับพิกัดได้ (`Calibrator`)
-- หมากผู้เล่นบนกระดานใช้ `KingPawnToken` + `Player.kingTokenId` เพื่อแสดงภาพ standee กษัตริย์จาก `/assets/chess/{order}.png`
-- `PawnToken` ยังเป็นลูกเต๋า 3D สำหรับ `DiceButton` เท่านั้น — **ห้ามเปลี่ยน `PawnToken` เป็นภาพกษัตริย์โดยตรง** เพราะจะทำให้ปุ่มทอยเสียความหมาย
+- เส้นในทุกช่องเป็น `blank` + มี `label` (เลขย่อย) โชว์บนกระดาน (ยกเว้นช่องทอง 50/57/65/73 ที่โชว์ 👑) · เดินเส้นในยาวกว่าสายนอก = ทางอ้อมเสี่ยง/คุ้ม
+- เดินผ่านจุดแยก (แต้มเหลือ) → `phase: 'forking'` + `pendingFork` → เด้ง `ForkOverlay` (`FORK_INFO` มีป้าย "เส้นหลัก 🛣️" / "ทางลับ 🗺️") → `chooseBranch(dest)` เดินต่อ
+- **ลงพอดี**จุดแยก → resolve ช่องนั้นก่อน (32=โบนัส · 6/12/36=blank ไม่มีการ์ด) แล้วทางแยกเด้งเทิร์นถัดไป (ก้าวแรก)
+- `metadata` ใน JSON: `forkTiles`/`rejoinTiles` (เป็นคอมเมนต์ล้วน โค้ดไม่อ่าน อ่านแค่ `loopSize`)
+
+### การแสดงเลข/ไอคอน/หมาก (`BoardImage.tsx`)
+- ช่องพิเศษ → **ป้ายสีเต็มวงตามชนิด** (ขอบขาว) + ไอคอน · **ช่องทอง 👑 เด่นสุด** (ทองไล่เฉด + เรืองแสง glow + ใหญ่กว่า)
+- ช่องเดินเปล่าวงนอก → โชว์ **เลข index** · ช่องเลนแยก blank → โชว์ **label ทอง** (`33ก`)
+- **zIndex:** เลข/label < ไอคอนช่อง (gold=2) < เงาหมาก(9) < **หมากผู้เล่น(10)** — หมากอยู่บนสุดเสมอ ไม่โดนไอคอนบัง
+- โหมด `calibrate` (โหมดครู): ลากปรับพิกัดได้ (`Calibrator`) + ปุ่มคัดลอก JSON
+- หมากผู้เล่น = `KingPawnToken` + `Player.kingTokenId` → standee `/assets/chess/{order}.png`
+- `PawnToken` = ลูกเต๋า 3D สำหรับ `DiceButton` เท่านั้น — **ห้ามเปลี่ยนเป็นภาพกษัตริย์**
 
 ## Turn Loop & Movement (`store.ts`)
 
@@ -78,79 +85,86 @@ Stack: React 18 + TypeScript + Zustand (state) + Vite. ไม่มี test runn
 roll() → rolling(หมุน) → moving → runMovement()
   runMovement: เดินทีละก้าวตาม TILES[cur].next
     - เจอ next.length > 1  → set phase 'forking' + pendingFork → return (รอ chooseBranch)
-    - stepTo(): ก้าว 1 ช่อง + เสียง + โบนัสผ่าน START (dest===0)
+    - stepTo(): ก้าว 1 ช่อง + เสียง (tile 0 ไม่มี passReward แล้ว)
   ครบแต้ม → resolveLanding()
-    - coin      → +เหรียญทันที → finishTurn
     - goldking  → หาพระองค์ถัดไปที่ยังไม่มีเหรียญ (KING_IDS.find) → pendingEvent kind 'goldking'
-    - อื่น ๆ    → makeTileEvent → pendingEvent (UI เปิด CardModal)
-    - blank/start → finishTurn เลย
-chooseBranch(dest): stepTo(dest) แล้ว runMovement(remaining-1)
-finishTurn(): เช็กชนะ (kingCoins≥7) → ถ้าทอย 6 เล่นต่อ ไม่งั้นส่งเทิร์น + เช็ก maxRounds
+    - penalty/question/knowledge/bonus → makeTileEvent → pendingEvent (UI เปิด CardModal)
+    - blank → finishTurn เลย
+chooseBranch(dest): stepTo(dest) แล้ว runMovement(remaining-1)   ← นับก้าวผ่าน fork ถูกต้อง (verified)
+finishTurn(): เช็กชนะ (kingCoins≥7) → ถ้าทอย 6 เล่นต่อ ไม่งั้นหาผู้เล่นถัดไป
+              โดย **ข้ามคนที่ skipNext>0** (ลด skipNext ลง 1) — ไม่มีเช็ก maxRounds แล้ว
 ```
 
 - `resolveLanding`/`runMovement`/`stepTo`/`finishTurn` เป็น module functions ท้ายไฟล์ (hoisted)
-- `applyChance` ย้ายหมากแบบ `%LOOP` (teleport) — ใช้กับช่องโชควงนอกเท่านั้น (ไม่แตะช่องแยก)
+- `applyChance` ย้ายหมากแบบ `%LOOP` — ปลอดภัยเพราะไม่มีช่องโชคแล้ว (เลิกถูกเรียก); ถ้าจะเพิ่มช่องโชคคืน **ห้ามวางในเลนแยก** (index≥46 จะคำนวณผิด)
+- `applyPenalty(back, skip)`: ถอยหลัง N ช่องบนวงนอก (`(pos-back+LOOP)%LOOP`) และ/หรือสะสม `skipNext`
 
-## Card / เนื้อหา
+## Card / เนื้อหา (`CardModal.tsx`)
 
-- `CardModal.tsx` เปิดตาม `pendingEvent.kind`: question / **goldking** / knowledge / mission / chance / **bonus** (บล็อก `king` เดิมถูกลบแล้ว — ไม่มีช่องประเภทนี้)
-  - **goldking = AR เท่านั้น** (`ARGoldChallenge.tsx` เต็มจอ): ส่องกล้อง → คลิปวิดีโอ 15 วิ (placeholder, เสียบจริงผ่าน `King.arVideo`) → **ลากคำตอบที่ถูกไปวางช่อง** (drag-to-slot, pointer events) → ถูก = `answerKingCoin(correct, kingId)`. คำถามใช้ `getQuizForKing` แต่แสดงเป็นชิปลาก
-  - goldking: `tile.kingId` เป็น null แต่ store คำนวณ "พระองค์ถัดไป" ใส่มาใน event ตอน resolveLanding
-  - question (เหลือง) = UI ควิซปกติ (`isQuizKind`) → `answerQuiz(...)` (ได้เหรียญปกติ ไม่ใช่เหรียญกษัตริย์)
-- **ช่องภารกิจ (ฟ้า) = โจทย์ปรนัย ก/ข/ค/ง** (ไม่ใช่ mini-game เรียง/จับคู่แล้ว — `MissionGame.tsx` ถูกลบ). `MissionCard = { question, choices[] }`
-- **ช่องความรู้ (ชมพู) = การ์ดสะสม (ไม่มี AR)** — `Player.knowledgeCards` เก็บได้สูงสุด 10 ใบ/คน, สุ่มไม่ซ้ำจากทั้งคลัง (ไม่ผูกกับพระองค์ของช่อง) ผ่าน `getRandomKnowledge(excludeIds)`. แต่ละใบมีเกร็ด + คำถามทวน ก/ข/ค/ง ของตัวเอง + ปุ่ม **"🎲 สุ่มใหม่"** (re-roll การ์ดที่ยังไม่มี). action `collectKnowledge(cardId, kingId, coins)` (ให้เหรียญเฉพาะใบใหม่ + มาร์ก lessonProgress)
-- **AR ใช้เฉพาะช่องทองเท่านั้น** (`ARGoldChallenge`). ถอด AR ออกจากการ์ดความรู้ + พิพิธภัณฑ์ (`KingDetailModal`) แล้ว และ **ลบ `ARLauncher.tsx` (poster maker) ทิ้ง**. `settings.arEnabled` ตอนนี้ = สวิตช์ "เปิดกล้องช่องทอง" (ปิดได้ในโหมดครู → บทเรียนเล่นบนพื้นหลังเข้มแทน ยังชนะได้)
-- `content.ts`: `getQuizForKing` / `getMissionForKing` / `getRandomKnowledge` / `getRandomChance` (+ `KNOWLEDGE_CAP=10`) — `cards.json` มีควิซ ~2 ข้อ/พระองค์, ภารกิจ 1 ข้อ/พระองค์, ความรู้ 14 ใบ
-- 7 พระองค์ + ข้อมูล AR อยู่ใน `kings.json` (`KING_IDS` เรียงตามลำดับเวลา = ลำดับที่ต้องเก็บเหรียญ 1→7)
+เปิดตาม `pendingEvent.kind`: **question / goldking / knowledge / bonus / penalty** (บล็อก king/mission/chance ลบออกจากโค้ดแล้ว)
+- **goldking = AR เท่านั้น** (`ARGoldChallenge.tsx` เต็มจอ): กล้อง → คลิป 15 วิ (placeholder, `King.arVideo`) → **ลากคำตอบไปวางช่อง** (drag-to-slot) → ถูก = `answerKingCoin(correct, kingId)` (+เหรียญ 120) → สเตจ done โชว์ **ภาพเหรียญพระองค์นั้นหมุนเด้ง**
+  - **คำใบ้ด้วยเหรียญ:** ปุ่ม "💡 ใช้คำใบ้ · จ่าย 🪙 60" (`buyHint`/`HINT_PRICE`) ตัดคำตอบผิด 2 ข้อ (ครั้งเดียว/คำถาม)
+  - `tile.kingId` เป็น null แต่ store คำนวณ "พระองค์ถัดไป" ใส่ event ตอน resolveLanding
+- **question (ฟ้า)** = UI ควิซปกติ (`isQuizKind`) → `answerQuiz(...)` ได้เหรียญปกติ (ไม่ใช่เหรียญกษัตริย์) · รองรับ 50:50/ข้ามคำถาม/×2
+- **knowledge (ชมพู)** = การ์ดสะสม (ไม่มี AR, ไม่มีคำถามทบทวน) — อ่านเกร็ด → กด "เก็บ" ได้ 🪙 30 (เฉพาะใบใหม่) + ปุ่ม "🎲 สุ่มใหม่". `Player.knowledgeCards` ≤10 ใบ/คน สุ่มไม่ซ้ำ (`getRandomKnowledge`). `collectKnowledge(cardId, coins)`
+- **penalty (แดง)** = การ์ด "ช่องทำโทษ" → กดรับ → `applyPenalty(...)` (ถอย/หยุดพัก)
+- **bonus (เขียว)** = เหรียญ 80 + ไอเทมสุ่ม แล้วก้าวต่อได้เลือกทางแยก
+- `content.ts`: `getQuizForKing` / `getRandomKnowledge` (+ `KNOWLEDGE_CAP=10`) — `cards.json` เหลือแค่ `quiz` (~2 ข้อ/พระองค์ = 14) + `knowledge` (14 ใบ) · mission/chance ถูกลบออกจาก JSON แล้ว
+- 7 พระองค์อยู่ใน `kings.json` (`KING_IDS` เรียงตามลำดับเวลา = ลำดับที่ต้องเก็บเหรียญ 1→7)
 
 ## ระบบเสริม
 
 - **คอมโบ:** ตอบถูกติดกัน → ตัวคูณเหรียญ (`comboMult`, `streak`)
-- **ไอเทม:** `fiftyFifty` / `skip` / `double` (`items`, `ITEM_META`) ได้จากการ์ดโชค/โบนัส
-- **เควสประจำเกม + บอสทบทวน:** `dailyQuest`, `bossCleared` (`QuestPanel.tsx`) — อิง `lessonProgress`
-- **AR:** เหลือเฉพาะ**ช่องทอง** (`ARGoldChallenge.tsx`) — กล้อง + คลิป 15 วิ (placeholder) + ลากคำตอบ. `settings.arEnabled` = เปิด/ปิดกล้อง (ปิดแล้วยังเล่นชนะได้บนพื้นหลังเข้ม). วิดีโอจริงเสียบผ่าน `King.arVideo` (ดู `AR-IDEAS.md`). **`ARLauncher.tsx` (poster maker) ถูกลบแล้ว**
-- **หมากกษัตริย์:** ภาพ PNG อยู่ที่ `public/assets/chess/1.png` ถึง `7.png`; mapping ใช้ `king.order` จาก `kings.json` ผ่าน `src/core/kingAssets.ts`
-- **Multiplayer UI:** component อ่านผู้เล่นปัจจุบันด้วย `players[currentPlayerIndex]` (KingCollection, QuestPanel, CollectionMuseumModal, KingDetailModal, landscape). landscape มี "แถบผู้เล่น" ไฮไลต์คนที่ถึงตา + HUD `👑 x/7`
-- **เอฟเฟกต์:** `fx` signal (id เปลี่ยน) → UI เฝ้าดูเพื่อเล่นคอนเฟตติ/เหรียญเด้ง/จอสั่น (`Confetti`, `Mascot`)
+- **ไอเทม:** `fiftyFifty` / `skip` / `double` (`items`, `ITEM_META`) — ได้จากช่องโบนัส **หรือซื้อในร้านค้า**
+- **💰 ร้านค้าไอเทม (coin sink):** `ShopModal.tsx` เปิดจากปุ่ม 🛒 แถบขวา → `buyItem(type)` หักเหรียญ (`ITEM_PRICE`: 50:50=80, skip=120, ×2=150) · + คำใบ้ AR (`buyHint`, `HINT_PRICE=60`) เป็น coin sink ที่ผูกกับเงื่อนไขชนะ
+- **~~เควส + บอสทบทวน~~ ถูกลบแล้ว** (`QuestPanel.tsx` + `dailyQuest`/`bossCleared`/`completeBossReview`/`QUESTS`/`DailyQuest`/`QuestKind` เอาออกหมด)
+- **AR:** เฉพาะ**ช่องทอง** (`ARGoldChallenge.tsx`). `settings.arEnabled` = เปิด/ปิดกล้อง (ปิดแล้วเล่นบนพื้นหลังเข้ม ยังชนะได้). **`ARLauncher.tsx` (poster maker) ถูกลบแล้ว**
+- **หมากกษัตริย์:** PNG `public/assets/chess/1.png..7.png` (ลำดับตาม `king.order`) ผ่าน `getKingPawnImage`
+- **เหรียญกษัตริย์ (ภาพ):** PNG `public/assets/coins/{king.id}.png` ผ่าน `getKingCoinImage` (source ไทยอยู่ root `Coin/`) — โชว์ผ่าน `KingCoinRow.tsx` (ช่องเก็บเหรียญ ได้แล้ว=ทองเรือง/ยังไม่ได้=จางเส้นประ) ที่ **HUD (มุมขวาบน) · GameOver · พิพิธภัณฑ์ · การ์ด AR · KingDetailModal**
+- **HUD (landscape):** แถวเหรียญ 7 พระองค์ (`KingCoinRow`, ขนาด responsive) + "👑 x/7" มุมขวาบน · **ถอดตัวนับเทิร์นออกแล้ว** (เหลือ ⚙️/🏠)
+- **พิพิธภัณฑ์ (`CollectionMuseumModal`):** อิง **เหรียญล้วน** (ไม่มีดาว/เรียนรู้แล้ว) — ชั้นโชว์เหรียญ 7 พระองค์ + การ์ดที่เหรียญเป็นพระเอก (ได้แล้ว=เปิดดูข้อมูล/ยังไม่ได้=จาง). `KingDetailModal` timeline ก็อิง kingCoins
+- **เอฟเฟกต์:** `fx` signal (`{id, kind, coins, kingId?}`) → UI เฝ้าดู: คอนเฟตติ/เหรียญเด้ง/จอสั่น · **`fx.kingId`** = เด้งเหรียญพระองค์นั้นฉลองกลางจอตอนชนะเหรียญกษัตริย์ (`Confetti`, `Mascot`)
 
 ## แผนผังไฟล์
 
 ```
 src/
   core/
-    store.ts        ← state + กติกาทั้งหมด (Zustand) · export TILES, LOOP, useGame
-    types.ts        ← Tile, King, Player, Card types
+    store.ts        ← state + กติกาทั้งหมด (Zustand) · export TILES, LOOP, useGame, ITEM_META, ITEM_PRICE, HINT_PRICE
+    types.ts        ← Tile, King, Player, Card, PenaltyConfig types
     content.ts      ← อ่าน JSON เนื้อหา (คัด/สุ่มการ์ด)
-    kingAssets.ts   ← mapping id พระมหากษัตริย์ → ภาพหมาก `/assets/chess/{order}.png`
+    kingAssets.ts   ← id พระองค์ → หมาก `/assets/chess/{order}.png` + เหรียญ `/assets/coins/{id}.png`
     diceLogic.ts    ← rollDie, isBonusRoll
-    sfx.ts          ← เสียง
+    sfx.ts          ← เสียง (Web Audio) + เพลงพื้นหลัง (startBackgroundMusic ใน App.tsx)
   data/
-    board-layout.json  ← ผังช่อง + next[] (กราฟ)
-    board-points.json  ← พิกัด % ของแต่ละช่อง (index-aligned)
+    board-layout.json  ← ผังช่อง 0–76 + next[] (กราฟ) + penalty/label
+    board-points.json  ← พิกัด % ของ 77 ช่อง (index-aligned)
     kings.json         ← 7 พระองค์
-    cards.json         ← ควิซ/ภารกิจ/ความรู้/โชค
+    cards.json         ← ควิซ (quiz) + ความรู้ (knowledge) เท่านั้น
   components/
-    BoardImage.tsx  ← กระดาน (ภาพ + ไอคอน/เลข/หมากกษัตริย์/calibrate)
-    CardModal.tsx   ← การ์ดทุกชนิด (question/knowledge/mission/chance/bonus + launcher ช่องทอง)
-    ARGoldChallenge.tsx ← บทเรียน AR ช่องทอง (กล้อง + คลิป 15 วิ + ลากคำตอบ)
-    KingPawnToken.tsx ← ภาพหมาก standee กษัตริย์สำหรับผู้เล่น
-    PawnToken.tsx   ← ลูกเต๋า 3D สำหรับ DiceButton (โชว์แต้มที่ทอยได้บนหน้าเด่น)
-    KingCollection.tsx, QuestPanel.tsx, ItemBar.tsx, DiceButton.tsx, ...
+    BoardImage.tsx  ← กระดาน (ภาพ + ไอคอนสีเต็มวง/เลข/label/หมาก/calibrate)
+    CardModal.tsx   ← การ์ด question/knowledge/penalty/bonus + launcher ช่องทอง
+    ARGoldChallenge.tsx ← บทเรียน AR ช่องทอง (กล้อง + คลิป 15 วิ + ลากคำตอบ + คำใบ้เหรียญ)
+    ShopModal.tsx   ← ร้านค้าไอเทม (ใช้เหรียญซื้อ)
+    KingCoinRow.tsx ← แถวช่องเก็บเหรียญ 7 พระองค์ (ใช้ซ้ำ HUD/GameOver/museum)
+    KingPawnToken.tsx / PawnToken.tsx / KingCollection.tsx / CollectionMuseumModal.tsx /
+    KingDetailModal.tsx / ItemBar.tsx / DiceButton.tsx / Confetti.tsx / Mascot.tsx ...
   screens/
-    Home/           ← เลือกจำนวนผู้เล่น + เริ่ม
-    GameBoard/      ← index (เลือก layout) + portrait + landscape (มี ForkOverlay)
-    GameOver/       ← จัดอันดับด้วย kingCoins
-    Settings/       ← Teacher Mode
+    Home/        ← เลือกจำนวนผู้เล่น + เริ่ม
+    GameBoard/   ← index (เลือก layout) + portrait + landscape (มี ForkOverlay + ShopModal)
+    GameOver/    ← จัดอันดับด้วย kingCoins + แถวเหรียญ
+    Settings/    ← Teacher Mode (ไม่มี maxRounds แล้ว)
   theme/tokens.ts   ← สี/ไอคอน/ป้ายของแต่ละ tile type
-public/assets/board.png  ← ภาพกระดานจริง (ไม่มีเลขพิมพ์ — เลขคือ index ที่โค้ดใส่)
-public/assets/chess/1.png..7.png  ← ภาพหมากกษัตริย์ 7 พระองค์ (ลำดับตาม `kings.json.order`)
+public/assets/board.png            ← ภาพกระดาน (เลข/ไอคอนคือ overlay ที่โค้ดใส่)
+public/assets/chess/1.png..7.png   ← หมากกษัตริย์ 7 พระองค์ (ลำดับตาม king.order)
+public/assets/coins/{king.id}.png  ← เหรียญกษัตริย์ 7 พระองค์
 ```
 
 ## ข้อควรระวัง
 
-- แก้ `Player` ต้องอัปเดตทุกที่ที่สร้าง player (มีที่เดียว: `setupGame` ใน store.ts); ตอนนี้มี `kingTokenId` เพิ่มสำหรับภาพหมาก
-- ถ้าเปลี่ยนชื่อ/ลำดับไฟล์หมากใน `public/assets/chess/` ต้องเช็ก `kings.json.order` และ `kingAssets.ts` พร้อมกัน
-- โฟลเดอร์ root `Chess/` เป็นแหล่งไฟล์ต้นฉบับที่ผู้ใช้วางไว้; runtime/deploy ใช้ไฟล์ใน `public/assets/chess/`
-- ตำแหน่งช่องพิเศษ 10/23/37 ถูกกำหนดสี (question/chance) โดยยังปรับได้ง่ายใน `board-layout.json`
-- พิกัดช่องแยก 46–48 ใน `board-points.json` เป็นค่าชั่วคราว → ปรับในโหมด calibrate ให้ตรงทางแยกวงในบนภาพ
+- แก้ `Player` ต้องอัปเดตที่สร้าง player (ที่เดียว: `setupGame` ใน store.ts); ฟิลด์ปัจจุบัน: `id`, `name`, `token`, `kingTokenId`, `position`, `coins`, `kingCoins`, `skipNext`, `knowledgeCards` (เท่านั้น)
+- **ตำแหน่งช่องพิเศษ/ทางแยกปรับใน `board-layout.json`** — อย่าวางช่องพิเศษ (question/knowledge/goldking) ทับจุดแยก 6/12/32/36 (จะโดน ForkOverlay บัง)
+- **`board-points.json` มี 77 จุด** (0–45 วงนอก, 46–76 เลนแยก 4 เส้น) ต้องเท่ากับจำนวน tiles เสมอ · พิกัดเลนแยกปรับในโหมด calibrate
+- ถ้าเปลี่ยนชื่อ/ลำดับไฟล์หมากใน `public/assets/chess/` ต้องเช็ก `kings.json.order` + `kingAssets.ts`; เหรียญใน `public/assets/coins/` ตั้งชื่อตาม `king.id` (source ไทยอยู่ root `Coin/`)
+- **ล้าง dead code รอบใหญ่ (2026-07-05):** ลบ `lessonProgress`/`unlockedKings`/`markLessonStep`/`completeLessonStep` · `mission`/`chance` (tile types + card blocks + `getMissionForKing`/`getRandomChance`/`applyChance` + `MissionCard`/`ChanceCard` + ข้อมูลใน cards.json) · `arStickers`/`arPosters`/`saveArPoster`/`collectArSticker`/`ArPoster` · tile types `start`/`coin`/`king`/`special` · เควส/บอส (รอบก่อน). `KingCollection` + พิพิธภัณฑ์เปลี่ยนเป็นอิงเหรียญล้วน. ถ้าจะเพิ่มระบบเรียนรู้/ภารกิจกลับมา ต้องสร้างใหม่ทั้ง type + action + UI
 - เนื้อหาประวัติศาสตร์/ปีศักราชทั้งหมดเป็นตัวอย่าง ต้องให้ครู/ผู้เชี่ยวชาญตรวจก่อนเผยแพร่ · โมเดล/ภาพพระบรมราชานุสาวรีย์ต้องทำอย่างสมพระเกียรติ

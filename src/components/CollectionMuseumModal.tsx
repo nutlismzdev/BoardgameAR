@@ -1,22 +1,14 @@
 import { useState } from 'react';
 import { useGame } from '@/core/store';
 import { KINGS } from '@/core/content';
-import { getKingPawnImage } from '@/core/kingAssets';
+import { getKingCoinImage } from '@/core/kingAssets';
+import { KingCoinRow } from './KingCoinRow';
 import { color, radius, elevation } from '@/theme/tokens';
 import { KingDetailModal } from './KingDetailModal';
-import type { LessonProgress } from '@/core/types';
-
-function stars(progress?: LessonProgress): number {
-  if (!progress) return 0;
-  return [progress.knowledge, progress.quiz, progress.mission].filter(Boolean).length;
-}
 
 export function CollectionMuseumModal({ onClose }: { onClose: () => void }) {
   const player = useGame((s) => s.players[s.currentPlayerIndex]);
-  const unlocked = player?.unlockedKings ?? [];
-  const progress = player?.lessonProgress ?? {};
-  const stickers = player?.arStickers ?? {};
-  const posters = player?.arPosters ?? [];
+  const coins = player?.kingCoins ?? []; // เหรียญกษัตริย์ที่เก็บได้ — เก็บครบ 7 = ชนะ
   const [detail, setDetail] = useState<string | null>(null);
 
   return (
@@ -47,7 +39,7 @@ export function CollectionMuseumModal({ onClose }: { onClose: () => void }) {
           <div style={{ flex: 1 }}>
             <h2 style={{ margin: 0, color: color.primary, fontSize: 30 }}>🏛️ พิพิธภัณฑ์ 7 มหาราช</h2>
             <p style={{ margin: '4px 0 0', color: color.textMuted, fontSize: 18 }}>
-              แตะการ์ดที่ปลดล็อกแล้วเพื่อทบทวน พระองค์ละ 3 ดาว: รู้ · ถาม · ทำ
+              เก็บเหรียญกษัตริย์ให้ครบ 7 พระองค์ · แตะเหรียญที่ได้แล้วเพื่อดูข้อมูล
             </p>
           </div>
           <button onClick={onClose} style={closeBtn}>
@@ -55,166 +47,113 @@ export function CollectionMuseumModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
+        {/* ชั้นโชว์เหรียญที่สะสม — เหรียญกษัตริย์เป็นพระเอก */}
+        <div style={shelf}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: color.primary }}>
+            🪙 เหรียญกษัตริย์ที่สะสม {coins.length}/7
+          </div>
+          <div style={{ maxWidth: '100%', overflowX: 'auto', paddingBottom: 2 }}>
+            <KingCoinRow collected={coins} size={54} gap={10} />
+          </div>
+        </div>
+
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
             gap: 14,
           }}
         >
           {KINGS.map((king) => {
-            const isUnlocked = unlocked.includes(king.id);
-            const count = stars(progress[king.id]);
+            const won = coins.includes(king.id); // ได้เหรียญกษัตริย์แล้ว (ช่องมงกุฎ AR)
             return (
               <button
                 key={king.id}
-                disabled={!isUnlocked}
-                onClick={() => isUnlocked && setDetail(king.id)}
+                disabled={!won}
+                onClick={() => won && setDetail(king.id)}
                 style={{
                   fontFamily: 'inherit',
-                  textAlign: 'left',
-                  border: `2px solid ${isUnlocked ? king.themeColor : '#D8CDBD'}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 8,
+                  border: `2px solid ${won ? '#E9B93C' : '#D8CDBD'}`,
                   borderRadius: radius.md,
-                  background: isUnlocked ? '#ffffffdd' : '#ffffff88',
-                  padding: 14,
-                  minHeight: 150,
-                  boxShadow: isUnlocked ? '0 6px 14px rgba(0,0,0,.14)' : 'none',
-                  opacity: isUnlocked ? 1 : 0.72,
-                  cursor: isUnlocked ? 'pointer' : 'default',
+                  background: won ? 'linear-gradient(165deg,#FFFDF4,#FBF0D2)' : '#ffffff88',
+                  padding: '18px 12px',
+                  minHeight: 168,
+                  boxShadow: won ? '0 6px 16px rgba(201,162,39,.3)' : 'none',
+                  opacity: won ? 1 : 0.82,
+                  cursor: won ? 'pointer' : 'default',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                  <div
+                {/* เหรียญ — พระเอกของการ์ด */}
+                <div
+                  style={{
+                    width: 88,
+                    height: 88,
+                    borderRadius: '50%',
+                    display: 'grid',
+                    placeItems: 'center',
+                    overflow: 'hidden',
+                    background: won
+                      ? 'radial-gradient(circle at 35% 30%, #FFF4C4, #E9B93C)'
+                      : 'rgba(0,0,0,.05)',
+                    border: won ? '3px solid #fff' : '2px dashed rgba(90,60,20,.3)',
+                    boxShadow: won
+                      ? '0 0 12px rgba(255,193,7,.85), inset 0 1px 2px #fff'
+                      : 'inset 0 1px 3px rgba(0,0,0,.12)',
+                  }}
+                >
+                  <img
+                    src={getKingCoinImage(king.id)}
+                    alt=""
+                    draggable={false}
                     style={{
-                      width: 48,
-                      height: 54,
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#fff',
-                      fontSize: 20,
-                      fontWeight: 900,
-                      background: isUnlocked
-                        ? `radial-gradient(circle at 32% 28%, #ffffffaa, ${king.themeColor})`
-                        : 'radial-gradient(circle at 32% 28%, #ddd, #888)',
-                      overflow: 'hidden',
+                      width: '86%',
+                      height: '86%',
+                      objectFit: 'contain',
+                      display: 'block',
+                      filter: won ? 'none' : 'grayscale(1) opacity(.4)',
                     }}
-                  >
-                    {isUnlocked ? (
-                      <img
-                        src={getKingPawnImage(king.id)}
-                        alt=""
-                        draggable={false}
-                        style={{ width: '86%', height: '100%', objectFit: 'contain', display: 'block' }}
-                      />
-                    ) : (
-                      '🔒'
-                    )}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: isUnlocked ? color.text : color.textMuted }}>
-                      {isUnlocked ? king.name.split('(')[0].trim() : 'ยังไม่ปลดล็อก'}
-                    </div>
-                    <div style={{ fontSize: 16, color: color.textMuted }}>{king.era}</div>
-                  </div>
+                  />
                 </div>
-                <div style={{ fontSize: 25, letterSpacing: 2 }}>
-                  {'★'.repeat(count)}
-                  <span style={{ opacity: 0.25 }}>{'★'.repeat(3 - count)}</span>
-                </div>
-                <div style={{ marginTop: 8, fontSize: 16, color: color.textMuted }}>
-                  {isUnlocked ? 'แตะเพื่อดูข้อมูล' : `เรียนรู้แล้ว ${count}/3 ขั้น`}
-                </div>
-                {(stickers[king.id]?.length ?? 0) > 0 && (
-                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 10 }}>
-                    {stickers[king.id].slice(0, 3).map((sticker) => (
-                      <span key={sticker} style={stickerChip}>
-                        {sticker}
-                      </span>
-                    ))}
+
+                {/* พระนาม + ยุค */}
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: won ? color.text : color.textMuted, lineHeight: 1.2 }}>
+                    {won ? king.name.split('(')[0].trim() : '❓ ยังไม่ได้เหรียญ'}
                   </div>
-                )}
+                  <div style={{ fontSize: 15, color: color.textMuted, marginTop: 2 }}>{king.era}</div>
+                </div>
+
+                {/* สถานะเหรียญ */}
+                <div style={{ fontSize: 14, fontWeight: 800, color: won ? '#8a6d00' : color.textMuted }}>
+                  {won ? '🪙 ได้เหรียญแล้ว · แตะดูข้อมูล ›' : 'ยังไม่ได้เหรียญ'}
+                </div>
               </button>
             );
           })}
         </div>
-
-        <section style={{ marginTop: 24 }}>
-          <h3 style={{ margin: '0 0 10px', fontSize: 24, color: color.primary }}>
-            🧩 สติกเกอร์ AR ที่สะสม
-          </h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {Object.entries(stickers).flatMap(([kingId, list]) => {
-              const king = KINGS.find((k) => k.id === kingId);
-              return list.map((sticker) => (
-                <span key={`${kingId}-${sticker}`} style={{ ...stickerChip, fontSize: 16 }}>
-                  {king?.order ?? '•'} · {sticker}
-                </span>
-              ));
-            })}
-            {Object.values(stickers).flat().length === 0 && (
-              <p style={{ margin: 0, fontSize: 18, color: color.textMuted }}>
-                ยังไม่มีสติกเกอร์ ลองเปิด AR แล้วแตะเก็บคำสำคัญ
-              </p>
-            )}
-          </div>
-        </section>
-
-        <section style={{ marginTop: 24 }}>
-          <h3 style={{ margin: '0 0 10px', fontSize: 24, color: color.primary }}>
-            🖼️ โปสเตอร์ AR ของฉัน
-          </h3>
-          {posters.length === 0 ? (
-            <p style={{ margin: 0, fontSize: 18, color: color.textMuted }}>
-              ยังไม่มีโปสเตอร์ เปิด AR แล้วกด “ทำโปสเตอร์ AR”
-            </p>
-          ) : (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                gap: 12,
-              }}
-            >
-              {posters.map((poster) => {
-                const king = KINGS.find((k) => k.id === poster.kingId);
-                return (
-                  <a
-                    key={poster.id}
-                    href={poster.imageDataUrl}
-                    download={`ar-poster-${poster.kingId}.png`}
-                    style={{
-                      color: color.text,
-                      textDecoration: 'none',
-                      background: '#ffffffdd',
-                      borderRadius: radius.md,
-                      padding: 10,
-                      border: `2px solid ${king?.themeColor ?? color.secondary}`,
-                      boxShadow: '0 4px 12px rgba(0,0,0,.12)',
-                    }}
-                  >
-                    <img
-                      src={poster.imageDataUrl}
-                      alt={`โปสเตอร์ AR ${king?.name ?? ''}`}
-                      style={{ width: '100%', display: 'block', borderRadius: radius.sm }}
-                    />
-                    <div style={{ fontSize: 17, fontWeight: 800, marginTop: 8 }}>
-                      {king?.name.split('(')[0].trim() ?? 'โปสเตอร์ AR'}
-                    </div>
-                    <div style={{ fontSize: 15, color: color.textMuted }}>แตะเพื่อดาวน์โหลด</div>
-                  </a>
-                );
-              })}
-            </div>
-          )}
-        </section>
       </div>
 
       {detail && <KingDetailModal kingId={detail} onSelect={setDetail} onClose={() => setDetail(null)} />}
     </div>
   );
 }
+
+const shelf: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: 12,
+  padding: '16px 18px',
+  marginBottom: 18,
+  borderRadius: radius.lg,
+  background: 'linear-gradient(165deg, #FFF9E8, #F3E3B8)',
+  border: `2px solid ${color.secondary}66`,
+  boxShadow: 'inset 0 1px 0 #fff, 0 4px 14px rgba(90,60,20,.14)',
+};
 
 const closeBtn: React.CSSProperties = {
   fontFamily: 'inherit',
@@ -227,18 +166,4 @@ const closeBtn: React.CSSProperties = {
   fontSize: 18,
   fontWeight: 800,
   cursor: 'pointer',
-};
-
-const stickerChip: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: 30,
-  borderRadius: radius.pill,
-  background: '#FFF9E6',
-  border: `1.5px solid ${color.secondary}`,
-  color: color.text,
-  padding: '5px 10px',
-  fontSize: 13,
-  fontWeight: 800,
-  lineHeight: 1.2,
 };
