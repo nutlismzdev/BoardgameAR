@@ -1,5 +1,8 @@
 import { getKingPawnImage } from '@/core/kingAssets';
 
+// หมาก standee กษัตริย์ — บังคับขนาด width+height เป็น px ทั้งคู่บน <img> โดยตรง
+// (ห้ามใช้ height:100% ในกล่อง grid/flex เพราะ iOS Safari บางเวอร์ชันจะเรนเดอร์ที่ขนาดจริงของไฟล์
+//  ทำให้รูปทะลุกล่อง + หลุดตำแหน่งบนกระดาน) · ภาพจริงเป็น portrait สูง (aspect ~0.34)
 export function KingPawnToken({
   kingId,
   size,
@@ -9,34 +12,21 @@ export function KingPawnToken({
   size: number;
   label?: string;
 }) {
-  const tokenHeight = size;
-  const tokenWidth = size * 0.62;
-
   return (
-    <div
+    <img
+      src={getKingPawnImage(kingId)}
+      alt={label ?? 'หมากกษัตริย์'}
       title={label}
+      draggable={false}
       style={{
-        width: tokenWidth,
-        height: tokenHeight,
-        position: 'relative',
-        display: 'grid',
-        placeItems: 'end center',
-        filter: 'drop-shadow(0 4px 4px rgba(0,0,0,.38))',
+        width: size * 0.5,
+        height: size,
+        objectFit: 'contain',
+        objectPosition: 'center bottom',
+        display: 'block',
+        filter: 'drop-shadow(0 3px 3px rgba(0,0,0,.38))',
+        pointerEvents: 'none',
       }}
-    >
-      <img
-        src={getKingPawnImage(kingId)}
-        alt={label ?? 'หมากกษัตริย์'}
-        draggable={false}
-        style={{
-          width: 'auto',
-          height: '100%',
-          maxWidth: '100%',
-          objectFit: 'contain',
-          display: 'block',
-          transformOrigin: '50% 100%',
-        }}
-      />
-    </div>
+    />
   );
 }
