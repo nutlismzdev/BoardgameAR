@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGame, TILES, LOOP } from '@/core/store';
 import boardPoints from '@/data/board-points.json';
 import { color, radius, tileIcon, tileColor, tileLabel } from '@/theme/tokens';
@@ -21,12 +21,27 @@ export function BoardImage({ size }: { size: number }) {
   const showTileIcons = useGame((s) => s.settings.showTileIcons);
   const [loaded, setLoaded] = useState(false);
 
+  // วัดความกว้างกระดาน "จริง" ที่เรนเดอร์ — บนแท็บเล็ตกระดานอาจถูก maxHeight/maxWidth บีบให้เล็กกว่า `size`
+  // ถ้าใช้ `size` ตรงๆ หมากจะใหญ่เกินจริง + หลุดตำแหน่งลงล่าง (เพราะจัดด้วย translate(-78%) อิงความสูงตัวเอง)
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [boardW, setBoardW] = useState(size);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const update = () => setBoardW(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const currentPos = players[currentIdx]?.position ?? 0;
-  // ภาพหมากทั้ง 7 ไฟล์สูงไม่เท่ากัน จึงกำหนด size เป็น "ความสูง" ให้ทุกตัวเท่ากัน
-  const pawn = Math.max(26, size * 0.038);
+  // ขนาดหมาก/ไอคอนอิงความกว้างกระดานจริง (boardW) เพื่อให้ตรงพิกัด % เสมอทุกขนาดจอ
+  const pawn = Math.max(26, boardW * 0.038);
 
   return (
     <div
+      ref={rootRef}
       style={{
         width: size,
         maxWidth: '100%',
