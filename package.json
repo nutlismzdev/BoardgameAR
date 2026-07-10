@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local": "vite --host 127.0.0.1 --port 5174",
+    "api": "php -S 127.0.0.1:8000 -t server",
     "build": "tsc && vite build",
     "preview": "vite preview --host"
   },

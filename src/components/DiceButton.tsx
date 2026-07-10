@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useGame } from '@/core/store';
+import { sfx } from '@/core/sfx';
 import { color, radius } from '@/theme/tokens';
 import { PawnToken } from './PawnToken';
 
@@ -49,7 +50,10 @@ export function DiceButton({ size = 72 }: { size?: number }) {
       </div>
 
       <button
-        onClick={() => roll()}
+        onClick={() => {
+          sfx.tap();
+          void roll();
+        }}
         disabled={busy}
         style={{
           fontFamily: 'inherit',
@@ -62,7 +66,11 @@ export function DiceButton({ size = 72 }: { size?: number }) {
           padding: '12px 32px',
           minHeight: 52,
           cursor: busy ? 'default' : 'pointer',
-          boxShadow: '0 4px 12px rgba(139,0,0,.35)',
+          boxShadow: busy
+            ? '0 3px 8px rgba(70,45,15,.18)'
+            : '0 6px 16px rgba(139,0,0,.42), 0 0 0 0 rgba(139,0,0,.32)',
+          animation: busy ? undefined : 'rollButtonPulse 1.6s ease-in-out infinite',
+          transform: 'translateZ(0)',
         }}
       >
         {rolling ? 'กำลังทอย…' : phase === 'moving' || phase === 'resolving' ? 'กำลังเดิน…' : '🎲 ทอยลูกเต๋า'}
@@ -80,6 +88,10 @@ export function DiceButton({ size = 72 }: { size?: number }) {
           0%{transform:scale(1.5) rotate(-12deg)}
           60%{transform:scale(.92) rotate(4deg)}
           100%{transform:scale(1) rotate(0)}
+        }
+        @keyframes rollButtonPulse{
+          0%,100%{transform:translateY(0) scale(1);box-shadow:0 6px 16px rgba(139,0,0,.42),0 0 0 0 rgba(139,0,0,.28)}
+          50%{transform:translateY(-2px) scale(1.03);box-shadow:0 10px 22px rgba(139,0,0,.5),0 0 0 8px rgba(139,0,0,0)}
         }
       `}</style>
     </div>

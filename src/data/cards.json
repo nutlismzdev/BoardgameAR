@@ -731,5 +731,1183 @@
         }
       ]
     }
+  ],
+  "subject": [
+    {
+      "id": "sub_ramkhamhaeng_social",
+      "kingId": "king_ramkhamhaeng",
+      "subject": "social",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "พ่อขุนรามคำแหงมหาราชทรงประดิษฐ์สิ่งใดที่เป็นรากฐานของภาษาไทยปัจจุบัน?",
+      "choices": [
+        {
+          "text": "อักษรไทย (ลายสือไทย)",
+          "correct": true
+        },
+        {
+          "text": "อักษรขอม",
+          "correct": false
+        },
+        {
+          "text": "อักษรมอญ",
+          "correct": false
+        },
+        {
+          "text": "อักษรจีน",
+          "correct": false
+        }
+      ],
+      "explanation": "ทรงประดิษฐ์ลายสือไทเมื่อ พ.ศ. 1826 เป็นต้นแบบของอักษรไทยที่ใช้อยู่ในปัจจุบัน"
+    },
+    {
+      "id": "sub_ramkhamhaeng_math",
+      "kingId": "king_ramkhamhaeng",
+      "subject": "math",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 30,
+      "question": "ศิลาจารึกหลักที่ 1 มีอายุราว พ.ศ. 1835 หากปัจจุบันคือ พ.ศ. 2567 ศิลาจารึกมีอายุประมาณกี่ปี?",
+      "choices": [
+        {
+          "text": "732 ปี",
+          "correct": true
+        },
+        {
+          "text": "632 ปี",
+          "correct": false
+        },
+        {
+          "text": "832 ปี",
+          "correct": false
+        },
+        {
+          "text": "700 ปี",
+          "correct": false
+        }
+      ],
+      "explanation": "คำนวณจาก 2567 − 1835 = 732 ปี"
+    },
+    {
+      "id": "sub_ramkhamhaeng_science",
+      "kingId": "king_ramkhamhaeng",
+      "subject": "science",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "เหตุใดข้อความบนศิลาจารึกหินจึงคงอยู่ได้นานหลายร้อยปี?",
+      "choices": [
+        {
+          "text": "เพราะหินแข็งและทนต่อการผุกร่อน",
+          "correct": true
+        },
+        {
+          "text": "เพราะหินเบา",
+          "correct": false
+        },
+        {
+          "text": "เพราะหินละลายน้ำได้",
+          "correct": false
+        },
+        {
+          "text": "เพราะหินนำไฟฟ้า",
+          "correct": false
+        }
+      ],
+      "explanation": "หินเป็นวัสดุที่แข็งแรงและทนต่อลม ฝน แดด จึงเก็บรักษาข้อมูลได้นาน"
+    },
+    {
+      "id": "sub_ramkhamhaeng_art",
+      "kingId": "king_ramkhamhaeng",
+      "subject": "art",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "เจดีย์ทรงพุ่มข้าวบิณฑ์ (ทรงดอกบัวตูม) เป็นเอกลักษณ์ของศิลปะสมัยใด?",
+      "choices": [
+        {
+          "text": "สุโขทัย",
+          "correct": true
+        },
+        {
+          "text": "อยุธยา",
+          "correct": false
+        },
+        {
+          "text": "รัตนโกสินทร์",
+          "correct": false
+        },
+        {
+          "text": "ล้านนา",
+          "correct": false
+        }
+      ],
+      "explanation": "เจดีย์ทรงพุ่มข้าวบิณฑ์เป็นสถาปัตยกรรมเด่นของศิลปะสุโขทัย"
+    },
+    {
+      "id": "sub_ramkhamhaeng_health_pe",
+      "kingId": "king_ramkhamhaeng",
+      "subject": "health_pe",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "กีฬาและศิลปะการต่อสู้ประจำชาติไทยที่สืบทอดมาแต่โบราณคือข้อใด?",
+      "choices": [
+        {
+          "text": "มวยไทย",
+          "correct": true
+        },
+        {
+          "text": "กอล์ฟ",
+          "correct": false
+        },
+        {
+          "text": "เทนนิส",
+          "correct": false
+        },
+        {
+          "text": "สเก็ตน้ำแข็ง",
+          "correct": false
+        }
+      ],
+      "explanation": "มวยไทยเป็นศิลปะการต่อสู้และการออกกำลังกายที่อยู่คู่คนไทยมาช้านาน"
+    },
+    {
+      "id": "sub_ramkhamhaeng_foreign_language",
+      "kingId": "king_ramkhamhaeng",
+      "subject": "foreign_language",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "คำภาษาอังกฤษว่า 'stone' ตรงกับคำไทยว่าอะไร (เกี่ยวกับศิลาจารึก)?",
+      "choices": [
+        {
+          "text": "หิน",
+          "correct": true
+        },
+        {
+          "text": "น้ำ",
+          "correct": false
+        },
+        {
+          "text": "ไม้",
+          "correct": false
+        },
+        {
+          "text": "ดิน",
+          "correct": false
+        }
+      ],
+      "explanation": "stone แปลว่า หิน ซึ่งเป็นวัสดุที่ใช้ทำศิลาจารึก"
+    },
+    {
+      "id": "sub_naresuan_social",
+      "kingId": "king_naresuan",
+      "subject": "social",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "สมเด็จพระนเรศวรมหาราชทรงประกาศอิสรภาพให้กรุงศรีอยุธยาพ้นจากการเป็นเมืองขึ้นของชาติใด?",
+      "choices": [
+        {
+          "text": "พม่า",
+          "correct": true
+        },
+        {
+          "text": "เขมร",
+          "correct": false
+        },
+        {
+          "text": "จีน",
+          "correct": false
+        },
+        {
+          "text": "ฝรั่งเศส",
+          "correct": false
+        }
+      ],
+      "explanation": "ทรงประกาศอิสรภาพจากพม่าเมื่อ พ.ศ. 2127"
+    },
+    {
+      "id": "sub_naresuan_math",
+      "kingId": "king_naresuan",
+      "subject": "math",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 30,
+      "question": "พระนเรศวรประกาศอิสรภาพ พ.ศ. 2127 และทรงกระทำยุทธหัตถี พ.ศ. 2135 เหตุการณ์สองอย่างนี้ห่างกันกี่ปี?",
+      "choices": [
+        {
+          "text": "8 ปี",
+          "correct": true
+        },
+        {
+          "text": "5 ปี",
+          "correct": false
+        },
+        {
+          "text": "10 ปี",
+          "correct": false
+        },
+        {
+          "text": "12 ปี",
+          "correct": false
+        }
+      ],
+      "explanation": "คำนวณจาก 2135 − 2127 = 8 ปี"
+    },
+    {
+      "id": "sub_naresuan_science",
+      "kingId": "king_naresuan",
+      "subject": "science",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "ยุทธหัตถีคือการต่อสู้บนหลังช้าง ช้างจัดอยู่ในสัตว์กลุ่มใด?",
+      "choices": [
+        {
+          "text": "สัตว์เลี้ยงลูกด้วยนม",
+          "correct": true
+        },
+        {
+          "text": "สัตว์เลื้อยคลาน",
+          "correct": false
+        },
+        {
+          "text": "สัตว์ปีก",
+          "correct": false
+        },
+        {
+          "text": "สัตว์ครึ่งบกครึ่งน้ำ",
+          "correct": false
+        }
+      ],
+      "explanation": "ช้างเป็นสัตว์เลี้ยงลูกด้วยนม ออกลูกเป็นตัวและเลี้ยงลูกด้วยนม"
+    },
+    {
+      "id": "sub_naresuan_art",
+      "kingId": "king_naresuan",
+      "subject": "art",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "อนุสรณ์สถานที่สร้างขึ้นเพื่อรำลึกวีรกรรมยุทธหัตถีของสมเด็จพระนเรศวรคือข้อใด?",
+      "choices": [
+        {
+          "text": "พระเจดีย์ยุทธหัตถี (ดอนเจดีย์) จ.สุพรรณบุรี",
+          "correct": true
+        },
+        {
+          "text": "พระธาตุพนม",
+          "correct": false
+        },
+        {
+          "text": "พระบรมธาตุนครศรีธรรมราช",
+          "correct": false
+        },
+        {
+          "text": "วัดอรุณราชวราราม",
+          "correct": false
+        }
+      ],
+      "explanation": "พระเจดีย์ยุทธหัตถีที่ดอนเจดีย์ จังหวัดสุพรรณบุรี สร้างเพื่อรำลึกชัยชนะยุทธหัตถี"
+    },
+    {
+      "id": "sub_naresuan_health_pe",
+      "kingId": "king_naresuan",
+      "subject": "health_pe",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "ศิลปะการต่อสู้ป้องกันตัวที่นักรบไทยสมัยอยุธยาฝึกฝนเพื่อใช้ในสงครามคือข้อใด?",
+      "choices": [
+        {
+          "text": "มวยไทย",
+          "correct": true
+        },
+        {
+          "text": "ยูโด",
+          "correct": false
+        },
+        {
+          "text": "คาราเต้",
+          "correct": false
+        },
+        {
+          "text": "เทควันโด",
+          "correct": false
+        }
+      ],
+      "explanation": "มวยไทยเป็นศิลปะการต่อสู้ที่นักรบไทยฝึกเพื่อใช้ในการสงคราม"
+    },
+    {
+      "id": "sub_naresuan_foreign_language",
+      "kingId": "king_naresuan",
+      "subject": "foreign_language",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "คำว่า 'freedom' ในภาษาอังกฤษ ตรงกับคำไทยว่าอะไร (เช่น การประกาศ___ ของพระนเรศวร)?",
+      "choices": [
+        {
+          "text": "อิสรภาพ",
+          "correct": true
+        },
+        {
+          "text": "สงคราม",
+          "correct": false
+        },
+        {
+          "text": "การค้า",
+          "correct": false
+        },
+        {
+          "text": "ความพ่ายแพ้",
+          "correct": false
+        }
+      ],
+      "explanation": "freedom แปลว่า อิสรภาพ ตรงกับการประกาศอิสรภาพของสมเด็จพระนเรศวร"
+    },
+    {
+      "id": "sub_narai_social",
+      "kingId": "king_narai",
+      "subject": "social",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "สมเด็จพระนารายณ์มหาราชทรงส่งคณะราชทูต (โกษาปาน) ไปเจริญสัมพันธไมตรีกับประเทศใด?",
+      "choices": [
+        {
+          "text": "ฝรั่งเศส",
+          "correct": true
+        },
+        {
+          "text": "อังกฤษ",
+          "correct": false
+        },
+        {
+          "text": "จีน",
+          "correct": false
+        },
+        {
+          "text": "ญี่ปุ่น",
+          "correct": false
+        }
+      ],
+      "explanation": "ทรงส่งออกญาโกษาปานไปเข้าเฝ้าพระเจ้าหลุยส์ที่ 14 แห่งฝรั่งเศส"
+    },
+    {
+      "id": "sub_narai_math",
+      "kingId": "king_narai",
+      "subject": "math",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 30,
+      "question": "สมเด็จพระนารายณ์มหาราชครองราชย์ พ.ศ. 2199–2231 รวมครองราชย์กี่ปี?",
+      "choices": [
+        {
+          "text": "32 ปี",
+          "correct": true
+        },
+        {
+          "text": "30 ปี",
+          "correct": false
+        },
+        {
+          "text": "25 ปี",
+          "correct": false
+        },
+        {
+          "text": "40 ปี",
+          "correct": false
+        }
+      ],
+      "explanation": "คำนวณจาก 2231 − 2199 = 32 ปี"
+    },
+    {
+      "id": "sub_narai_science",
+      "kingId": "king_narai",
+      "subject": "science",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "ปรากฏการณ์ที่ดวงอาทิตย์หรือดวงจันทร์ถูกบดบัง ซึ่งมีการสังเกตที่ลพบุรีสมัยพระนารายณ์ เรียกว่าอะไร?",
+      "choices": [
+        {
+          "text": "อุปราคา (สุริยุปราคา/จันทรุปราคา)",
+          "correct": true
+        },
+        {
+          "text": "แผ่นดินไหว",
+          "correct": false
+        },
+        {
+          "text": "น้ำขึ้นน้ำลง",
+          "correct": false
+        },
+        {
+          "text": "ฟ้าร้อง",
+          "correct": false
+        }
+      ],
+      "explanation": "สมัยพระนารายณ์มีการดูอุปราคาที่ลพบุรีร่วมกับนักดาราศาสตร์ชาวฝรั่งเศส"
+    },
+    {
+      "id": "sub_narai_art",
+      "kingId": "king_narai",
+      "subject": "art",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "รัชสมัยสมเด็จพระนารายณ์เป็นยุคทองของวรรณคดี กวีเอกคนสำคัญในสมัยนี้คือใคร?",
+      "choices": [
+        {
+          "text": "ศรีปราชญ์",
+          "correct": true
+        },
+        {
+          "text": "สุนทรภู่",
+          "correct": false
+        },
+        {
+          "text": "ศรีธนญชัย",
+          "correct": false
+        },
+        {
+          "text": "เจ้าฟ้าธรรมธิเบศร",
+          "correct": false
+        }
+      ],
+      "explanation": "ศรีปราชญ์และพระโหราธิบดีเป็นกวีเอกในสมัยสมเด็จพระนารายณ์ (สุนทรภู่อยู่สมัยรัตนโกสินทร์)"
+    },
+    {
+      "id": "sub_narai_health_pe",
+      "kingId": "king_narai",
+      "subject": "health_pe",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "ภูมิปัญญาไทยด้านการดูแลสุขภาพด้วยสมุนไพรที่สืบทอดมาแต่โบราณ จัดอยู่ในศาสตร์ใด?",
+      "choices": [
+        {
+          "text": "การแพทย์แผนไทย",
+          "correct": true
+        },
+        {
+          "text": "การเดินเรือ",
+          "correct": false
+        },
+        {
+          "text": "ดาราศาสตร์",
+          "correct": false
+        },
+        {
+          "text": "การก่อสร้าง",
+          "correct": false
+        }
+      ],
+      "explanation": "การใช้สมุนไพรรักษาโรคเป็นภูมิปัญญาการแพทย์แผนไทยที่ช่วยดูแลสุขภาพ"
+    },
+    {
+      "id": "sub_narai_foreign_language",
+      "kingId": "king_narai",
+      "subject": "foreign_language",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "คำว่า 'France' หมายถึงประเทศใด (ชาติที่สมเด็จพระนารายณ์ทรงเจริญสัมพันธไมตรี)?",
+      "choices": [
+        {
+          "text": "ฝรั่งเศส",
+          "correct": true
+        },
+        {
+          "text": "อังกฤษ",
+          "correct": false
+        },
+        {
+          "text": "โปรตุเกส",
+          "correct": false
+        },
+        {
+          "text": "เนเธอร์แลนด์",
+          "correct": false
+        }
+      ],
+      "explanation": "France คือประเทศฝรั่งเศส ที่พระนารายณ์ทรงส่งราชทูตไปเจริญสัมพันธไมตรี"
+    },
+    {
+      "id": "sub_taksin_social",
+      "kingId": "king_taksin",
+      "subject": "social",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "สมเด็จพระเจ้าตากสินมหาราชทรงกอบกู้เอกราชแล้วสถาปนาราชธานีใหม่ที่ใด?",
+      "choices": [
+        {
+          "text": "กรุงธนบุรี",
+          "correct": true
+        },
+        {
+          "text": "กรุงศรีอยุธยา",
+          "correct": false
+        },
+        {
+          "text": "กรุงสุโขทัย",
+          "correct": false
+        },
+        {
+          "text": "กรุงเทพมหานคร",
+          "correct": false
+        }
+      ],
+      "explanation": "ทรงสถาปนากรุงธนบุรีเป็นราชธานีหลังกอบกู้เอกราชเมื่อ พ.ศ. 2310"
+    },
+    {
+      "id": "sub_taksin_math",
+      "kingId": "king_taksin",
+      "subject": "math",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 30,
+      "question": "กรุงธนบุรีเป็นราชธานีตั้งแต่ พ.ศ. 2310 ถึง พ.ศ. 2325 รวมเป็นราชธานีนานกี่ปี?",
+      "choices": [
+        {
+          "text": "15 ปี",
+          "correct": true
+        },
+        {
+          "text": "10 ปี",
+          "correct": false
+        },
+        {
+          "text": "20 ปี",
+          "correct": false
+        },
+        {
+          "text": "25 ปี",
+          "correct": false
+        }
+      ],
+      "explanation": "คำนวณจาก 2325 − 2310 = 15 ปี"
+    },
+    {
+      "id": "sub_taksin_science",
+      "kingId": "king_taksin",
+      "subject": "science",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "กองทัพเรือสมัยกรุงธนบุรีใช้เรือเดินทางทางน้ำ เรือลอยน้ำได้เพราะหลักการทางวิทยาศาสตร์ข้อใด?",
+      "choices": [
+        {
+          "text": "แรงลอยตัว (แรงพยุงของน้ำ)",
+          "correct": true
+        },
+        {
+          "text": "แรงแม่เหล็ก",
+          "correct": false
+        },
+        {
+          "text": "แสงอาทิตย์",
+          "correct": false
+        },
+        {
+          "text": "ลมพายุ",
+          "correct": false
+        }
+      ],
+      "explanation": "น้ำมีแรงพยุง (แรงลอยตัว) ดันวัตถุขึ้น ทำให้เรือลอยน้ำได้"
+    },
+    {
+      "id": "sub_taksin_art",
+      "kingId": "king_taksin",
+      "subject": "art",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "กรุงธนบุรีตั้งอยู่ริมแม่น้ำใด ซึ่งมีวัดอรุณราชวรารามเป็นวัดสำคัญ?",
+      "choices": [
+        {
+          "text": "แม่น้ำเจ้าพระยา",
+          "correct": true
+        },
+        {
+          "text": "แม่น้ำโขง",
+          "correct": false
+        },
+        {
+          "text": "แม่น้ำปิง",
+          "correct": false
+        },
+        {
+          "text": "แม่น้ำน่าน",
+          "correct": false
+        }
+      ],
+      "explanation": "กรุงธนบุรีตั้งอยู่ริมแม่น้ำเจ้าพระยา บริเวณที่ตั้งวัดอรุณราชวราราม"
+    },
+    {
+      "id": "sub_taksin_health_pe",
+      "kingId": "king_taksin",
+      "subject": "health_pe",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "มวยไทยใช้ส่วนใดของร่างกายเป็นอาวุธ ตามคำเรียก \"นวอาวุธ\" (8 อาวุธ)?",
+      "choices": [
+        {
+          "text": "หมัด ศอก เข่า และเท้า",
+          "correct": true
+        },
+        {
+          "text": "เฉพาะหมัด",
+          "correct": false
+        },
+        {
+          "text": "เฉพาะเท้า",
+          "correct": false
+        },
+        {
+          "text": "ใช้ดาบและโล่",
+          "correct": false
+        }
+      ],
+      "explanation": "มวยไทยใช้หมัด ศอก เข่า เท้า เป็นอาวุธ จึงเรียกว่าศิลปะแห่งนวอาวุธ (8 อาวุธ)"
+    },
+    {
+      "id": "sub_taksin_foreign_language",
+      "kingId": "king_taksin",
+      "subject": "foreign_language",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "คำว่า 'king' ในภาษาอังกฤษ ตรงกับตำแหน่งใดของสมเด็จพระเจ้าตากสิน?",
+      "choices": [
+        {
+          "text": "พระมหากษัตริย์",
+          "correct": true
+        },
+        {
+          "text": "ทหาร",
+          "correct": false
+        },
+        {
+          "text": "พ่อค้า",
+          "correct": false
+        },
+        {
+          "text": "ชาวนา",
+          "correct": false
+        }
+      ],
+      "explanation": "king แปลว่า พระมหากษัตริย์ หรือพระราชา"
+    },
+    {
+      "id": "sub_rama1_social",
+      "kingId": "king_rama1",
+      "subject": "social",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "พระบาทสมเด็จพระพุทธยอดฟ้าจุฬาโลกมหาราช (รัชกาลที่ 1) ทรงสถาปนากรุงรัตนโกสินทร์ (กรุงเทพฯ) เมื่อ พ.ศ. ใด?",
+      "choices": [
+        {
+          "text": "พ.ศ. 2325",
+          "correct": true
+        },
+        {
+          "text": "พ.ศ. 2310",
+          "correct": false
+        },
+        {
+          "text": "พ.ศ. 2394",
+          "correct": false
+        },
+        {
+          "text": "พ.ศ. 2411",
+          "correct": false
+        }
+      ],
+      "explanation": "ทรงสถาปนากรุงรัตนโกสินทร์เป็นราชธานีและตั้งราชวงศ์จักรีเมื่อ พ.ศ. 2325"
+    },
+    {
+      "id": "sub_rama1_math",
+      "kingId": "king_rama1",
+      "subject": "math",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 30,
+      "question": "กรุงรัตนโกสินทร์สถาปนาเมื่อ พ.ศ. 2325 หากปัจจุบันคือ พ.ศ. 2567 กรุงเทพฯ มีอายุกี่ปี?",
+      "choices": [
+        {
+          "text": "242 ปี",
+          "correct": true
+        },
+        {
+          "text": "200 ปี",
+          "correct": false
+        },
+        {
+          "text": "252 ปี",
+          "correct": false
+        },
+        {
+          "text": "300 ปี",
+          "correct": false
+        }
+      ],
+      "explanation": "คำนวณจาก 2567 − 2325 = 242 ปี"
+    },
+    {
+      "id": "sub_rama1_science",
+      "kingId": "king_rama1",
+      "subject": "science",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "การก่อสร้างพระบรมมหาราชวังในอดีตใช้ \"ปูน\" ซึ่งได้จากการเผาสิ่งใด?",
+      "choices": [
+        {
+          "text": "หินปูนหรือเปลือกหอย",
+          "correct": true
+        },
+        {
+          "text": "เม็ดทราย",
+          "correct": false
+        },
+        {
+          "text": "แผ่นเหล็ก",
+          "correct": false
+        },
+        {
+          "text": "ท่อนไม้",
+          "correct": false
+        }
+      ],
+      "explanation": "ปูนขาวได้จากการเผาหินปูนหรือเปลือกหอย เป็นความรู้ทางวิทยาศาสตร์เรื่องการเปลี่ยนแปลงของสาร"
+    },
+    {
+      "id": "sub_rama1_art",
+      "kingId": "king_rama1",
+      "subject": "art",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "วรรณคดีเรื่องใดที่พระบาทสมเด็จพระพุทธยอดฟ้าจุฬาโลกมหาราชทรงพระราชนิพนธ์ (ฉบับสมบูรณ์)?",
+      "choices": [
+        {
+          "text": "รามเกียรติ์",
+          "correct": true
+        },
+        {
+          "text": "พระอภัยมณี",
+          "correct": false
+        },
+        {
+          "text": "ขุนช้างขุนแผน",
+          "correct": false
+        },
+        {
+          "text": "อิเหนา",
+          "correct": false
+        }
+      ],
+      "explanation": "รัชกาลที่ 1 ทรงพระราชนิพนธ์บทละครเรื่องรามเกียรติ์ฉบับสมบูรณ์ (พระอภัยมณีเป็นผลงานสุนทรภู่)"
+    },
+    {
+      "id": "sub_rama1_health_pe",
+      "kingId": "king_rama1",
+      "subject": "health_pe",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "การเล่นว่าวและตะกร้อซึ่งเป็นการละเล่นไทย ช่วยพัฒนาด้านใดเป็นหลัก?",
+      "choices": [
+        {
+          "text": "การออกกำลังกายและความคล่องแคล่ว",
+          "correct": true
+        },
+        {
+          "text": "การอ่านหนังสือ",
+          "correct": false
+        },
+        {
+          "text": "การวาดภาพ",
+          "correct": false
+        },
+        {
+          "text": "การคำนวณเลข",
+          "correct": false
+        }
+      ],
+      "explanation": "การละเล่นไทยอย่างว่าวและตะกร้อช่วยให้ร่างกายแข็งแรงและคล่องแคล่ว"
+    },
+    {
+      "id": "sub_rama1_foreign_language",
+      "kingId": "king_rama1",
+      "subject": "foreign_language",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "คำว่า 'temple' ในภาษาอังกฤษ ตรงกับคำไทยว่าอะไร (เช่น วัดพระแก้วที่รัชกาลที่ 1 ทรงสร้าง)?",
+      "choices": [
+        {
+          "text": "วัด",
+          "correct": true
+        },
+        {
+          "text": "วัง",
+          "correct": false
+        },
+        {
+          "text": "บ้าน",
+          "correct": false
+        },
+        {
+          "text": "โรงเรียน",
+          "correct": false
+        }
+      ],
+      "explanation": "temple แปลว่า วัด เช่น Temple of the Emerald Buddha คือวัดพระแก้ว"
+    },
+    {
+      "id": "sub_rama4_social",
+      "kingId": "king_rama4",
+      "subject": "social",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "พระบาทสมเด็จพระจอมเกล้าเจ้าอยู่หัว (รัชกาลที่ 4) ทรงลงนามสนธิสัญญาเปิดการค้ากับอังกฤษ ชื่อสนธิสัญญาใด?",
+      "choices": [
+        {
+          "text": "สนธิสัญญาเบาว์ริง",
+          "correct": true
+        },
+        {
+          "text": "สนธิสัญญาเบอร์นี",
+          "correct": false
+        },
+        {
+          "text": "สนธิสัญญาปารีส",
+          "correct": false
+        },
+        {
+          "text": "สนธิสัญญาเจนีวา",
+          "correct": false
+        }
+      ],
+      "explanation": "สนธิสัญญาเบาว์ริงลงนามกับอังกฤษเมื่อ พ.ศ. 2398 เปิดการค้าเสรีกับตะวันตก"
+    },
+    {
+      "id": "sub_rama4_math",
+      "kingId": "king_rama4",
+      "subject": "math",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 30,
+      "question": "รัชกาลที่ 4 เสด็จทอดพระเนตรสุริยุปราคาที่หว้ากอเมื่อ พ.ศ. 2411 หากปัจจุบันคือ พ.ศ. 2567 ผ่านมากี่ปี?",
+      "choices": [
+        {
+          "text": "156 ปี",
+          "correct": true
+        },
+        {
+          "text": "100 ปี",
+          "correct": false
+        },
+        {
+          "text": "200 ปี",
+          "correct": false
+        },
+        {
+          "text": "146 ปี",
+          "correct": false
+        }
+      ],
+      "explanation": "คำนวณจาก 2567 − 2411 = 156 ปี"
+    },
+    {
+      "id": "sub_rama4_science",
+      "kingId": "king_rama4",
+      "subject": "science",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "รัชกาลที่ 4 ได้รับยกย่องเป็น \"พระบิดาแห่งวิทยาศาสตร์ไทย\" จากการคำนวณปรากฏการณ์ใดได้อย่างแม่นยำ?",
+      "choices": [
+        {
+          "text": "สุริยุปราคาเต็มดวง",
+          "correct": true
+        },
+        {
+          "text": "แผ่นดินไหว",
+          "correct": false
+        },
+        {
+          "text": "น้ำท่วมใหญ่",
+          "correct": false
+        },
+        {
+          "text": "พายุหมุน",
+          "correct": false
+        }
+      ],
+      "explanation": "ทรงคำนวณการเกิดสุริยุปราคาเต็มดวงที่หว้ากอได้ล่วงหน้าอย่างแม่นยำ เมื่อ พ.ศ. 2411"
+    },
+    {
+      "id": "sub_rama4_art",
+      "kingId": "king_rama4",
+      "subject": "art",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "ในสมัยรัชกาลที่ 4 เริ่มมีการนำเทคโนโลยีตะวันตกใดมาใช้บันทึกภาพเหมือนจริงเป็นครั้งแรก ๆ ในไทย?",
+      "choices": [
+        {
+          "text": "การถ่ายภาพ (กล้องถ่ายรูป)",
+          "correct": true
+        },
+        {
+          "text": "โทรทัศน์",
+          "correct": false
+        },
+        {
+          "text": "ภาพยนตร์เสียง",
+          "correct": false
+        },
+        {
+          "text": "คอมพิวเตอร์",
+          "correct": false
+        }
+      ],
+      "explanation": "การถ่ายภาพด้วยกล้องถ่ายรูปเริ่มแพร่หลายในราชสำนักไทยสมัยรัชกาลที่ 4"
+    },
+    {
+      "id": "sub_rama4_health_pe",
+      "kingId": "king_rama4",
+      "subject": "health_pe",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "ในสมัยรัชกาลที่ 4–5 เริ่มมีการแพทย์แบบตะวันตกเข้ามา วิธีป้องกันโรคระบาดที่ดีที่สุดคือข้อใด?",
+      "choices": [
+        {
+          "text": "รักษาความสะอาดและฉีดวัคซีน",
+          "correct": true
+        },
+        {
+          "text": "อดอาหาร",
+          "correct": false
+        },
+        {
+          "text": "ไม่ออกกำลังกาย",
+          "correct": false
+        },
+        {
+          "text": "นอนดึกเป็นประจำ",
+          "correct": false
+        }
+      ],
+      "explanation": "การรักษาความสะอาดและการฉีดวัคซีนช่วยป้องกันโรคระบาดได้อย่างมีประสิทธิภาพ"
+    },
+    {
+      "id": "sub_rama4_foreign_language",
+      "kingId": "king_rama4",
+      "subject": "foreign_language",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "รัชกาลที่ 4 ทรงรอบรู้ภาษาต่างประเทศ ภาษาใดที่ทรงใช้ติดต่อกับชาติตะวันตกและทรงเชี่ยวชาญ?",
+      "choices": [
+        {
+          "text": "ภาษาอังกฤษ",
+          "correct": true
+        },
+        {
+          "text": "ภาษาญี่ปุ่น",
+          "correct": false
+        },
+        {
+          "text": "ภาษาเกาหลี",
+          "correct": false
+        },
+        {
+          "text": "ภาษารัสเซีย",
+          "correct": false
+        }
+      ],
+      "explanation": "ทรงเชี่ยวชาญภาษาอังกฤษและภาษาละติน ใช้ติดต่อสื่อสารกับชาวตะวันตก"
+    },
+    {
+      "id": "sub_rama5_social",
+      "kingId": "king_rama5",
+      "subject": "social",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "พระราชกรณียกิจสำคัญด้านมนุษยธรรมของรัชกาลที่ 5 ที่ทำให้ได้รับพระนาม \"พระปิยมหาราช\" คือข้อใด?",
+      "choices": [
+        {
+          "text": "การเลิกทาส",
+          "correct": true
+        },
+        {
+          "text": "การสร้างกำแพงเมือง",
+          "correct": false
+        },
+        {
+          "text": "การเพิ่มภาษี",
+          "correct": false
+        },
+        {
+          "text": "การปิดประเทศ",
+          "correct": false
+        }
+      ],
+      "explanation": "ทรงเลิกทาสอย่างค่อยเป็นค่อยไปโดยไม่เสียเลือดเนื้อ จึงได้รับพระนามพระปิยมหาราช"
+    },
+    {
+      "id": "sub_rama5_math",
+      "kingId": "king_rama5",
+      "subject": "math",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 30,
+      "question": "รัชกาลที่ 5 ทรงเปิดการรถไฟหลวงสายแรก (กรุงเทพฯ–อยุธยา) เมื่อ พ.ศ. 2439 หากปัจจุบันคือ พ.ศ. 2567 รถไฟไทยมีอายุกี่ปี?",
+      "choices": [
+        {
+          "text": "128 ปี",
+          "correct": true
+        },
+        {
+          "text": "100 ปี",
+          "correct": false
+        },
+        {
+          "text": "150 ปี",
+          "correct": false
+        },
+        {
+          "text": "118 ปี",
+          "correct": false
+        }
+      ],
+      "explanation": "คำนวณจาก 2567 − 2439 = 128 ปี"
+    },
+    {
+      "id": "sub_rama5_science",
+      "kingId": "king_rama5",
+      "subject": "science",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "รัชกาลที่ 5 ทรงนำการสื่อสารสมัยใหม่เข้ามา อุปกรณ์ที่ส่งข้อความทางไกลด้วยสัญญาณไฟฟ้าในสมัยนั้นคือข้อใด?",
+      "choices": [
+        {
+          "text": "โทรเลข",
+          "correct": true
+        },
+        {
+          "text": "โทรทัศน์",
+          "correct": false
+        },
+        {
+          "text": "อินเทอร์เน็ต",
+          "correct": false
+        },
+        {
+          "text": "วิทยุติดตามตัว",
+          "correct": false
+        }
+      ],
+      "explanation": "โทรเลขส่งข้อความทางไกลด้วยสัญญาณไฟฟ้า เป็นเทคโนโลยีการสื่อสารที่เริ่มในสมัยรัชกาลที่ 5"
+    },
+    {
+      "id": "sub_rama5_art",
+      "kingId": "king_rama5",
+      "subject": "art",
+      "difficulty": "medium",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "พระที่นั่งที่สร้างสมัยรัชกาลที่ 5 ด้วยสถาปัตยกรรมตะวันตกและใช้หินอ่อน คือพระที่นั่งใด?",
+      "choices": [
+        {
+          "text": "พระที่นั่งอนันตสมาคม",
+          "correct": true
+        },
+        {
+          "text": "พระที่นั่งดุสิตมหาปราสาท",
+          "correct": false
+        },
+        {
+          "text": "ปราสาทพระเทพบิดร",
+          "correct": false
+        },
+        {
+          "text": "พระที่นั่งอมรินทรวินิจฉัย",
+          "correct": false
+        }
+      ],
+      "explanation": "พระที่นั่งอนันตสมาคมสร้างด้วยหินอ่อนแบบสถาปัตยกรรมตะวันตก เริ่มในสมัยรัชกาลที่ 5"
+    },
+    {
+      "id": "sub_rama5_health_pe",
+      "kingId": "king_rama5",
+      "subject": "health_pe",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "กีฬาชนิดใดที่นำเข้าจากตะวันตกและเริ่มนิยมเล่นในโรงเรียนและสนามหลวงสมัยรัชกาลที่ 5?",
+      "choices": [
+        {
+          "text": "ฟุตบอล",
+          "correct": true
+        },
+        {
+          "text": "อเมริกันฟุตบอล",
+          "correct": false
+        },
+        {
+          "text": "เบสบอล",
+          "correct": false
+        },
+        {
+          "text": "ฮอกกี้น้ำแข็ง",
+          "correct": false
+        }
+      ],
+      "explanation": "ฟุตบอลเริ่มเข้ามาและได้รับความนิยมในไทยช่วงปลายรัชกาลที่ 5"
+    },
+    {
+      "id": "sub_rama5_foreign_language",
+      "kingId": "king_rama5",
+      "subject": "foreign_language",
+      "difficulty": "easy",
+      "reward": 50,
+      "timeLimitSec": 25,
+      "question": "รัชกาลที่ 5 เสด็จประพาส 'Europe' เพื่อเจริญสัมพันธไมตรี คำว่า Europe หมายถึงอะไร?",
+      "choices": [
+        {
+          "text": "ทวีปยุโรป",
+          "correct": true
+        },
+        {
+          "text": "ทวีปเอเชีย",
+          "correct": false
+        },
+        {
+          "text": "ทวีปแอฟริกา",
+          "correct": false
+        },
+        {
+          "text": "ทวีปอเมริกา",
+          "correct": false
+        }
+      ],
+      "explanation": "Europe คือทวีปยุโรป ที่รัชกาลที่ 5 เสด็จประพาสเพื่อเจริญสัมพันธไมตรี"
+    }
   ]
 }

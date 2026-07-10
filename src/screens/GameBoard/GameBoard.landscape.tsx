@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGame } from '@/core/store';
 import type { FxKind } from '@/core/store';
 import { BoardImage } from '@/components/BoardImage';
@@ -14,6 +14,7 @@ import { SettingsPanel } from '@/screens/Settings/Settings';
 import { getKingPawnImage, getKingCoinImage } from '@/core/kingAssets';
 import { KingCoinRow } from '@/components/KingCoinRow';
 import { KINGS } from '@/core/content';
+import { useViewportSize } from '@/hooks/useViewportSize';
 import { color, radius } from '@/theme/tokens';
 
 const RATIO = 1489 / 1046; // สัดส่วนภาพกระดาน
@@ -31,6 +32,9 @@ export function GameBoardLandscape() {
   const chooseBranch = useGame((s) => s.chooseBranch);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
+  const playerRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const previousPlayerRef = useRef(currentIdx);
+  const [turnNotice, setTurnNotice] = useState<string | null>(null);
 
   // เอฟเฟกต์ฉลอง: คอนเฟตติ + เหรียญเด้ง + จอสั่นตอนปลดล็อก
   const [bursts, setBursts] = useState<{ id: number; kind: FxKind }[]>([]);
@@ -54,10 +58,28 @@ export function GameBoardLandscape() {
     return () => timers.forEach(clearTimeout);
   }, [fx?.id]);
 
+  useEffect(() => {
+    playerRefs.current[currentIdx]?.scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest',
+      behavior: 'smooth',
+    });
+
+    if (players.length > 1 && previousPlayerRef.current !== currentIdx) {
+      setTurnNotice(`ถึงตา ${players[currentIdx]?.name ?? 'ผู้เล่น'} แล้ว`);
+      const t = setTimeout(() => setTurnNotice(null), 1800);
+      previousPlayerRef.current = currentIdx;
+      return () => clearTimeout(t);
+    }
+    previousPlayerRef.current = currentIdx;
+  }, [currentIdx, players]);
+
   // ความกว้างแถบขวา (กินพื้นที่ที่ว่างเดิม — กระดานแทบไม่เล็กลงเพราะถูกจำกัดด้วยความสูงอยู่แล้ว)
-  const sidebar = Math.max(210, Math.min(300, window.innerWidth * 0.24));
-  const boardArea = window.innerWidth - sidebar - 24;
-  const boardSize = Math.min(boardArea, window.innerHeight * RATIO);
+  // อ่านผ่าน hook เพื่อให้ขนาดกระดานอัปเดตเมื่อ resize จริง (ไม่ค้างค่าเก่า)
+  const { w: vw, h: vh } = useViewportSize();
+  const sidebar = Math.max(280, Math.min(340, vw * 0.26));
+  const boardArea = vw - sidebar - 24;
+  const boardSize = Math.min(boardArea, vh * RATIO);
   // ขนาดเหรียญใน HUD ปรับตามขนาดกระดาน (responsive บนแท็บเล็ตทุกขนาด)
   const hudCoin = Math.round(Math.max(16, Math.min(24, boardSize * 0.03)));
 
@@ -78,6 +100,7 @@ export function GameBoardLandscape() {
     >
       {/* ชั้นตกแต่งพื้นหลัง (หลังทุกอย่าง) */}
       <TableBackdrop />
+      <div style={motionFrame} />
 
       {/* พื้นที่กระดาน (พระเอก) */}
       <div
@@ -95,6 +118,8 @@ export function GameBoardLandscape() {
 
         {/* HUD เหรียญ ลอยซ้ายบนของกระดาน */}
         <div style={{ ...pill, top: 10, left: 10 }}>
+          <span>{renderHearts(player?.hearts ?? 3)}</span>
+          <span style={{ opacity: 0.35 }}>|</span>
           🪙 <b style={{ color: color.secondary }}>{player?.coins ?? 0}</b>
           {/* +N เหรียญเด้งลอยขึ้น */}
           {coinPops.map((c) => (
@@ -202,63 +227,70 @@ export function GameBoardLandscape() {
           </button>
         </div>
 
-        {/* แถบผู้เล่น (หลายคน) — ไฮไลต์คนที่ถึงตา */}
+        {/* แถบผู้เล่น (หลายคน) — แยกสถานะให้ครูเห็นชัด ไม่เบียดการ์ดเหรียญกษัตริย์ */}
         {players.length > 1 && (
-          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
-            {players.map((p, i) => (
-              <div
-                key={p.id}
-                style={{
-                  flex: '0 0 auto',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  padding: '5px 10px',
-                  borderRadius: radius.pill,
-                  fontWeight: 700,
-                  fontSize: 14,
-                  background: i === currentIdx ? color.primary : 'rgba(255,255,255,.75)',
-                  color: i === currentIdx ? '#fff' : color.text,
-                  boxShadow: i === currentIdx ? '0 2px 8px rgba(139,0,0,.35)' : 'none',
-                }}
-              >
-                <img
-                  src={getKingPawnImage(p.kingTokenId)}
-                  alt=""
-                  draggable={false}
-                  style={{ width: 24, height: 30, objectFit: 'contain', display: 'block' }}
-                />
-                <span>👑{p.kingCoins.length}</span>
-                <span style={{ opacity: 0.85 }}>🪙{p.coins}</span>
-              </div>
-            ))}
-          </div>
+          <section style={playerPanel}>
+            <div style={playerPanelHeader}>
+              <span>ผู้เล่น</span>
+              <strong style={currentTurnText}>ถึงตา {player?.name ?? 'ผู้เล่น'}</strong>
+            </div>
+            <div style={playerStrip}>
+              {players.map((p, i) => {
+                const active = i === currentIdx;
+                return (
+                  <div
+                    key={p.id}
+                    ref={(el) => {
+                      playerRefs.current[i] = el;
+                    }}
+                    style={active ? activePlayerCard : playerCard}
+                  >
+                    <img
+                      src={getKingPawnImage(p.kingTokenId)}
+                      alt=""
+                      draggable={false}
+                      style={{ width: 22, height: 28, objectFit: 'contain', display: 'block', flexShrink: 0 }}
+                    />
+                    <div style={playerMain}>
+                      <div style={playerName}>{p.name}</div>
+                      <div style={active ? activeTurnLabel : turnLabel}>
+                        {active ? 'กำลังเล่น' : p.skipNext > 0 ? 'พักฟื้น' : 'รอเล่น'}
+                      </div>
+                    </div>
+                    <div style={playerStats}>
+                      <span style={active ? activePlayerBadge : playerBadge} title="หัวใจ">
+                        ❤️ {p.hearts}
+                      </span>
+                      <span style={active ? activePlayerBadge : playerBadge} title="เหรียญ">
+                        🪙 {p.coins}
+                      </span>
+                      <span style={active ? activePlayerBadge : playerBadge} title="เหรียญกษัตริย์">
+                        👑 {p.kingCoins.length}/7
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         )}
 
         {/* การ์ดสะสมมหาราช (ยืดเต็มความสูงที่เหลือ) */}
-        <div style={{ flex: 1, minHeight: 0 }}>
+        <div style={collectionSlot}>
           <KingCollection />
         </div>
 
-        {/* ร้านค้าไอเทม (ใช้เหรียญซื้อ) + แถบไอเทมที่มี */}
-        <button onClick={() => setShopOpen(true)} style={shopBtn}>
-          🛒 ร้านค้าไอเทม
-        </button>
-        <ItemBar />
+        <div style={bottomControls}>
+          {/* ร้านค้าไอเทม (ใช้เหรียญซื้อ) + แถบไอเทมที่มี */}
+          <button onClick={() => setShopOpen(true)} style={shopBtn}>
+            🛒 ร้านค้าไอเทม
+          </button>
+          <ItemBar />
 
-        {/* ปุ่มทอยลูกเต๋า (การ์ด 3D) */}
-        <div
-          style={{
-            background: 'linear-gradient(160deg, #FFFDF8, #F3E7CF)',
-            borderRadius: radius.lg,
-            border: `1.5px solid ${color.secondary}55`,
-            boxShadow: '0 8px 20px rgba(90,60,20,.2), inset 0 1px 0 #fff',
-            padding: '10px 8px',
-            display: 'flex',
-            justifyContent: 'center',
-          }}
-        >
-          <DiceButton size={56} />
+          {/* ปุ่มทอยลูกเต๋า (การ์ด 3D) */}
+          <div style={diceCard}>
+            <DiceButton size={52} />
+          </div>
         </div>
       </aside>
 
@@ -268,6 +300,13 @@ export function GameBoardLandscape() {
       )}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
       {shopOpen && <ShopModal onClose={() => setShopOpen(false)} />}
+
+      {turnNotice && (
+        <div style={turnToast}>
+          <span style={{ fontSize: 26 }}>🎲</span>
+          <span>{turnNotice}</span>
+        </div>
+      )}
 
       {/* คอนเฟตติฉลอง */}
       {bursts.map((b) => (
@@ -307,24 +346,64 @@ export function GameBoardLandscape() {
         @keyframes coinPop{0%{transform:translate(-50%,0);opacity:0}20%{opacity:1}100%{transform:translate(-50%,-38px);opacity:0}}
         @keyframes comboPulse{0%{transform:scale(1.25)}100%{transform:scale(1)}}
         @keyframes coinWin{0%{transform:scale(.2) rotateY(0);opacity:0}22%{opacity:1}62%{transform:scale(1.18) rotateY(720deg)}100%{transform:scale(1) rotateY(720deg);opacity:1}}
+        @keyframes turnToastIn{0%{transform:translate(-50%,-14px) scale(.96);opacity:0}12%,82%{transform:translate(-50%,0) scale(1);opacity:1}100%{transform:translate(-50%,-8px) scale(.98);opacity:0}}
+        @keyframes frameShimmer{0%,100%{opacity:.36}50%{opacity:.7}}
+        @keyframes panelFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+        @keyframes softGlow{0%,100%{box-shadow:0 8px 20px rgba(90,60,20,.2),inset 0 1px 0 #fff}50%{box-shadow:0 12px 26px rgba(139,0,0,.22),0 0 16px rgba(255,218,120,.32),inset 0 1px 0 #fff}}
+        @keyframes forkBackdropIn{0%{opacity:0}100%{opacity:1}}
+        @keyframes forkTitleIn{0%{transform:translateY(-12px) scale(.9);opacity:0}100%{transform:translateY(0) scale(1);opacity:1}}
+        @keyframes forkCardIn{0%{transform:translateY(26px) scale(.9);opacity:0}100%{transform:translateY(0) scale(1);opacity:1}}
+        @keyframes forkIconSpin{0%{transform:rotate(-8deg) scale(1)}50%{transform:rotate(8deg) scale(1.08)}100%{transform:rotate(-8deg) scale(1)}}
+        .fork-card{transition:transform .16s ease, box-shadow .16s ease;}
+        .fork-card:hover{transform:translateY(-7px) scale(1.035);}
+        .fork-card:active{transform:translateY(-2px) scale(1.01);}
       `}</style>
     </div>
   );
 }
 
 // ── ป้ายบอกรายละเอียดของแต่ละเส้นทางแยก (key = ช่องปลายทาง) ──
-const FORK_INFO: Record<number, { icon: string; title: string; desc: string; tint: string }> = {
-  // เส้นหลัก (เดินตามวงนอกตามปกติ — สั้นกว่า)
-  33: { icon: '🛣️', title: 'เส้นหลัก', desc: 'เดินวงนอกตามปกติ — ทางสั้น', tint: '#1565C0' },
-  37: { icon: '🛣️', title: 'เส้นหลัก', desc: 'เดินวงนอกตามปกติ — ทางสั้น', tint: '#1565C0' },
-  7: { icon: '🛣️', title: 'เส้นหลัก', desc: 'เดินวงนอกตามปกติ — ทางสั้น', tint: '#1565C0' },
-  13: { icon: '🛣️', title: 'เส้นหลัก', desc: 'เดินวงนอกตามปกติ — ทางสั้น', tint: '#1565C0' },
-  // ทางอ้อมลับวงใน (ยาวกว่า — ตัดเข้าด้านในกระดาน)
-  46: { icon: '🗺️', title: 'ทางลับ', desc: 'ตัดเข้าวงใน — ทางอ้อม เสี่ยงลุ้น', tint: '#C9A227' },
-  55: { icon: '🗺️', title: 'ทางลับ', desc: 'ตัดเข้าวงใน — ทางอ้อม เสี่ยงลุ้น', tint: '#C9A227' },
-  61: { icon: '🗺️', title: 'ทางลับ', desc: 'ตัดเข้าวงใน — ทางอ้อม เสี่ยงลุ้น', tint: '#C9A227' },
-  70: { icon: '🗺️', title: 'ทางลับ', desc: 'ตัดเข้าวงใน — ทางอ้อม เสี่ยงลุ้น', tint: '#C9A227' },
+type ForkInfo = {
+  icon: string;
+  title: string;
+  desc: string;
+  tint: string;
+  tintDark: string; // สีเข้มสำหรับไล่เฉดหัวการ์ด
+  badge: string; // ป้ายมุมบน (สั้น/ยาว)
+  pace: string; // เมตาบรรทัดล่าง
 };
+const MAIN_PATH: Omit<ForkInfo, 'title' | 'desc'> = {
+  icon: '🛣️',
+  tint: '#1565C0',
+  tintDark: '#0D3C82',
+  badge: '⚡ ทางสั้น',
+  pace: 'ปลอดภัย ถึงไว',
+};
+const SECRET_PATH: Omit<ForkInfo, 'title' | 'desc'> = {
+  icon: '🗺️',
+  tint: '#C9A227',
+  tintDark: '#9A7A15',
+  badge: '🎲 ทางอ้อม',
+  pace: 'เสี่ยงลุ้น เจอช่องพิเศษ',
+};
+const mainInfo = (): ForkInfo => ({ ...MAIN_PATH, title: 'เส้นหลัก', desc: 'เดินวงนอกตามปกติ' });
+const secretInfo = (): ForkInfo => ({ ...SECRET_PATH, title: 'ทางลับวงใน', desc: 'ตัดลัดเข้าด้านในกระดาน' });
+const FORK_INFO: Record<number, ForkInfo> = {
+  // เส้นหลัก (เดินตามวงนอกตามปกติ — สั้นกว่า)
+  33: mainInfo(),
+  37: mainInfo(),
+  7: mainInfo(),
+  13: mainInfo(),
+  // ทางอ้อมลับวงใน (ยาวกว่า — ตัดเข้าด้านในกระดาน)
+  46: secretInfo(),
+  55: secretInfo(),
+  61: secretInfo(),
+  70: secretInfo(),
+};
+
+function renderHearts(hearts: number): string {
+  return `${'❤️'.repeat(Math.max(0, hearts))}${'♡'.repeat(Math.max(0, 3 - hearts))}`;
+}
 
 // จอเลือกทางแยก — เด้งขึ้นเมื่อหมากถึงช่องแยก ให้ผู้เล่นเลือกซ้าย/ขวา
 function ForkOverlay({ options, onChoose }: { options: number[]; onChoose: (dest: number) => void }) {
@@ -333,52 +412,128 @@ function ForkOverlay({ options, onChoose }: { options: number[]; onChoose: (dest
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,.55)',
+        background: 'radial-gradient(circle at 50% 38%, rgba(30,18,6,.55), rgba(0,0,0,.72))',
+        backdropFilter: 'blur(3px)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 18,
+        gap: 22,
         zIndex: 120,
         padding: 24,
+        animation: 'forkBackdropIn .25s ease',
       }}
     >
-      <h2 style={{ color: '#fff', fontSize: 26, margin: 0, textShadow: '0 2px 6px rgba(0,0,0,.5)' }}>
-        🔀 เลือกเส้นทาง!
-      </h2>
-      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', justifyContent: 'center' }}>
-        {options.map((dest) => {
-          const info = FORK_INFO[dest] ?? {
-            icon: '➡️',
-            title: `เส้นทาง ${dest}`,
-            desc: 'ไปช่องนี้',
-            tint: color.primary,
-          };
+      {/* หัวเรื่อง */}
+      <div style={{ textAlign: 'center', animation: 'forkTitleIn .32s cubic-bezier(.2,.8,.3,1.2)' }}>
+        <h2
+          style={{
+            color: '#FFE9A8',
+            fontSize: 30,
+            margin: 0,
+            fontWeight: 800,
+            letterSpacing: '.5px',
+            textShadow: '0 2px 10px rgba(0,0,0,.6)',
+          }}
+        >
+          🔀 เลือกเส้นทาง
+        </h2>
+        <p style={{ color: 'rgba(255,255,255,.82)', fontSize: 15, margin: '6px 0 0', fontWeight: 600 }}>
+          หมากถึงทางแยกแล้ว — แตะการ์ดเพื่อเลือกทางเดินต่อ
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {options.map((dest, i) => {
+          const info: ForkInfo =
+            FORK_INFO[dest] ?? {
+              icon: '➡️',
+              title: `เส้นทาง ${dest}`,
+              desc: 'ไปช่องนี้',
+              tint: color.primary,
+              tintDark: color.primary,
+              badge: 'เส้นทาง',
+              pace: `ช่อง ${dest}`,
+            };
           return (
             <button
               key={dest}
+              className="fork-card"
               onClick={() => onChoose(dest)}
               style={{
+                position: 'relative',
                 fontFamily: 'inherit',
-                width: 220,
-                maxWidth: '42vw',
+                width: 250,
+                maxWidth: '44vw',
                 background: '#fff',
-                border: `3px solid ${info.tint}`,
+                border: `2.5px solid ${info.tint}`,
                 borderRadius: radius.lg,
-                padding: '20px 16px',
+                padding: 0,
                 cursor: 'pointer',
-                boxShadow: '0 10px 28px rgba(0,0,0,.35)',
+                overflow: 'hidden',
+                boxShadow: `0 14px 34px rgba(0,0,0,.4), 0 0 0 4px ${info.tint}22`,
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'center',
-                gap: 8,
+                animation: `forkCardIn .4s cubic-bezier(.2,.8,.3,1.2) ${0.08 + i * 0.09}s both`,
               }}
             >
-              <span style={{ fontSize: 44 }}>{info.icon}</span>
-              <strong style={{ fontSize: 20, color: info.tint }}>{info.title}</strong>
-              <span style={{ fontSize: 15, color: color.textMuted, textAlign: 'center' }}>
-                {info.desc}
+              {/* ป้ายมุมบนขวา (สั้น/อ้อม) */}
+              <span
+                style={{
+                  position: 'absolute',
+                  top: 12,
+                  right: 12,
+                  fontSize: 13,
+                  fontWeight: 800,
+                  color: '#fff',
+                  background: 'rgba(0,0,0,.28)',
+                  borderRadius: radius.pill,
+                  padding: '3px 10px',
+                  zIndex: 2,
+                }}
+              >
+                {info.badge}
               </span>
+
+              {/* หัวการ์ดไล่เฉดสี + ไอคอน */}
+              <div
+                style={{
+                  background: `linear-gradient(135deg, ${info.tint}, ${info.tintDark})`,
+                  padding: '22px 16px 18px',
+                  display: 'flex',
+                  justifyContent: 'center',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 50,
+                    filter: 'drop-shadow(0 3px 5px rgba(0,0,0,.35))',
+                    animation: 'forkIconSpin 3s ease-in-out infinite',
+                  }}
+                >
+                  {info.icon}
+                </span>
+              </div>
+
+              {/* เนื้อหา */}
+              <div style={{ padding: '16px 16px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <strong style={{ fontSize: 21, color: info.tint }}>{info.title}</strong>
+                <span style={{ fontSize: 14.5, color: color.textMuted, lineHeight: 1.4 }}>{info.desc}</span>
+                <span
+                  style={{
+                    marginTop: 8,
+                    alignSelf: 'flex-start',
+                    fontSize: 13.5,
+                    fontWeight: 700,
+                    color: info.tint,
+                    background: `${info.tint}14`,
+                    borderRadius: radius.pill,
+                    padding: '5px 12px',
+                  }}
+                >
+                  {info.pace}
+                </span>
+              </div>
             </button>
           );
         })}
@@ -402,6 +557,17 @@ const pill: React.CSSProperties = {
   backdropFilter: 'blur(4px)',
 };
 
+const motionFrame: React.CSSProperties = {
+  position: 'absolute',
+  inset: 6,
+  borderRadius: 18,
+  border: '2px solid rgba(255,232,150,.18)',
+  boxShadow: 'inset 0 0 22px rgba(255,232,150,.28), 0 0 24px rgba(120,190,170,.18)',
+  pointerEvents: 'none',
+  zIndex: 1,
+  animation: 'frameShimmer 3.8s ease-in-out infinite',
+};
+
 const iconBtn: React.CSSProperties = {
   fontFamily: 'inherit',
   fontSize: 17,
@@ -412,6 +578,7 @@ const iconBtn: React.CSSProperties = {
   background: 'rgba(255,255,255,.9)',
   boxShadow: '0 3px 10px rgba(0,0,0,.18)',
   cursor: 'pointer',
+  animation: 'panelFloat 4s ease-in-out infinite',
 };
 
 const shopBtn: React.CSSProperties = {
@@ -426,6 +593,174 @@ const shopBtn: React.CSSProperties = {
   minHeight: 42,
   cursor: 'pointer',
   boxShadow: '0 3px 10px rgba(160,110,20,.25)',
+};
+
+const collectionSlot: React.CSSProperties = {
+  flex: '1 1 0',
+  minHeight: 0,
+  overflow: 'hidden',
+};
+
+const bottomControls: React.CSSProperties = {
+  flex: '0 0 auto',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 8,
+};
+
+const diceCard: React.CSSProperties = {
+  background: 'linear-gradient(160deg, #FFFDF8, #F3E7CF)',
+  borderRadius: radius.lg,
+  border: `1.5px solid ${color.secondary}55`,
+  boxShadow: '0 8px 20px rgba(90,60,20,.2), inset 0 1px 0 #fff',
+  padding: '8px 8px',
+  minHeight: 80,
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  animation: 'softGlow 2.8s ease-in-out infinite',
+};
+
+const playerPanel: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 6,
+  padding: 8,
+  borderRadius: radius.md,
+  background: 'linear-gradient(160deg, rgba(255,255,255,.9), rgba(255,248,232,.9))',
+  border: '1.5px solid rgba(201,162,39,.38)',
+  boxShadow: '0 5px 14px rgba(90,60,20,.18)',
+  flex: '0 0 auto',
+  animation: 'panelFloat 5s ease-in-out infinite',
+};
+
+const playerPanelHeader: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 8,
+  fontSize: 12,
+  fontWeight: 900,
+  color: color.primary,
+  lineHeight: 1.1,
+};
+
+const currentTurnText: React.CSSProperties = {
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  textAlign: 'right',
+};
+
+const playerStrip: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gap: 5,
+  overflowY: 'auto',
+  maxHeight: 'min(152px, 21vh)',
+  paddingRight: 1,
+};
+
+const playerCard: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '24px minmax(0, 1fr)',
+  alignItems: 'center',
+  gap: '3px 5px',
+  padding: '6px 6px',
+  minHeight: 66,
+  maxWidth: '100%',
+  boxSizing: 'border-box',
+  borderRadius: radius.sm,
+  background: 'rgba(255,255,255,.86)',
+  border: '1.5px solid rgba(201,162,39,.25)',
+  boxShadow: '0 2px 8px rgba(90,60,20,.14)',
+  color: color.text,
+};
+
+const activePlayerCard: React.CSSProperties = {
+  ...playerCard,
+  background: 'linear-gradient(160deg, rgba(139,0,0,.96), rgba(117,31,17,.96))',
+  border: '1.5px solid rgba(255,233,168,.75)',
+  boxShadow: '0 4px 14px rgba(139,0,0,.36)',
+  color: '#fff',
+};
+
+const playerName: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 900,
+  lineHeight: 1.12,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+};
+
+const turnLabel: React.CSSProperties = {
+  fontSize: 9,
+  fontWeight: 800,
+  color: color.textMuted,
+  marginTop: 1,
+};
+
+const activeTurnLabel: React.CSSProperties = {
+  ...turnLabel,
+  color: '#FFE9A8',
+};
+
+const playerStats: React.CSSProperties = {
+  gridColumn: '1 / -1',
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+  alignItems: 'center',
+  gap: 3,
+  fontSize: 10,
+  fontWeight: 900,
+  whiteSpace: 'nowrap',
+  minWidth: 0,
+};
+
+const playerMain: React.CSSProperties = {
+  minWidth: 0,
+};
+
+const playerBadge: React.CSSProperties = {
+  minWidth: 0,
+  textAlign: 'center',
+  padding: '3px 2px',
+  borderRadius: radius.pill,
+  background: 'rgba(255,255,255,.78)',
+  border: '1px solid rgba(201,162,39,.25)',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,.85)',
+  overflow: 'hidden',
+  textOverflow: 'clip',
+};
+
+const activePlayerBadge: React.CSSProperties = {
+  ...playerBadge,
+  background: 'rgba(255,255,255,.16)',
+  border: '1px solid rgba(255,233,168,.48)',
+  color: '#fff',
+};
+
+const turnToast: React.CSSProperties = {
+  position: 'fixed',
+  top: 18,
+  left: '50%',
+  transform: 'translateX(-50%)',
+  zIndex: 260,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  padding: '12px 20px',
+  borderRadius: radius.pill,
+  background: 'linear-gradient(160deg, rgba(139,0,0,.96), rgba(117,31,17,.96))',
+  color: '#fff',
+  border: '1.5px solid rgba(255,233,168,.8)',
+  boxShadow: '0 8px 24px rgba(0,0,0,.32)',
+  fontSize: 22,
+  fontWeight: 900,
+  pointerEvents: 'none',
+  animation: 'turnToastIn 1.8s ease forwards',
 };
 
 // ฉากมืดฉลองตอนชนะเหรียญกษัตริย์ (แตะเพื่อปิด · หายเองใน 2.2 วิ)

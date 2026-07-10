@@ -2,17 +2,125 @@
 
 import kingsData from '@/data/kings.json';
 import cardsData from '@/data/cards.json';
-import type { King, QuizCard, KnowledgeCard, Difficulty } from './types';
+import { fetchContent } from './api';
+import type {
+  King,
+  QuizCard,
+  KnowledgeCard,
+  Difficulty,
+  GoldQuizCard,
+  SubjectQuizCard,
+  SubjectArea,
+} from './types';
 
 export const KINGS = kingsData.kings as King[];
+const CACHE_KEY = 'bg7_content';
+
+// ── กลุ่มสาระการเรียนรู้ (6 วิชา) — ป้าย/ไอคอนใช้ร่วมทั้งการ์ดในเกมและหลังบ้าน ──
+export const SUBJECTS: { id: SubjectArea; label: string; icon: string }[] = [
+  { id: 'social', label: 'สังคมศึกษา', icon: '🌏' },
+  { id: 'math', label: 'คณิตศาสตร์', icon: '🔢' },
+  { id: 'science', label: 'วิทยาศาสตร์', icon: '🔬' },
+  { id: 'art', label: 'ศิลปะ', icon: '🎨' },
+  { id: 'health_pe', label: 'สุขศึกษาและพลศึกษา', icon: '🤸' },
+  { id: 'foreign_language', label: 'ภาษาต่างประเทศ', icon: '🗣️' },
+];
+export const SUBJECT_LABEL: Record<SubjectArea, string> = Object.fromEntries(
+  SUBJECTS.map((s) => [s.id, s.label])
+) as Record<SubjectArea, string>;
+export const SUBJECT_ICON: Record<SubjectArea, string> = Object.fromEntries(
+  SUBJECTS.map((s) => [s.id, s.icon])
+) as Record<SubjectArea, string>;
+export function subjectLabel(id: SubjectArea | string | undefined): string {
+  return (id && SUBJECT_LABEL[id as SubjectArea]) || 'สาระการเรียนรู้';
+}
 
 export function getKing(id: string | null | undefined): King | undefined {
   if (!id) return undefined;
   return KINGS.find((k) => k.id === id);
 }
 
-const QUIZ = cardsData.quiz as QuizCard[];
-const KNOWLEDGE = cardsData.knowledge as KnowledgeCard[];
+let QUIZ = [...(cardsData.quiz as QuizCard[])];
+let KNOWLEDGE = [...(cardsData.knowledge as KnowledgeCard[])];
+let GOLD: GoldQuizCard[] = [...QUIZ];
+let SUBJECT: SubjectQuizCard[] = [...((cardsData as { subject?: SubjectQuizCard[] }).subject ?? [])];
+
+interface ContentCache {
+  version: number;
+  quiz: QuizCard[];
+  knowledge: KnowledgeCard[];
+  gold: GoldQuizCard[];
+  subject: SubjectQuizCard[];
+}
+
+function isBrowser(): boolean {
+  return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
+}
+
+function applyContent(cache: ContentCache): void {
+  if (cache.quiz.length) QUIZ = cache.quiz;
+  if (cache.knowledge.length) KNOWLEDGE = cache.knowledge;
+  if (cache.gold.length) GOLD = cache.gold;
+  if (cache.subject.length) SUBJECT = cache.subject;
+}
+
+export function hydrateFromCache(): void {
+  if (!isBrowser()) return;
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Partial<ContentCache>;
+    applyContent({
+      version: Number(parsed.version ?? 1),
+      quiz: Array.isArray(parsed.quiz) ? (parsed.quiz as QuizCard[]) : [],
+      knowledge: Array.isArray(parsed.knowledge) ? (parsed.knowledge as KnowledgeCard[]) : [],
+      gold: Array.isArray(parsed.gold) ? (parsed.gold as GoldQuizCard[]) : [],
+      subject: Array.isArray(parsed.subject) ? (parsed.subject as SubjectQuizCard[]) : [],
+    });
+  } catch {
+    localStorage.removeItem(CACHE_KEY);
+  }
+}
+
+export async function syncContent(): Promise<void> {
+  if (!isBrowser()) return;
+  try {
+    const [quiz, knowledge, gold, subject] = await Promise.all([
+      fetchContent('quiz'),
+      fetchContent('knowledge'),
+      fetchContent('gold'),
+      fetchContent('subject'),
+    ]);
+    const cache: ContentCache = {
+      version: Math.max(quiz.version, knowledge.version, gold.version, subject.version),
+      quiz: quiz.data,
+      knowledge: knowledge.data,
+      gold: gold.data,
+      subject: subject.data,
+    };
+    applyContent(cache);
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // ออฟไลน์ / ยังไม่ได้ตั้ง API / server ล่ม: ใช้ cache หรือ seed ต่อไป
+  }
+}
+
+function pickQuiz(
+  source: QuizCard[],
+  kingId: string | null,
+  difficulty: Difficulty | 'all',
+  excludeIds: string[]
+): QuizCard {
+  let pool = source.filter((q) => q.kingId === kingId);
+  if (difficulty !== 'all') {
+    const byDiff = pool.filter((q) => q.difficulty === difficulty);
+    if (byDiff.length) pool = byDiff;
+  }
+  const fresh = pool.filter((q) => !excludeIds.includes(q.id));
+  if (fresh.length) pool = fresh;
+  const list = pool.length ? pool : source;
+  return list[Math.floor(Math.random() * list.length)];
+}
 
 // สุ่มคำถามของมหาราชพระองค์นั้น + คัดระดับความยาก (fallback ไล่ระดับ)
 export function getQuizForKing(
@@ -20,15 +128,25 @@ export function getQuizForKing(
   difficulty: Difficulty | 'all' = 'all',
   excludeIds: string[] = []
 ): QuizCard {
-  let pool = QUIZ.filter((q) => q.kingId === kingId);
-  if (difficulty !== 'all') {
-    const byDiff = pool.filter((q) => q.difficulty === difficulty);
-    if (byDiff.length) pool = byDiff;
-  }
-  const fresh = pool.filter((q) => !excludeIds.includes(q.id));
-  if (fresh.length) pool = fresh;
-  const list = pool.length ? pool : QUIZ;
-  return list[Math.floor(Math.random() * list.length)];
+  return pickQuiz(QUIZ, kingId, difficulty, excludeIds);
+}
+
+export function getGoldQuizForKing(
+  kingId: string | null,
+  difficulty: Difficulty | 'all' = 'all',
+  excludeIds: string[] = []
+): GoldQuizCard {
+  return pickQuiz(GOLD, kingId, difficulty, excludeIds);
+}
+
+// ช่องกลุ่มสาระฯ — สุ่มคำถามของพระองค์ที่ผูกกับช่อง (คละวิชาใน 6 กลุ่มสาระ)
+// fallback: ถ้าพระองค์นั้นยังไม่มีคำถามสาระ ใช้ทั้งคลัง (เกมไม่ค้าง)
+export function getSubjectQuizForKing(
+  kingId: string | null,
+  difficulty: Difficulty | 'all' = 'all',
+  excludeIds: string[] = []
+): SubjectQuizCard {
+  return pickQuiz(SUBJECT, kingId, difficulty, excludeIds) as SubjectQuizCard;
 }
 
 // สุ่มการ์ดความรู้ที่ผู้เล่นยังไม่มี (ช่องชมพู) — สุ่มจากทั้งคลัง ไม่ผูกกับพระองค์ของช่อง
@@ -39,5 +157,8 @@ export function getRandomKnowledge(excludeIds: string[] = []): KnowledgeCard {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-export const KNOWLEDGE_TOTAL = KNOWLEDGE.length;
+export function knowledgeTotal(): number {
+  return KNOWLEDGE.length;
+}
+
 export const KNOWLEDGE_CAP = 10; // เก็บได้สูงสุด 10 ใบ/คน

@@ -53,6 +53,18 @@ const PROPS: Prop[] = [
 export function TableBackdrop() {
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 0 }}>
+      <div
+        style={{
+          position: 'absolute',
+          inset: '-12%',
+          background:
+            'conic-gradient(from 0deg at 50% 50%, rgba(255,230,140,.22), transparent 18%, rgba(255,255,255,.18) 34%, transparent 52%, rgba(80,170,190,.18) 72%, transparent 100%)',
+          filter: 'blur(20px)',
+          opacity: 0.7,
+          animation: 'ambientSweep 18s linear infinite',
+        }}
+      />
+
       {/* แหล่งน้ำ (ใต้ texture ทุ่ง) */}
       {WATERS.map((w, i) => (
         <div
@@ -75,6 +87,9 @@ export function TableBackdrop() {
 
       {/* พื้นผิวทุ่งจาง */}
       <div style={{ position: 'absolute', inset: 0, backgroundImage: leafUrl, backgroundSize: '70px 70px' }} />
+
+      {/* inset ติดลบ 1 ช่องลาย เพื่อให้ translate ด้วย transform ไม่เผยขอบว่าง (composite แทน repaint) */}
+      <div style={{ position: 'absolute', inset: '-90px', backgroundImage: leafUrl, backgroundSize: '90px 90px', animation: 'fieldDrift 24s linear infinite', opacity: 0.6 }} />
 
       {/* วิกเนตต์ให้โฟกัสกลางจอ (กระดาน) */}
       <div
@@ -110,7 +125,27 @@ export function TableBackdrop() {
         </span>
       ))}
 
+      {Array.from({ length: 14 }, (_, i) => (
+        <span
+          key={`spark-${i}`}
+          style={{
+            position: 'absolute',
+            left: `${8 + ((i * 17) % 88)}%`,
+            top: `${10 + ((i * 23) % 82)}%`,
+            width: 5 + (i % 3) * 2,
+            height: 5 + (i % 3) * 2,
+            borderRadius: '50%',
+            background: i % 2 === 0 ? 'rgba(255,220,120,.72)' : 'rgba(255,255,255,.58)',
+            boxShadow: '0 0 10px rgba(255,220,120,.75)',
+            animation: `sparkFloat ${5 + (i % 5)}s ease-in-out ${i * 0.27}s infinite`,
+          }}
+        />
+      ))}
+
       <style>{`
+        @keyframes ambientSweep{0%{transform:rotate(0deg) scale(1.04)}100%{transform:rotate(360deg) scale(1.04)}}
+        @keyframes fieldDrift{0%{transform:translate(0,0)}100%{transform:translate(90px,70px)}}
+        @keyframes sparkFloat{0%,100%{opacity:.16;transform:translateY(0) scale(.75)}45%{opacity:.9;transform:translateY(-14px) scale(1.18)}}
         @keyframes floatProp{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
         @keyframes waterPulse{ 0%,100%{opacity:.85;transform:translate(-50%,-50%) scale(1)} 50%{opacity:1;transform:translate(-50%,-50%) scale(1.04)} }
       `}</style>

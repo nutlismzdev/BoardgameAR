@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useGame, TILES, LOOP } from '@/core/store';
+import type { Player } from '@/core/types';
 import boardPoints from '@/data/board-points.json';
 import { color, radius, tileIcon, tileColor, tileLabel } from '@/theme/tokens';
 import { KingPawnToken } from './KingPawnToken';
@@ -41,6 +42,17 @@ export function BoardImage({ size }: { size: number }) {
   // ขนาดรูปหมากกษัตริย์ (standee) ใหญ่กว่าไอคอนให้เด่น — แยกตัวแปรเพื่อไม่ให้ไอคอน/เลขโตตาม
   const pawnFig = Math.max(40, boardW * 0.06);
 
+  // จัดกลุ่มผู้เล่นตามช่องที่ยืน — เฉพาะ layer นี้ที่ re-render ตอนเดิน (ไม่ใช่ทั้ง 77 ช่อง)
+  const occupiedTiles = useMemo(() => {
+    const map = new Map<number, Player[]>();
+    players.forEach((p) => {
+      const arr = map.get(p.position);
+      if (arr) arr.push(p);
+      else map.set(p.position, [p]);
+    });
+    return Array.from(map.entries()).map(([pos, occupants]) => ({ pos, occupants }));
+  }, [players]);
+
   return (
     <div
       ref={rootRef}
@@ -55,6 +67,7 @@ export function BoardImage({ size }: { size: number }) {
         overflow: 'hidden',
         background: '#e9dcc2',
         boxShadow: '0 14px 40px rgba(70,45,15,.35), 0 2px 6px rgba(0,0,0,.2)',
+        animation: loaded ? 'boardBreath 7s ease-in-out infinite' : undefined,
       }}
     >
       {/* Loading skeleton — กันจอว่าง/เลย์เอาต์กระตุกระหว่างโหลดภาพ */}
@@ -88,177 +101,212 @@ export function BoardImage({ size }: { size: number }) {
         }}
       />
 
-      {!calibrate &&
-        loaded &&
-        POINTS.map((pt, i) => {
-          const occupants = players.filter((p) => p.position === i);
-          const isCurrentTile = i === currentPos;
-          const tile = TILES[i];
-          const isBranch = i >= LOOP; // ช่องทางแยกวงใน (เลนลับ)
-          const hasIcon = tile && tile.type !== 'blank';
-          // ช่องพิเศษ (รวมช่องทองในเลนลับ) โชว์ไอคอน · ช่องเดินเปล่าในเลนลับโชว์ "เลขย่อย" (33ก/33ข)
-          const showIcon = showTileIcons && hasIcon;
-          const isGoldTile = tile?.type === 'goldking'; // ช่องมงกุฎ AR = รางวัลชนะ ทำให้เด่นสุด
-          return (
-            <div key={i}>
-              {/* เลขย่อยช่องแยก — ป้ายทองแยกจากเลขวงนอก บอกว่าเป็นเลนลับ (เฉพาะช่องเดินเปล่าที่ไม่มีไอคอน) */}
-              {isBranch && tile?.label && !showIcon && (
+      {!calibrate && loaded && (
+        <>
+          {/* ชั้นช่องสถิต (ไอคอน/เลข/ป้ายเลนลับ) — memo ไว้ ไม่ re-render ตอนหมากเดิน */}
+          <TileMarkers boardW={boardW} showTileIcons={showTileIcons} />
+
+          {/* วงแหวนพัลส์ช่องปัจจุบัน — ช่วยเด็กเห็นว่าตัวเองอยู่ไหน */}
+          {POINTS[currentPos] && (
+            <div
+              style={{
+                position: 'absolute',
+                left: `${POINTS[currentPos].x}%`,
+                top: `${POINTS[currentPos].y}%`,
+                width: pawn * 1.5,
+                height: pawn * 1.5,
+                transform: 'translate(-50%, -50%)',
+                borderRadius: '50%',
+                border: `3px solid ${color.secondary}`,
+                animation: 'tilePulse 1.2s ease-in-out infinite',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+
+          {/* หมากผู้เล่น — standee กษัตริย์ (จัดกลุ่มตามช่อง; ย้ายช่อง = element ใหม่ เหมือนเดิม) */}
+          {occupiedTiles.map(({ pos, occupants }) => {
+            const pt = POINTS[pos];
+            if (!pt) return null;
+            return (
+              <div key={pos}>
+                {/* เงาทอดพื้นบนช่อง (บอกว่าหมากลอยอยู่) */}
                 <div
                   style={{
                     position: 'absolute',
                     left: `${pt.x}%`,
                     top: `${pt.y}%`,
-                    transform: 'translate(-50%, -50%)',
-                    minWidth: pawn * 0.62,
-                    height: pawn * 0.62,
-                    padding: '0 5px',
-                    borderRadius: pawn * 0.31,
-                    background: 'linear-gradient(160deg,#FFE7A0,#E8B23A)',
-                    color: '#5A3D0A',
-                    fontSize: pawn * 0.34,
-                    fontWeight: 900,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '2px solid #fff',
-                    boxShadow: '0 2px 5px rgba(120,80,10,.5)',
-                    pointerEvents: 'none',
-                    boxSizing: 'border-box',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {tile.label}
-                </div>
-              )}
-              {/* เลขช่อง — โชว์เฉพาะช่องที่ไม่มีไอคอน (ช่องเดินเปล่า); ช่องพิเศษโชว์ไอคอนแทน */}
-              {!showIcon && !isBranch && i < LOOP && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: `${pt.x}%`,
-                    top: `${pt.y}%`,
-                    transform: 'translate(-50%, -50%)',
-                    minWidth: pawn * 0.5,
-                    height: pawn * 0.5,
-                    padding: '0 3px',
-                    borderRadius: pawn * 0.25,
-                    background: 'rgba(255,255,255,.82)',
-                    color: '#6B4E1E',
-                    fontSize: pawn * 0.32,
-                    fontWeight: 800,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    pointerEvents: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  {i}
-                </div>
-              )}
-              {/* ไอคอนบอกชนิดช่อง — ให้รู้ว่าช่องนั้นเป็นเกมอะไร (คำถาม/เหรียญ/ฯลฯ) */}
-              {showIcon && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: `${pt.x}%`,
-                    top: `${pt.y}%`,
-                    transform: 'translate(-50%, -50%)',
-                    // ช่องมงกุฎ AR เด่นสุด: ทองไล่เฉด + เรืองแสง + ใหญ่กว่าช่องอื่น
-                    width: pawn * (isGoldTile ? 1.02 : 0.86),
-                    height: pawn * (isGoldTile ? 1.02 : 0.86),
+                    width: pawnFig * 0.7,
+                    height: pawnFig * 0.22,
+                    transform: 'translate(-50%, -10%)',
+                    transition: 'left .18s, top .18s',
                     borderRadius: '50%',
-                    // ป้ายสีเต็มวงตามชนิดการ์ด (ขอบขาว) — แต่ละชนิด = สีเดียวชัดเจน
-                    background: isGoldTile
-                      ? 'radial-gradient(circle at 35% 28%, #FFF6CF, #FFC42E 45%, #C8860D 100%)'
-                      : tileColor[tile.type],
-                    border: isGoldTile ? '2.5px solid #FFF7D6' : '2.5px solid #fff',
-                    boxShadow: isGoldTile
-                      ? '0 0 12px 3px rgba(255,193,7,.85), 0 3px 8px rgba(120,80,10,.6)'
-                      : '0 2px 6px rgba(0,0,0,.45)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: pawn * (isGoldTile ? 0.5 : 0.44),
-                    textShadow: '0 1px 2px rgba(0,0,0,.35)',
+                    background: 'radial-gradient(ellipse, rgba(0,0,0,.4), transparent 70%)',
                     pointerEvents: 'none',
-                    zIndex: isGoldTile ? 2 : 1,
-                  }}
-                  title={tileLabel[tile.type]}
-                >
-                  {tileIcon[tile.type]}
-                </div>
-              )}
-              {/* วงแหวนพัลส์ช่องปัจจุบัน — ช่วยเด็กเห็นว่าตัวเองอยู่ไหน */}
-              {isCurrentTile && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: `${pt.x}%`,
-                    top: `${pt.y}%`,
-                    width: pawn * 1.5,
-                    height: pawn * 1.5,
-                    transform: 'translate(-50%, -50%)',
-                    borderRadius: '50%',
-                    border: `3px solid ${color.secondary}`,
-                    animation: 'tilePulse 1.2s ease-in-out infinite',
-                    pointerEvents: 'none',
+                    zIndex: 9, // เหนือไอคอนช่องทุกชนิด (ไอคอน gold = 2)
                   }}
                 />
-              )}
-              {/* หมากผู้เล่น — standee กษัตริย์ที่เลือกจากหน้าเริ่มเกม */}
-              {occupants.length > 0 && (
-                <>
-                  {/* เงาทอดพื้นบนช่อง (บอกว่าหมากลอยอยู่) */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: `${pt.x}%`,
-                      top: `${pt.y}%`,
-                      width: pawnFig * 0.7,
-                      height: pawnFig * 0.22,
-                      transform: 'translate(-50%, -10%)',
-                      transition: 'left .18s, top .18s',
-                      borderRadius: '50%',
-                      background: 'radial-gradient(ellipse, rgba(0,0,0,.4), transparent 70%)',
-                      pointerEvents: 'none',
-                      zIndex: 9, // เหนือไอคอนช่องทุกชนิด (ไอคอน gold = 2)
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: `${pt.x}%`,
-                      top: `${pt.y}%`,
-                      transform: 'translate(-50%, -78%)',
-                      transition: 'left .18s, top .18s',
-                      pointerEvents: 'none',
-                      display: 'flex',
-                      gap: 3,
-                      zIndex: 10, // หมากผู้เล่นอยู่บนสุดเสมอ ไม่โดนไอคอนช่องบัง
-                    }}
-                  >
-                    {occupants.map((p) => (
-                      <div key={p.id} style={{ animation: 'pawnBounce 1.6s ease-in-out infinite' }}>
-                        <KingPawnToken kingId={p.kingTokenId} size={pawnFig} label={`${p.name} ${p.token}`} />
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        })}
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: `${pt.x}%`,
+                    top: `${pt.y}%`,
+                    transform: 'translate(-50%, -78%)',
+                    transition: 'left .18s, top .18s',
+                    pointerEvents: 'none',
+                    display: 'flex',
+                    gap: 3,
+                    zIndex: 10, // หมากผู้เล่นอยู่บนสุดเสมอ ไม่โดนไอคอนช่องบัง
+                  }}
+                >
+                  {occupants.map((p) => (
+                    <div key={p.id} style={{ animation: 'pawnBounce 1.6s ease-in-out infinite' }}>
+                      <KingPawnToken kingId={p.kingTokenId} size={pawnFig} label={`${p.name} ${p.token}`} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
 
       {calibrate && <Calibrator />}
 
       <style>{`
+        @keyframes boardBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.006)}}
+        @keyframes goldTileGlow{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.1)}}
+        @keyframes questionTileWiggle{0%,78%,100%{transform:translate(-50%,-50%) rotate(0) scale(1)}84%{transform:translate(-50%,-50%) rotate(-8deg) scale(1.06)}90%{transform:translate(-50%,-50%) rotate(8deg) scale(1.06)}}
         @keyframes pawnBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
         @keyframes tilePulse{0%,100%{opacity:.35;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}}
       `}</style>
     </div>
   );
 }
+
+// ── ชั้นช่องสถิต: ไอคอน/เลข/ป้ายเลนลับของ 77 ช่อง ──
+// แยกเป็น memo เพราะไม่ขึ้นกับตำแหน่งผู้เล่น → re-render เฉพาะตอน boardW/showTileIcons เปลี่ยน
+const TileMarkers = memo(function TileMarkers({
+  boardW,
+  showTileIcons,
+}: {
+  boardW: number;
+  showTileIcons: boolean;
+}) {
+  const pawn = Math.max(26, boardW * 0.038);
+  return (
+    <>
+      {POINTS.map((pt, i) => {
+        const tile = TILES[i];
+        const isBranch = i >= LOOP; // ช่องทางแยกวงใน (เลนลับ)
+        const hasIcon = tile && tile.type !== 'blank';
+        // ช่องพิเศษ (รวมช่องทองในเลนลับ) โชว์ไอคอน · ช่องเดินเปล่าในเลนลับโชว์ "เลขย่อย" (33ก/33ข)
+        const showIcon = showTileIcons && hasIcon;
+        const isGoldTile = tile?.type === 'goldking'; // ช่องมงกุฎ AR = รางวัลชนะ ทำให้เด่นสุด
+        const isQuestionTile = tile?.type === 'question';
+        return (
+          <div key={i}>
+            {/* เลขย่อยช่องแยก — ป้ายทองแยกจากเลขวงนอก บอกว่าเป็นเลนลับ (เฉพาะช่องเดินเปล่าที่ไม่มีไอคอน) */}
+            {isBranch && tile?.label && !showIcon && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${pt.x}%`,
+                  top: `${pt.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                  minWidth: pawn * 0.62,
+                  height: pawn * 0.62,
+                  padding: '0 5px',
+                  borderRadius: pawn * 0.31,
+                  background: 'linear-gradient(160deg,#FFE7A0,#E8B23A)',
+                  color: '#5A3D0A',
+                  fontSize: pawn * 0.34,
+                  fontWeight: 900,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '2px solid #fff',
+                  boxShadow: '0 2px 5px rgba(120,80,10,.5)',
+                  pointerEvents: 'none',
+                  boxSizing: 'border-box',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {tile.label}
+              </div>
+            )}
+            {/* เลขช่อง — โชว์เฉพาะช่องที่ไม่มีไอคอน (ช่องเดินเปล่า); ช่องพิเศษโชว์ไอคอนแทน */}
+            {!showIcon && !isBranch && i < LOOP && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${pt.x}%`,
+                  top: `${pt.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                  minWidth: pawn * 0.5,
+                  height: pawn * 0.5,
+                  padding: '0 3px',
+                  borderRadius: pawn * 0.25,
+                  background: 'rgba(255,255,255,.82)',
+                  color: '#6B4E1E',
+                  fontSize: pawn * 0.32,
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  pointerEvents: 'none',
+                  boxSizing: 'border-box',
+                }}
+              >
+                {i}
+              </div>
+            )}
+            {/* ไอคอนบอกชนิดช่อง — ให้รู้ว่าช่องนั้นเป็นเกมอะไร (คำถาม/เหรียญ/ฯลฯ) */}
+            {showIcon && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${pt.x}%`,
+                  top: `${pt.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                  // ช่องมงกุฎ AR เด่นสุด: ทองไล่เฉด + เรืองแสง + ใหญ่กว่าช่องอื่น
+                  width: pawn * (isGoldTile ? 1.02 : 0.86),
+                  height: pawn * (isGoldTile ? 1.02 : 0.86),
+                  borderRadius: '50%',
+                  // ป้ายสีเต็มวงตามชนิดการ์ด (ขอบขาว) — แต่ละชนิด = สีเดียวชัดเจน
+                  background: isGoldTile
+                    ? 'radial-gradient(circle at 35% 28%, #FFF6CF, #FFC42E 45%, #C8860D 100%)'
+                    : tileColor[tile.type],
+                  border: isGoldTile ? '2.5px solid #FFF7D6' : '2.5px solid #fff',
+                  boxShadow: isGoldTile
+                    ? '0 0 12px 3px rgba(255,193,7,.85), 0 3px 8px rgba(120,80,10,.6)'
+                    : '0 2px 6px rgba(0,0,0,.45)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: pawn * (isGoldTile ? 0.5 : 0.44),
+                  fontWeight: isQuestionTile ? 950 : 800,
+                  color: '#fff',
+                  textShadow: '0 1px 2px rgba(0,0,0,.35)',
+                  pointerEvents: 'none',
+                  zIndex: isGoldTile ? 2 : 1,
+                  animation: isGoldTile
+                    ? 'goldTileGlow 1.8s ease-in-out infinite'
+                    : isQuestionTile
+                    ? 'questionTileWiggle 2.4s ease-in-out infinite'
+                    : undefined,
+                }}
+                title={tileLabel[tile.type]}
+              >
+                {isQuestionTile ? '?' : tileIcon[tile.type]}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+});
 
 // ── โหมดปรับตำแหน่งช่อง: โชว์เลข 0–N ที่จุดที่บันทึกไว้ + ลากขยับให้ตรงเป๊ะ ──
 // โหมด "ลาก" = แก้จุดเดิม · โหมด "เพิ่ม" = แตะเพื่อเพิ่มจุดใหม่ต่อท้าย

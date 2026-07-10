@@ -2,13 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { useGame } from '@/core/store';
 import {
   getKing,
+  getGoldQuizForKing,
   getQuizForKing,
+  getSubjectQuizForKing,
   getRandomKnowledge,
+  subjectLabel,
   KNOWLEDGE_CAP,
 } from '@/core/content';
-import { color, radius, elevation } from '@/theme/tokens';
+import { color, radius, elevation, difficultyMeta } from '@/theme/tokens';
 import { ARGoldChallenge } from './ARGoldChallenge';
-import type { Orientation, KnowledgeCard } from '@/core/types';
+import type { Orientation, KnowledgeCard, SubjectQuizCard } from '@/core/types';
 
 // Modal การ์ดรวม (question / goldking / knowledge / penalty / bonus)
 // แนวตั้ง = เด้งจากล่าง (bottom sheet), แนวนอน = กลางจอ (center dialog)
@@ -27,6 +30,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   const settings = useGame((s) => s.settings);
   const usedQuizIds = useGame((s) => s.usedQuizIds);
   const markQuizSeen = useGame((s) => s.markQuizSeen);
+  const currentHearts = useGame((s) => s.players[s.currentPlayerIndex]?.hearts ?? 3);
   const [answered, setAnswered] = useState<number | null>(null);
   const [hidden, setHidden] = useState<number[]>([]); // ตัวเลือกที่ 50:50 ตัดออก
   const [arGoldOpen, setArGoldOpen] = useState(false);
@@ -35,31 +39,37 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   const kingId = event?.tile.kingId ?? null;
   const king = getKing(kingId);
   const isGold = kind === 'goldking'; // ช่องทอง — บทเรียนผ่าน AR (วิดีโอ + ลากคำตอบ)
-  const isQuizKind = kind === 'question'; // เฉพาะช่องเหลืองที่ใช้ UI ควิซปกติ
+  const isQuizKind = kind === 'question'; // เฉพาะช่องฟ้าที่ใช้ UI ควิซปกติ
+  const isSubject = kind === 'subject'; // ช่องกลุ่มสาระฯ ใช้ UI ควิซเดียวกับช่องฟ้า แต่คัดจากคลังสาระ
+  const usesQuizUI = isQuizKind || isSubject; // ทั้งสองใช้จอควิซ + จับเวลา + ไอเทมชุดเดียวกัน
 
   // ช่องทองก็ต้องมีคำถาม (ใช้กับ drag-to-slot ใน AR) จึงสุ่ม quiz ไว้ด้วย
   const quiz = useMemo(
-    () => (kind === 'question' || isGold ? getQuizForKing(kingId, settings.difficulty, usedQuizIds) : null),
+    () =>
+      kind === 'question'
+        ? getQuizForKing(kingId, settings.difficulty, usedQuizIds)
+        : isGold
+        ? getGoldQuizForKing(kingId, settings.difficulty, usedQuizIds)
+        : isSubject
+        ? getSubjectQuizForKing(kingId, settings.difficulty, usedQuizIds)
+        : null,
     [event]
   );
+  const subjectName = isSubject && quiz ? subjectLabel((quiz as SubjectQuizCard).subject) : '';
   const penalty = kind === 'penalty' ? event?.tile.penalty ?? null : null;
 
-  // การ์ดความรู้ = state เพื่อให้กดปุ่ม "สุ่มใหม่" เปลี่ยนคำถามได้ (สุ่มใบที่ยังไม่มี)
+  // การ์ดความรู้ = สุ่มใบที่ยังไม่มี 1 ใบต่อการลงช่อง (ไม่มีปุ่มสุ่มใหม่แล้ว)
   const [knowledge, setKnowledge] = useState<KnowledgeCard | null>(null);
   useEffect(() => {
     setKnowledge(kind === 'knowledge' ? getRandomKnowledge(knowledgeCards) : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event]);
-  const rerollKnowledge = () => {
-    const exclude = knowledge ? [...knowledgeCards, knowledge.id] : knowledgeCards;
-    setKnowledge(getRandomKnowledge(exclude));
-  };
 
   // ── ตัวจับเวลาคำถาม (เปิด/ปิดได้ใน Teacher Mode; หมดเวลา = เฉลยอัตโนมัติ) ──
   const timerOn = settings.timerEnabled;
   const [timeLeft, setTimeLeft] = useState<number>(0);
   useEffect(() => {
-    if (!isQuizKind || !quiz) return;
+    if (!usesQuizUI || !quiz) return;
     markQuizSeen(quiz.id);
     setTimeLeft(quiz.timeLimitSec);
     setAnswered(null);
@@ -69,13 +79,13 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
     setArGoldOpen(false);
   }, [event]);
   useEffect(() => {
-    if (!timerOn || !isQuizKind || answered !== null || timeLeft <= 0) return;
+    if (!timerOn || !usesQuizUI || answered !== null || timeLeft <= 0) return;
     const t = setTimeout(() => setTimeLeft((s) => s - 1), 1000);
     return () => clearTimeout(t);
   }, [timeLeft, answered, kind, timerOn]);
   // หมดเวลา → บังคับเฉลย (นับเป็นตอบผิด: index -1)
   useEffect(() => {
-    if (timerOn && isQuizKind && timeLeft === 0 && answered === null && quiz) {
+    if (timerOn && usesQuizUI && timeLeft === 0 && answered === null && quiz) {
       setAnswered(-1);
     }
   }, [timeLeft, timerOn]);
@@ -106,7 +116,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   const header = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
       <span style={{ fontSize: 26 }}>
-        {isGold ? '🪙' : kind === 'bonus' ? '🎁' : kind === 'penalty' ? '⛓️' : '👑'}
+        {isGold ? '🪙' : kind === 'bonus' ? '🎁' : kind === 'penalty' ? '⛓️' : isSubject ? '📚' : '👑'}
       </span>
       <strong style={{ fontSize: 20, color: kind === 'penalty' ? color.danger : king?.themeColor ?? color.primary }}>
         {isGold
@@ -115,6 +125,8 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
           ? 'การ์ดโบนัส'
           : kind === 'penalty'
           ? 'ช่องทำโทษ'
+          : isSubject
+          ? `สาระการเรียนรู้${king ? ' · ' + shortKing(king.name) : ''}`
           : king?.name ?? 'การ์ดโชค'}
       </strong>
     </div>
@@ -165,9 +177,15 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
           </div>
         )}
 
-        {/* ── ช่องคำถาม (เหลือง) ── */}
-        {isQuizKind && quiz && (
+        {/* ── ช่องคำถาม (ฟ้า) + ช่องกลุ่มสาระฯ (เขียวหัวเป็ด) — ใช้จอควิซเดียวกัน ── */}
+        {usesQuizUI && quiz && (
           <div>
+            {/* แถวป้ายบอกบริบทคำถาม: ระดับความยาก (+ วิชา ถ้าเป็นช่องสาระ) */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+              <DifficultyBadge difficulty={quiz.difficulty} />
+              {/* ป้ายวิชา (เฉพาะช่องกลุ่มสาระฯ) — บอกว่าสุ่มได้วิชาอะไร */}
+              {isSubject && <div style={{ ...subjectChip, marginBottom: 0 }}>📚 กลุ่มสาระ · {subjectName}</div>}
+            </div>
             {/* แถบจับเวลา */}
             {timerOn && answered === null && (
               <div style={{ marginBottom: 12 }}>
@@ -286,7 +304,9 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
                   label={
                     answered >= 0 && quiz.choices[answered].correct
                       ? `เยี่ยม! รับ 🪙 ${quiz.reward}`
-                      : 'ไว้ลองใหม่นะ →'
+                      : currentHearts <= 1
+                      ? 'เสีย ❤️ และพักฟื้น 1 เทิร์น →'
+                      : 'เสีย ❤️ ไว้ลองใหม่นะ →'
                   }
                 />
               </div>
@@ -315,12 +335,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             <p style={{ fontSize: 19, lineHeight: 1.65, color: color.text, margin: '12px 0 16px' }}>
               {knowledge.body}
             </p>
-            {/* อ่านเกร็ดแล้วเก็บได้เลย — ไม่มีคำถามทบทวน · ปุ่มสุ่มใหม่ให้เปลี่ยนใบที่ยังไม่มี */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-              <button onClick={rerollKnowledge} style={itemBtn}>
-                🎲 สุ่มใหม่
-              </button>
-            </div>
+            {/* อ่านเกร็ดแล้วเก็บได้เลย — ไม่มีคำถามทบทวน ไม่มีสุ่มใหม่ */}
             <PrimaryButton
               onClick={() => {
                 collectKnowledge(knowledge.id, 30);
@@ -365,7 +380,12 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             <PrimaryButton
               onClick={() => {
                 resolveReward(80);
-                const pool: Array<'fiftyFifty' | 'skip' | 'double'> = ['fiftyFifty', 'skip', 'double'];
+                const pool: Array<'fiftyFifty' | 'skip' | 'double' | 'heartPotion'> = [
+                  'fiftyFifty',
+                  'skip',
+                  'double',
+                  'heartPotion',
+                ];
                 giveItem(pool[Math.floor(Math.random() * pool.length)]);
                 closeEvent();
               }}
@@ -384,6 +404,29 @@ function shortKing(name: string): string {
   return name.split('(')[0].trim();
 }
 
+// ป้ายระดับความยากของคำถาม — สีตาม difficultyMeta ให้ผู้เล่นรู้ทันทีว่ากำลังเจอคำถามระดับไหน
+function DifficultyBadge({ difficulty }: { difficulty: 'easy' | 'medium' | 'hard' }) {
+  const m = difficultyMeta[difficulty];
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        fontSize: 15,
+        fontWeight: 800,
+        color: m.color,
+        background: m.bg,
+        border: `1.5px solid ${m.border}`,
+        borderRadius: radius.pill,
+        padding: '5px 12px',
+      }}
+    >
+      {m.icon} ระดับ{m.label}
+    </span>
+  );
+}
+
 const itemBtn: React.CSSProperties = {
   fontFamily: 'inherit',
   fontSize: 17,
@@ -395,6 +438,19 @@ const itemBtn: React.CSSProperties = {
   background: '#E3F2FD',
   color: color.info,
   cursor: 'pointer',
+};
+
+// ป้ายบอกวิชาของช่องกลุ่มสาระฯ (โทน teal ให้ตรงกับสีช่องบนกระดาน)
+const subjectChip: React.CSSProperties = {
+  display: 'inline-block',
+  fontSize: 15,
+  fontWeight: 800,
+  color: '#00695C',
+  background: '#E0F2F1',
+  border: '1.5px solid #4DB6AC',
+  borderRadius: radius.pill,
+  padding: '5px 12px',
+  marginBottom: 12,
 };
 
 function PrimaryButton({ onClick, label }: { onClick: () => void; label: string }) {

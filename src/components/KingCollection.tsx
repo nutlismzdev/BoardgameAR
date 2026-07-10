@@ -26,18 +26,19 @@ export function KingCollection() {
         background: 'linear-gradient(160deg, #FFFDF8 0%, #F5EAD6 100%)',
         border: `1.5px solid ${color.secondary}55`,
         boxShadow: '0 12px 30px rgba(90,60,20,.22), inset 0 1px 0 #ffffff',
-        padding: 14,
+        padding: 10,
         overflow: 'hidden',
+        minHeight: 0,
       }}
     >
       {/* หัวการ์ด */}
-      <div style={{ textAlign: 'center', marginBottom: 8 }}>
-        <div style={{ fontSize: 19, fontWeight: 700, color: color.primary }}>🪙 เหรียญกษัตริย์</div>
-        <div style={{ fontSize: 15, color: color.textMuted, fontWeight: 600 }}>
+      <div style={{ textAlign: 'center', marginBottom: 5, flex: '0 0 auto' }}>
+        <div style={{ fontSize: 17, fontWeight: 800, color: color.primary, lineHeight: 1.1 }}>🪙 เหรียญกษัตริย์</div>
+        <div style={{ fontSize: 13, color: color.textMuted, fontWeight: 700, lineHeight: 1.15 }}>
           เก็บแล้ว {coins.length}/7 · 📖 ความรู้ {knowledgeCount}/10
         </div>
         {/* แถบความคืบหน้าเหรียญกษัตริย์ (เงื่อนไขชนะ) */}
-        <div style={{ height: 6, background: '#00000012', borderRadius: 99, marginTop: 6 }}>
+        <div style={{ height: 5, background: '#00000012', borderRadius: 99, marginTop: 5 }}>
           <div
             style={{
               height: '100%',
@@ -54,22 +55,23 @@ export function KingCollection() {
         onClick={() => setMuseumOpen(true)}
         style={{
           fontFamily: 'inherit',
-          minHeight: 42,
+          minHeight: 34,
           borderRadius: radius.pill,
           border: `2px solid ${color.primary}`,
           background: '#fff',
           color: color.primary,
-          fontSize: 16,
+          fontSize: 14,
           fontWeight: 800,
           cursor: 'pointer',
-          marginBottom: 8,
+          marginBottom: 5,
+          flex: '0 0 auto',
         }}
       >
         🏛️ เปิดพิพิธภัณฑ์
       </button>
 
-      {/* รายชื่อมหาราช (เลื่อนได้ถ้าจอเตี้ย) — สถานะอิง "ได้เหรียญหรือยัง" */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', flex: 1 }}>
+      {/* ช่องเหรียญ 7 พระองค์ — grid compact เพื่อให้เห็นครบใน sidebar */}
+      <div style={coinGrid}>
         {KINGS.map((k) => {
           const won = coins.includes(k.id);
           return (
@@ -82,11 +84,13 @@ export function KingCollection() {
                 textAlign: 'left',
                 width: '100%',
                 border: 'none',
-                display: 'flex',
+                display: 'grid',
+                gridTemplateColumns: '34px 1fr',
                 alignItems: 'center',
-                gap: 10,
-                padding: '6px 8px',
-                borderRadius: radius.md,
+                gap: 7,
+                padding: '5px 6px',
+                minHeight: 44,
+                borderRadius: radius.sm,
                 background: won ? '#ffffffcc' : 'transparent',
                 boxShadow: won ? '0 2px 6px rgba(0,0,0,.08)' : 'none',
                 opacity: won ? 1 : 0.6,
@@ -98,8 +102,8 @@ export function KingCollection() {
               <div
                 style={{
                   flexShrink: 0,
-                  width: 44,
-                  height: 44,
+                  width: 32,
+                  height: 32,
                   borderRadius: '50%',
                   display: 'grid',
                   placeItems: 'center',
@@ -127,21 +131,18 @@ export function KingCollection() {
               <div style={{ minWidth: 0 }}>
                 <div
                   style={{
-                    fontSize: 15,
-                    fontWeight: 600,
+                    fontSize: 12,
+                    fontWeight: 800,
                     color: color.text,
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  {won ? shortName(k.name) : '❓ ยังไม่ได้เหรียญ'}
+                  {won ? shortName(k.name) : '❓ ยังไม่ได้'}
                 </div>
-                <div style={{ fontSize: 14, color: color.textMuted }}>{k.era}</div>
+                <div style={{ fontSize: 11, color: color.textMuted, fontWeight: 700 }}>{k.era}</div>
               </div>
-              <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-                {won && <span style={{ fontSize: 15, color: color.info }}>ดู ›</span>}
-              </span>
             </button>
           );
         })}
@@ -159,3 +160,14 @@ export function KingCollection() {
 function shortName(name: string): string {
   return name.split('(')[0].trim();
 }
+
+const coinGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 5,
+  overflowY: 'auto',
+  flex: '1 1 auto',
+  minHeight: 0,
+  alignContent: 'start',
+  paddingRight: 2,
+};

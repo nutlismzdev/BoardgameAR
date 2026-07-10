@@ -1,40 +1,44 @@
+import { useState } from 'react';
 import { useGame } from '@/core/store';
 import type { Settings } from '@/core/store';
+import { AdminPanel } from '@/screens/Admin/AdminPanel';
 import { color, radius, elevation } from '@/theme/tokens';
 
 // โหมดครู (Teacher Mode) — ตั้งค่าเกมก่อนเริ่ม
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const settings = useGame((s) => s.settings);
   const update = useGame((s) => s.updateSettings);
+  const [adminOpen, setAdminOpen] = useState(false);
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 150,
-        padding: 20,
-      }}
-    >
+    <>
       <div
         style={{
-          background: color.surface,
-          borderRadius: radius.lg,
-          boxShadow: elevation.modal,
-          width: 'min(520px, 94vw)',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          padding: 24,
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 150,
+          padding: 20,
         }}
       >
-        <h2 style={{ fontSize: 24, color: color.primary, marginTop: 0 }}>⚙️ โหมดครู</h2>
-        <p style={{ color: color.textMuted, marginTop: -8, fontSize: 17 }}>
-          ตั้งค่าให้เหมาะกับชั้นเรียน
-        </p>
+        <div
+          style={{
+            background: color.surface,
+            borderRadius: radius.lg,
+            boxShadow: elevation.modal,
+            width: 'min(520px, 94vw)',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: 24,
+          }}
+        >
+          <h2 style={{ fontSize: 24, color: color.primary, marginTop: 0 }}>⚙️ โหมดครู</h2>
+          <p style={{ color: color.textMuted, marginTop: -8, fontSize: 17 }}>
+            ตั้งค่าให้เหมาะกับชั้นเรียน
+          </p>
 
         {/* ระดับความยาก */}
         <Row label="ระดับความยากคำถาม">
@@ -77,27 +81,49 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           onToggle={() => update({ calibrate: !settings.calibrate })}
         />
 
-        <button
-          onClick={onClose}
-          style={{
-            fontFamily: 'inherit',
-            marginTop: 20,
-            width: '100%',
-            fontSize: 19,
-            fontWeight: 700,
-            color: '#fff',
-            background: color.primary,
-            border: 'none',
-            borderRadius: radius.pill,
-            padding: 16,
-            minHeight: 56,
-            cursor: 'pointer',
-          }}
-        >
-          เสร็จสิ้น
-        </button>
+          <button
+            onClick={() => setAdminOpen(true)}
+            style={{
+              fontFamily: 'inherit',
+              marginTop: 16,
+              width: '100%',
+              fontSize: 18,
+              fontWeight: 700,
+              color: color.primary,
+              background: '#FFF6D8',
+              border: `2px solid ${color.secondary}`,
+              borderRadius: radius.pill,
+              padding: 14,
+              minHeight: 54,
+              cursor: 'pointer',
+            }}
+          >
+            📚 จัดการเนื้อหาการ์ด (หลังบ้าน)
+          </button>
+
+          <button
+            onClick={onClose}
+            style={{
+              fontFamily: 'inherit',
+              marginTop: 12,
+              width: '100%',
+              fontSize: 19,
+              fontWeight: 700,
+              color: '#fff',
+              background: color.primary,
+              border: 'none',
+              borderRadius: radius.pill,
+              padding: 16,
+              minHeight: 56,
+              cursor: 'pointer',
+            }}
+          >
+            เสร็จสิ้น
+          </button>
+        </div>
       </div>
-    </div>
+      {adminOpen && <AdminPanel onClose={() => setAdminOpen(false)} />}
+    </>
   );
 }
 

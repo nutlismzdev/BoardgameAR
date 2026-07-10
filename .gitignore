@@ -9,6 +9,13 @@ dist/
 .vite-dev.err.log
 .vite-dev.log
 
+# local config / secrets
+.env
+.env.local
+server/config.php
+server/uploads/*
+!server/uploads/.gitkeep
+
 # editor / OS
 .DS_Store
 Thumbs.db

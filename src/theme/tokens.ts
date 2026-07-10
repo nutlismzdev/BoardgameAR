@@ -34,6 +34,7 @@ export const tileColor: Record<string, string> = {
   mission: '#1565C0', // ฟ้า
   coin: '#F9A825',
   knowledge: '#E91E63', // ชมพู
+  subject: '#00897B', // เขียวหัวเป็ด (teal) — ช่องกลุ่มสาระการเรียนรู้
   king: '#8B0000',
   goldking: '#C9A227', // ทอง — เหรียญกษัตริย์
   bonus: '#2E9E44', // เขียว
@@ -48,12 +49,24 @@ export const tileIcon: Record<string, string> = {
   mission: '🎯',
   coin: '💰',
   knowledge: '💡',
+  subject: '📚',
   king: '👑',
   goldking: '👑',
-  bonus: '💚',
+  bonus: '🎁',
   chance: '🌀',
   penalty: '⛓️',
   special: '⏭️',
+};
+
+// ระดับความยากของคำถาม — ป้ายสี + คำไทย ใช้ซ้ำทุกที่ที่แสดงคำถาม
+// (ช่องฟ้า/ช่องสาระใน CardModal + ช่องทอง AR) ให้ผู้เล่นรู้ว่ากำลังเจอคำถามระดับไหน
+export const difficultyMeta: Record<
+  'easy' | 'medium' | 'hard',
+  { label: string; color: string; bg: string; border: string; icon: string }
+> = {
+  easy: { label: 'ง่าย', color: '#1B7A34', bg: '#E7F6EC', border: '#57C27B', icon: '🟢' },
+  medium: { label: 'ปานกลาง', color: '#A66A00', bg: '#FFF3DC', border: '#E7A83C', icon: '🟡' },
+  hard: { label: 'ยาก', color: '#B02020', bg: '#FDE8E8', border: '#E06A6A', icon: '🔴' },
 };
 
 export const tileLabel: Record<string, string> = {
@@ -62,6 +75,7 @@ export const tileLabel: Record<string, string> = {
   mission: 'ภารกิจ',
   coin: 'รับเหรียญ',
   knowledge: 'ความรู้',
+  subject: 'สาระการเรียนรู้',
   king: 'มหาราช',
   goldking: 'เหรียญกษัตริย์',
   bonus: 'โบนัส',

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { King, QuizCard } from '@/core/types';
 import { useGame, HINT_PRICE } from '@/core/store';
+import { resolveApiAssetUrl } from '@/core/api';
 import { getKingCoinImage } from '@/core/kingAssets';
 import { useHandTracking, type HandStatus, type HandFrame } from '@/core/useHandTracking';
-import { color, radius, elevation } from '@/theme/tokens';
+import { color, radius, elevation, difficultyMeta } from '@/theme/tokens';
 
 // ── ช่องทอง = บทเรียน AR ── ส่องกล้อง → คลิปวิดีโอ 15 วิ (placeholder) →
 // ลากคำตอบที่ถูกไปวางในช่อง (drag-to-slot) ในหน้ากล้อง AR → ถูก = ได้เหรียญกษัตริย์
@@ -99,7 +100,13 @@ export function ARGoldChallenge({
       <div style={badge}>🪙 ช่องทอง · เหรียญกษัตริย์</div>
 
       {stage === 'video' && (
-        <VideoStage king={king} shortName={shortName} secondsLeft={secondsLeft} onSkip={() => setStage('question')} />
+        <VideoStage
+          king={king}
+          quiz={quiz}
+          shortName={shortName}
+          secondsLeft={secondsLeft}
+          onSkip={() => setStage('question')}
+        />
       )}
 
       {stage === 'question' && (
@@ -146,34 +153,50 @@ export function ARGoldChallenge({
 // ── สเตจวิดีโอ 15 วิ (placeholder — ยังไม่มีไฟล์จริง) ──
 function VideoStage({
   king,
+  quiz,
   shortName,
   secondsLeft,
   onSkip,
 }: {
   king: King;
+  quiz: QuizCard;
   shortName: string;
   secondsLeft: number;
   onSkip: () => void;
 }) {
   const pct = ((VIDEO_SECONDS - secondsLeft) / VIDEO_SECONDS) * 100;
+  const lessonVideo = resolveApiAssetUrl(quiz.videoUrl || king.arVideo || '');
   return (
     <div style={centerCard}>
       <div style={{ fontSize: 15, fontWeight: 800, color: color.info }}>🎬 คลิปวิดีโอ 15 วินาที</div>
-      <div style={videoBox(king.themeColor)}>
-        <div style={medal(king.themeColor)}>{king.order}</div>
-        <div style={{ fontSize: 22, fontWeight: 900, marginTop: 10 }}>{shortName}</div>
-        <div style={{ fontSize: 16, opacity: 0.85 }}>
-          {king.era} · {king.reignPeriod}
+      {lessonVideo ? (
+        <div style={lessonVideoFrame}>
+          <video
+            src={lessonVideo}
+            controls
+            autoPlay
+            muted
+            playsInline
+            style={{ width: '100%', maxHeight: 300, display: 'block', background: '#000' }}
+          />
         </div>
-        <ul style={{ textAlign: 'left', fontSize: 16, lineHeight: 1.6, margin: '10px 0 0', paddingLeft: 20 }}>
-          {king.achievements.slice(0, 2).map((a, i) => (
-            <li key={i}>{a}</li>
-          ))}
-        </ul>
-        <div style={{ marginTop: 10, fontSize: 13, opacity: 0.6 }}>
-          (ตัวอย่าง — เสียบไฟล์วิดีโอจริงภายหลังผ่าน king.arVideo)
+      ) : (
+        <div style={videoBox(king.themeColor)}>
+          <div style={medal(king.themeColor)}>{king.order}</div>
+          <div style={{ fontSize: 22, fontWeight: 900, marginTop: 10 }}>{shortName}</div>
+          <div style={{ fontSize: 16, opacity: 0.85 }}>
+            {king.era} · {king.reignPeriod}
+          </div>
+          <ul style={{ textAlign: 'left', fontSize: 16, lineHeight: 1.6, margin: '10px 0 0', paddingLeft: 20 }}>
+            {king.achievements.slice(0, 2).map((a, i) => (
+              <li key={i}>{a}</li>
+            ))}
+          </ul>
+          <div style={{ marginTop: 10, fontSize: 13, opacity: 0.6 }}>
+            ยังไม่มีวิดีโอสำหรับการ์ดนี้
+          </div>
         </div>
-      </div>
+      )}
       <div style={{ height: 8, background: '#00000018', borderRadius: 99, marginTop: 12, overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${pct}%`, background: color.secondary, transition: 'width 1s linear' }} />
       </div>
@@ -204,14 +227,31 @@ function DragQuestion({
   const choiceRefs = useRef<(HTMLDivElement | null)[]>([]);
   const pinchPrevRef = useRef(false);
   const lastOverSlotRef = useRef(0); // เวลาล่าสุดที่นิ้ว (ตอนจีบ) ลอยเหนือช่องวาง
+  // ตำแหน่งนิ้ว/ชิปอัปเดตผ่าน ref + เขียน DOM ตรง ๆ ทุกเฟรม (ไม่ setState ต่อเฟรม = ไม่ re-render ทั้งการ์ด)
+  const posRef = useRef({ x: 0, y: 0 });
+  const cursorDotRef = useRef<HTMLDivElement | null>(null);
+  const chipRef = useRef<HTMLDivElement | null>(null);
+  const presentRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [overSlot, setOverSlot] = useState(false); // นิ้วที่ถือคำตอบลอยเหนือช่องอยู่ไหม (ไฮไลต์)
   const [attempts, setAttempts] = useState(0);
   const [wrongPulse, setWrongPulse] = useState(0);
   const [hidden, setHidden] = useState<number[]>([]); // คำตอบผิดที่ถูกคำใบ้ตัดออก
-  const [cursor, setCursor] = useState<{ x: number; y: number; present: boolean }>({ x: 0, y: 0, present: false });
+  const [cursorPresent, setCursorPresent] = useState(false); // เจอมือในเฟรมไหม (ใช้ mount จุดนิ้ว)
   const [handStatus, setHandStatus] = useState<HandStatus>('loading');
+
+  // เขียนตำแหน่งจุดนิ้ว + ชิปที่ลากลง DOM โดยตรง (เลี่ยง re-render ต่อเฟรม)
+  const applyLivePos = (x: number, y: number) => {
+    posRef.current = { x, y };
+    if (cursorDotRef.current) {
+      cursorDotRef.current.style.left = `${x}px`;
+      cursorDotRef.current.style.top = `${y}px`;
+    }
+    if (chipRef.current) {
+      chipRef.current.style.left = `${x}px`;
+      chipRef.current.style.top = `${y}px`;
+    }
+  };
   const coins = useGame((s) => s.players[s.currentPlayerIndex]?.coins ?? 0);
   const buyHint = useGame((s) => s.buyHint);
 
@@ -254,16 +294,19 @@ function DragQuestion({
   // hand tracking: ปลายนิ้ว = cursor, จีบนิ้ว = จับ/วาง (edge detection)
   const handleFrame = useCallback(
     (f: HandFrame) => {
-      setCursor({ x: f.x, y: f.y, present: f.present });
+      if (f.present !== presentRef.current) {
+        presentRef.current = f.present;
+        setCursorPresent(f.present); // เปลี่ยน state เฉพาะตอน "เจอ/หายมือ" ไม่ใช่ทุกเฟรม
+      }
       if (!f.present) {
         pinchPrevRef.current = false;
         return;
       }
+      applyLivePos(f.x, f.y); // ขยับจุดนิ้ว/ชิปผ่าน DOM โดยตรง
       const was = pinchPrevRef.current;
       pinchPrevRef.current = f.pinching;
 
       if (activeIndex !== null) {
-        setPos({ x: f.x, y: f.y });
         const over = isOverSlot(f.x, f.y);
         if (over) lastOverSlotRef.current = performance.now();
         setOverSlot((prev) => (prev !== over ? over : prev));
@@ -272,8 +315,8 @@ function DragQuestion({
       if (f.pinching && !was && activeIndex === null) {
         const idx = hitTestChoice(f.x, f.y);
         if (idx !== null && !hidden.includes(idx)) {
+          posRef.current = { x: f.x, y: f.y }; // seed ตำแหน่ง mount ของชิป
           setActiveIndex(idx);
-          setPos({ x: f.x, y: f.y });
         }
       } else if (!f.pinching && was && activeIndex !== null) {
         const idx = activeIndex;
@@ -294,7 +337,7 @@ function DragQuestion({
   // fallback: แตะลากบนจอ (pointer)
   useEffect(() => {
     if (activeIndex === null) return;
-    const move = (e: PointerEvent) => setPos({ x: e.clientX, y: e.clientY });
+    const move = (e: PointerEvent) => applyLivePos(e.clientX, e.clientY);
     const up = (e: PointerEvent) => {
       const idx = activeIndex;
       setActiveIndex(null);
@@ -316,10 +359,29 @@ function DragQuestion({
       {handEnabled && (
         <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4, color: handStatus === 'ready' ? color.success : handStatus === 'error' ? color.danger : color.textMuted }}>
           {handStatus === 'loading' && '⏳ กำลังเปิดระบบตรวจจับมือ…'}
-          {handStatus === 'ready' && (cursor.present ? '✋ เจอมือแล้ว — จีบนิ้วเพื่อจับคำตอบ' : '👋 ยกมือขึ้นให้กล้องเห็น')}
+          {handStatus === 'ready' && (cursorPresent ? '✋ เจอมือแล้ว — จีบนิ้วเพื่อจับคำตอบ' : '👋 ยกมือขึ้นให้กล้องเห็น')}
           {handStatus === 'error' && '⚠️ ตรวจจับมือไม่ได้ — ใช้นิ้วแตะลากบนจอแทนได้'}
         </div>
       )}
+      {/* ป้ายระดับความยาก — สีเดียวกับ CardModal ให้รู้ว่าคำถามทองระดับไหน */}
+      <div style={{ marginTop: 10 }}>
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            fontSize: 14,
+            fontWeight: 800,
+            color: difficultyMeta[quiz.difficulty].color,
+            background: difficultyMeta[quiz.difficulty].bg,
+            border: `1.5px solid ${difficultyMeta[quiz.difficulty].border}`,
+            borderRadius: radius.pill,
+            padding: '4px 11px',
+          }}
+        >
+          {difficultyMeta[quiz.difficulty].icon} ระดับ{difficultyMeta[quiz.difficulty].label}
+        </span>
+      </div>
       <p style={{ fontSize: 20, fontWeight: 700, margin: '8px 0 14px' }}>{quiz.question}</p>
 
       {/* ช่องวางคำตอบ — ไฮไลต์เมื่อนิ้วที่ถือคำตอบลอยเหนือช่อง (พร้อมปล่อย) */}
@@ -359,8 +421,8 @@ function DragQuestion({
               }}
               onPointerDown={(e) => {
                 if (isHidden) return;
+                posRef.current = { x: e.clientX, y: e.clientY };
                 setActiveIndex(i);
-                setPos({ x: e.clientX, y: e.clientY });
               }}
               style={{
                 touchAction: 'none',
@@ -414,10 +476,11 @@ function DragQuestion({
       {/* ชิปที่กำลังลาก (ลอยตามนิ้ว) */}
       {activeIndex !== null && (
         <div
+          ref={chipRef}
           style={{
             position: 'fixed',
-            left: pos.x,
-            top: pos.y,
+            left: posRef.current.x,
+            top: posRef.current.y,
             transform: 'translate(-50%, -50%)',
             pointerEvents: 'none',
             zIndex: 400,
@@ -435,12 +498,13 @@ function DragQuestion({
       )}
 
       {/* จุดปลายนิ้ว (hand cursor) — โชว์ตำแหน่งมือที่ตรวจจับได้ */}
-      {handEnabled && cursor.present && (
+      {handEnabled && cursorPresent && (
         <div
+          ref={cursorDotRef}
           style={{
             position: 'fixed',
-            left: cursor.x,
-            top: cursor.y,
+            left: posRef.current.x,
+            top: posRef.current.y,
             transform: 'translate(-50%, -50%)',
             pointerEvents: 'none',
             zIndex: 450,
@@ -546,6 +610,14 @@ function videoBox(themeColor: string): React.CSSProperties {
     padding: 18,
   };
 }
+
+const lessonVideoFrame: React.CSSProperties = {
+  marginTop: 10,
+  borderRadius: radius.lg,
+  overflow: 'hidden',
+  border: '2px solid rgba(201,162,39,.55)',
+  background: '#000',
+};
 
 function medal(themeColor: string): React.CSSProperties {
   return {

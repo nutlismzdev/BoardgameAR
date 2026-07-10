@@ -8,9 +8,10 @@ const ITEM_DESC: Record<ItemType, string> = {
   fiftyFifty: 'ตัดตัวเลือกที่ผิดออก 2 ข้อ ในช่องคำถาม',
   skip: 'ข้ามคำถามที่ไม่มั่นใจ — รับครึ่งรางวัล',
   double: 'คูณเหรียญรางวัลข้อถัดไป ×2',
+  heartPotion: 'ฟื้นหัวใจให้ผู้เล่นปัจจุบัน 1 ดวง',
 };
 
-const ORDER: ItemType[] = ['fiftyFifty', 'skip', 'double'];
+const ORDER: ItemType[] = ['fiftyFifty', 'skip', 'double', 'heartPotion'];
 
 // ร้านค้าไอเทม — ใช้เหรียญราชภักดิ์ซื้อไอเทมพาวเวอร์อัพ (coin sink)
 export function ShopModal({ onClose }: { onClose: () => void }) {

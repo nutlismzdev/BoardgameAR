@@ -32,7 +32,7 @@ function stopBackgroundTimers() {
 function backgroundGain(c: AudioContext) {
   if (!bgMaster) {
     bgMaster = c.createGain();
-    bgMaster.gain.value = 0.045;
+    bgMaster.gain.value = 0.095;
     bgMaster.connect(c.destination);
   }
   return bgMaster;
@@ -69,21 +69,22 @@ function playBackgroundBar() {
   const bass = [196, 196, 220, 220, 174.61, 174.61, 196, 196];
 
   melody.forEach((freq, i) => {
-    musicTone(freq, 460, 'sine', 0.08, i * 0.5, dest);
+    musicTone(freq, 460, 'sine', 0.12, i * 0.5, dest);
   });
   bass.forEach((freq, i) => {
-    musicTone(freq, 900, 'triangle', 0.045, i * 0.5, dest);
+    musicTone(freq, 900, 'triangle', 0.075, i * 0.5, dest);
   });
 }
 
 export function startBackgroundMusic() {
-  if (bgPlaying || !enabled) return;
-  const c = ac();
+  if (!enabled) return;
+  const c = ac(); // resume() ให้ context ทำงานเมื่อมี user gesture แม้เพลงตั้ง bgPlaying ไว้แล้ว
   if (!c) return;
+  if (bgPlaying) return;
 
   bgPlaying = true;
   const master = backgroundGain(c);
-  master.gain.setValueAtTime(0.045, c.currentTime);
+  master.gain.setValueAtTime(0.095, c.currentTime);
   playBackgroundBar();
   bgTimers = [setInterval(playBackgroundBar, 4000)];
 }

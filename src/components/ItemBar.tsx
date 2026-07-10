@@ -1,4 +1,4 @@
-import { useGame, ITEM_META } from '@/core/store';
+import { useGame, ITEM_META, MAX_HEARTS } from '@/core/store';
 import type { ItemType } from '@/core/store';
 import { color, radius } from '@/theme/tokens';
 
@@ -8,6 +8,7 @@ export function ItemBar() {
   const items = useGame((s) => s.items);
   const doubleNext = useGame((s) => s.doubleNext);
   const useItem = useGame((s) => s.useItem);
+  const hearts = useGame((s) => s.players[s.currentPlayerIndex]?.hearts ?? MAX_HEARTS);
 
   const owned = (Object.keys(ITEM_META) as ItemType[]).filter((t) => items[t] > 0);
   if (owned.length === 0 && !doubleNext) {
@@ -26,12 +27,12 @@ export function ItemBar() {
         </span>
       )}
       {owned.map((t) => {
-        const activatable = t === 'double' && !doubleNext;
+        const activatable = (t === 'double' && !doubleNext) || (t === 'heartPotion' && hearts < MAX_HEARTS);
         return (
           <button
             key={t}
             disabled={!activatable}
-            onClick={() => activatable && useItem('double')}
+            onClick={() => activatable && useItem(t)}
             style={{
               ...chip,
               border: `1.5px solid ${color.info}`,

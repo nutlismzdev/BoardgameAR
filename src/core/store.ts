@@ -6,7 +6,7 @@ import boardData from '@/data/board-layout.json';
 import kingsData from '@/data/kings.json';
 import type { Player, Tile, TileEvent, Difficulty } from './types';
 import { rollDie, isBonusRoll } from './diceLogic';
-import { sfx, setSoundEnabled } from './sfx';
+import { sfx, setSoundEnabled, startBackgroundMusic, stopBackgroundMusic } from './sfx';
 
 const TILES = boardData.tiles as Tile[];
 const LOOP = boardData.loopSize as number;
@@ -31,18 +31,22 @@ export interface FxSignal {
 }
 let fxCounter = 0;
 
+export const MAX_HEARTS = 3;
+
 // ── ไอเทมพาวเวอร์อัพ ──
-export type ItemType = 'fiftyFifty' | 'skip' | 'double';
+export type ItemType = 'fiftyFifty' | 'skip' | 'double' | 'heartPotion';
 export const ITEM_META: Record<ItemType, { icon: string; label: string }> = {
   fiftyFifty: { icon: '✂️', label: '50:50' },
   skip: { icon: '⏭️', label: 'ข้ามคำถาม' },
   double: { icon: '✨', label: '×2 เหรียญ' },
+  heartPotion: { icon: '💖', label: 'ยารักษา' },
 };
 // ราคาไอเทมในร้านค้า (ใช้เหรียญราชภักดิ์ซื้อ) — coin sink หลักของเกม
 export const ITEM_PRICE: Record<ItemType, number> = {
   fiftyFifty: 80,
   skip: 120,
   double: 150,
+  heartPotion: 100,
 };
 export const HINT_PRICE = 60; // ค่าคำใบ้ในช่องมงกุฎ AR (ตัดคำตอบผิด 2 ข้อ)
 export type ItemBag = Record<ItemType, number>;
@@ -126,7 +130,7 @@ export const useGame = create<GameState>((set, get) => ({
   pendingFork: null,
   fx: null,
   streak: 0,
-  items: { fiftyFifty: 0, skip: 0, double: 0 },
+  items: { fiftyFifty: 0, skip: 0, double: 0, heartPotion: 0 },
   doubleNext: false,
   usedQuizIds: [],
 
@@ -138,6 +142,7 @@ export const useGame = create<GameState>((set, get) => ({
       kingTokenId: kingTokenIds[i] ?? KING_IDS[i % KING_IDS.length],
       position: 0,
       coins: 0,
+      hearts: MAX_HEARTS,
       kingCoins: [],
       skipNext: 0,
       knowledgeCards: [],
@@ -152,15 +157,19 @@ export const useGame = create<GameState>((set, get) => ({
       pendingFork: null,
       fx: null,
       streak: 0,
-      items: { fiftyFifty: 0, skip: 0, double: 0 },
+      items: { fiftyFifty: 0, skip: 0, double: 0, heartPotion: 0 },
       doubleNext: false,
       usedQuizIds: [],
     });
+    if (get().settings.soundEnabled) startBackgroundMusic();
   },
 
   updateSettings: (patch) => {
     const next = { ...get().settings, ...patch };
-    if (patch.soundEnabled !== undefined) setSoundEnabled(patch.soundEnabled);
+    if (patch.soundEnabled !== undefined) {
+      setSoundEnabled(patch.soundEnabled);
+      if (patch.soundEnabled && get().phase !== 'setup' && get().phase !== 'gameover') startBackgroundMusic();
+    }
     set({ settings: next });
   },
 
@@ -170,6 +179,7 @@ export const useGame = create<GameState>((set, get) => ({
 
     const value = rollDie();
     set({ phase: 'rolling', lastRoll: value });
+    startBackgroundMusic();
     sfx.roll();
 
     // อนิเมชันทอยแบบลุ้น (ลูกเต๋าหมุนสลับเลข)
@@ -220,6 +230,7 @@ export const useGame = create<GameState>((set, get) => ({
 
     if (!correct) {
       sfx.wrong();
+      damageCurrentPlayer(set, get);
       set({ streak: 0, fx: { id: ++fxCounter, kind: 'wrong', coins: 0 } });
       return;
     }
@@ -246,6 +257,7 @@ export const useGame = create<GameState>((set, get) => ({
     const idx = get().currentPlayerIndex;
     if (!correct) {
       sfx.wrong();
+      damageCurrentPlayer(set, get);
       set({ streak: 0, fx: { id: ++fxCounter, kind: 'wrong', coins: 0 } });
       return;
     }
@@ -317,6 +329,20 @@ export const useGame = create<GameState>((set, get) => ({
   // ใช้ไอเทม — คืน true ถ้ามีของและใช้สำเร็จ ('double' ติดสถานะ ×2 รางวัลถัดไป)
   useItem: (type) => {
     if (get().items[type] <= 0) return false;
+    if (type === 'heartPotion') {
+      const idx = get().currentPlayerIndex;
+      const player = get().players[idx];
+      if (!player || player.hearts >= MAX_HEARTS) return false;
+      sfx.correct();
+      set((s) => ({
+        items: { ...s.items, heartPotion: s.items.heartPotion - 1 },
+        players: s.players.map((p, i) =>
+          i === idx ? { ...p, hearts: Math.min(MAX_HEARTS, p.hearts + 1) } : p
+        ),
+        fx: { id: ++fxCounter, kind: 'correct', coins: 0 },
+      }));
+      return true;
+    }
     set((s) => ({
       items: { ...s.items, [type]: s.items[type] - 1 },
       doubleNext: type === 'double' ? true : s.doubleNext,
@@ -350,6 +376,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   backToHome: () => {
+    stopBackgroundMusic();
     set({ players: [], phase: 'setup', currentPlayerIndex: 0, round: 1, lastRoll: null, pendingEvent: null });
   },
 }));
@@ -427,7 +454,7 @@ function finishTurn(set: any, get: any, rolled: number) {
     return;
   }
 
-  if (isBonusRoll(rolled)) {
+  if (isBonusRoll(rolled) && players[currentPlayerIndex].skipNext <= 0) {
     set({ phase: 'idle' }); // ผู้เล่นเดิมทอยอีกครั้ง
     return;
   }
@@ -449,11 +476,30 @@ function finishTurn(set: any, get: any, rolled: number) {
   // เกมจบเฉพาะเมื่อมีผู้เล่นเก็บเหรียญกษัตริย์ครบ 7 พระองค์ (เช็กด้านบน) — ไม่มีลิมิตรอบแล้ว
 
   set((s: GameState) => ({
-    players: s.players.map((p, i) => (rested.includes(i) ? { ...p, skipNext: p.skipNext - 1 } : p)),
+    players: s.players.map((p, i) => {
+      if (!rested.includes(i)) return p;
+      const skipNext = Math.max(0, p.skipNext - 1);
+      return { ...p, skipNext, hearts: skipNext === 0 && p.hearts <= 0 ? 1 : p.hearts };
+    }),
     currentPlayerIndex: nextIndex,
     round: nextRound,
     phase: 'idle',
     lastRoll: null,
+  }));
+}
+
+function damageCurrentPlayer(set: any, get: any) {
+  const idx = get().currentPlayerIndex;
+  set((s: GameState) => ({
+    players: s.players.map((p, i) => {
+      if (i !== idx) return p;
+      const hearts = Math.max(0, p.hearts - 1);
+      return {
+        ...p,
+        hearts,
+        skipNext: hearts === 0 ? Math.max(p.skipNext, 1) : p.skipNext,
+      };
+    }),
   }));
 }
 

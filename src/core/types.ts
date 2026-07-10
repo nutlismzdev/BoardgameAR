@@ -3,10 +3,20 @@
 export type TileType =
   | 'question'
   | 'knowledge'
+  | 'subject' // ช่องกลุ่มสาระการเรียนรู้ — สุ่มคำถามตามวิชา (สังคม/คณิต/วิทย์/ศิลปะ/สุขศึกษา/ภาษาต่างประเทศ) ของพระองค์ที่ผูกช่อง
   | 'goldking' // ช่องทอง — ตอบคำถามถูก = ได้เหรียญกษัตริย์ (เงื่อนไขชนะ)
   | 'bonus' // ช่องเขียว — การ์ดโบนัส (และเป็นจุดทางแยก)
   | 'penalty' // ช่องทำโทษ — เดินย้อนหลัง หรือ หยุดพัก 1 ตา
   | 'blank';
+
+// 8 กลุ่มสาระฯ แต่คัดมาใช้ 6 วิชาตามที่กำหนด (ไม่รวมภาษาไทย/การงานฯ)
+export type SubjectArea =
+  | 'social' // สังคมศึกษา ศาสนา และวัฒนธรรม
+  | 'math' // คณิตศาสตร์
+  | 'science' // วิทยาศาสตร์
+  | 'art' // ศิลปะ
+  | 'health_pe' // สุขศึกษาและพลศึกษา
+  | 'foreign_language'; // ภาษาต่างประเทศ
 
 // ผลของช่องทำโทษ: 'back' = ถอยหลัง steps ช่อง · 'skip' = หยุดพัก steps ตา
 export interface PenaltyConfig {
@@ -60,6 +70,14 @@ export interface QuizCard {
   question: string;
   choices: QuizChoice[];
   explanation: string;
+  videoUrl?: string;
+}
+
+export type GoldQuizCard = QuizCard;
+
+// คำถามช่องกลุ่มสาระฯ — เหมือนควิซปกติ แต่ผูกกับ "วิชา" ด้วย (ใช้โชว์ป้ายวิชา + คัดตามหมวด)
+export interface SubjectQuizCard extends QuizCard {
+  subject: SubjectArea;
 }
 
 // การ์ดความรู้ (ช่องชมพู) — เกร็ดความรู้ + คำถามทวนแบบ ก/ข/ค/ง เก็บสะสมได้ (ไม่มี AR)
@@ -79,6 +97,7 @@ export interface Player {
   kingTokenId: string; // ภาพหมากกษัตริย์ที่ผู้เล่นเลือก
   position: number; // index ช่องปัจจุบัน
   coins: number;
+  hearts: number;
   kingCoins: string[]; // เหรียญกษัตริย์ที่เก็บได้ (จากช่องทอง) — เก็บครบ 7 = ชนะ
   skipNext: number; // จำนวนตาที่ต้อง "หยุดพัก" (จากช่องทำโทษ) — ถูกข้ามเทิร์นจนกว่าจะเป็น 0
   knowledgeCards: string[]; // การ์ดความรู้ที่เก็บได้ (ช่องชมพู) สูงสุด 10 ใบ/คน สุ่มไม่ซ้ำ
