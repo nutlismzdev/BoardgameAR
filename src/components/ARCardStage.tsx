@@ -151,7 +151,16 @@ export function ARCardStage({
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
       {/* วิดีโอบทเรียน (ซ่อน) — ใช้เป็น texture ทับการ์ด ถ้ายังไม่มีวิดีโอจะใช้ placeholder plane แทน */}
       {hasLessonVideo && (
-        <video ref={lessonVideoRef} src={lessonUrl} muted playsInline preload="auto" style={{ display: 'none' }} />
+        // ซ่อนแบบ "ยังเรนเดอร์อยู่" (ไม่ใช่ display:none) — บางเบราว์เซอร์หยุด decode วิดีโอที่ display:none
+        // ทำให้ VideoTexture ว่าง/ดำ · off-screen เล็ก ๆ + opacity 0 จะยัง decode เฟรมให้ texture
+        <video
+          ref={lessonVideoRef}
+          src={lessonUrl}
+          muted
+          playsInline
+          preload="auto"
+          style={{ position: 'absolute', width: 2, height: 2, top: 0, left: 0, opacity: 0, pointerEvents: 'none' }}
+        />
       )}
 
       {/* overlay UI */}

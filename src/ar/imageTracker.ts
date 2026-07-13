@@ -31,6 +31,10 @@ export async function createImageTracker(container: HTMLElement): Promise<ImageT
   const mindar: any = new MindARThree({
     container,
     imageTargetSrc: AR.mindTargetUrl,
+    // ปิด UI overlay ของ MindAR (เรามี overlay/กรอบเล็งเอง จะได้ไม่ทับกัน)
+    uiLoading: 'no',
+    uiScanning: 'no',
+    uiError: 'no',
   });
   const { renderer, scene, camera } = mindar;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -89,8 +93,15 @@ export async function createImageTracker(container: HTMLElement): Promise<ImageT
       const w = AR.videoPlaneScale;
       const h = AR.videoPlaneScale * AR.cardAspectHeight;
       const texture = new THREE.VideoTexture(video);
+      // สีให้ตรง (renderer เป็น sRGB) + เห็นได้ทั้งสองด้าน (กัน back-face culling ทำให้วิดีโอไม่ขึ้น)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (texture as any).encoding = (THREE as any).sRGBEncoding;
       const geometry = new THREE.PlaneGeometry(w, h);
-      const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false });
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        toneMapped: false,
+        side: THREE.DoubleSide,
+      });
       targetMesh = new THREE.Mesh(geometry, material);
       anchor.group.add(targetMesh);
     },
@@ -124,7 +135,11 @@ export async function createImageTracker(container: HTMLElement): Promise<ImageT
       }
       const texture = new THREE.CanvasTexture(canvas);
       const geometry = new THREE.PlaneGeometry(AR.videoPlaneScale, AR.videoPlaneScale * AR.cardAspectHeight);
-      const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false });
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        toneMapped: false,
+        side: THREE.DoubleSide,
+      });
       targetMesh = new THREE.Mesh(geometry, material);
       anchor.group.add(targetMesh);
     },
