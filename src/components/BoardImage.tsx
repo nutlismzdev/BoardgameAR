@@ -175,7 +175,7 @@ export function BoardImage({ size }: { size: number }) {
 
       <style>{`
         @keyframes boardBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.006)}}
-        @keyframes goldTileGlow{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.1)}}
+        @keyframes goldTileGlow{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.05)}}
         @keyframes questionTileWiggle{0%,78%,100%{transform:translate(-50%,-50%) rotate(0) scale(1)}84%{transform:translate(-50%,-50%) rotate(-8deg) scale(1.06)}90%{transform:translate(-50%,-50%) rotate(8deg) scale(1.06)}}
         @keyframes pawnBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
         @keyframes tilePulse{0%,100%{opacity:.35;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}}
@@ -194,6 +194,11 @@ const TileMarkers = memo(function TileMarkers({
   showTileIcons: boolean;
 }) {
   const pawn = Math.max(26, boardW * 0.038);
+  // ── ขนาดไอคอนช่อง "เท่ากันทุกชนิด" (รวมช่องทอง) ให้เป็นระเบียบพอดีกรอบช่อง ──
+  // เดิมช่องทองใหญ่กว่าชนิดอื่น (1.02 vs 0.86) ทำให้ไม่สม่ำเสมอ + ล้นกรอบในเลนลับ
+  // ตอนนี้ทุกช่อง = ขนาดเดียว, ช่องทองยังเด่นด้วย "สีทองเรืองแสง" ไม่ใช่ด้วยขนาด
+  const iconSize = pawn * 0.78;
+  const iconBorder = Math.max(1.5, iconSize * 0.055);
   return (
     <>
       {POINTS.map((pt, i) => {
@@ -269,22 +274,23 @@ const TileMarkers = memo(function TileMarkers({
                   left: `${pt.x}%`,
                   top: `${pt.y}%`,
                   transform: 'translate(-50%, -50%)',
-                  // ช่องมงกุฎ AR เด่นสุด: ทองไล่เฉด + เรืองแสง + ใหญ่กว่าช่องอื่น
-                  width: pawn * (isGoldTile ? 1.02 : 0.86),
-                  height: pawn * (isGoldTile ? 1.02 : 0.86),
+                  // ขนาดเดียวทุกชนิด — พอดีกรอบช่อง เป็นระเบียบ
+                  width: iconSize,
+                  height: iconSize,
                   borderRadius: '50%',
                   // ป้ายสีเต็มวงตามชนิดการ์ด (ขอบขาว) — แต่ละชนิด = สีเดียวชัดเจน
+                  // ช่องทองยังเด่นด้วยทองไล่เฉด + เรืองแสง (glow) แต่ "ขนาดเท่าช่องอื่น"
                   background: isGoldTile
                     ? 'radial-gradient(circle at 35% 28%, #FFF6CF, #FFC42E 45%, #C8860D 100%)'
                     : tileColor[tile.type],
-                  border: isGoldTile ? '2.5px solid #FFF7D6' : '2.5px solid #fff',
+                  border: `${iconBorder}px solid ${isGoldTile ? '#FFF7D6' : '#fff'}`,
                   boxShadow: isGoldTile
-                    ? '0 0 12px 3px rgba(255,193,7,.85), 0 3px 8px rgba(120,80,10,.6)'
-                    : '0 2px 6px rgba(0,0,0,.45)',
+                    ? '0 0 10px 2px rgba(255,193,7,.85), 0 2px 6px rgba(120,80,10,.6)'
+                    : '0 2px 5px rgba(0,0,0,.42)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: pawn * (isGoldTile ? 0.5 : 0.44),
+                  fontSize: iconSize * (isQuestionTile ? 0.62 : 0.56),
                   fontWeight: isQuestionTile ? 950 : 800,
                   color: '#fff',
                   textShadow: '0 1px 2px rgba(0,0,0,.35)',

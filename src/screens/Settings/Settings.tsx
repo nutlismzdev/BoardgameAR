@@ -71,6 +71,11 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           onToggle={() => update({ arEnabled: !settings.arEnabled })}
         />
         <Toggle
+          label="🃏 โหมดส่องการ์ดจริง (AR image-target) — ต้องมีไฟล์การ์ด"
+          on={settings.arCardMode}
+          onToggle={() => update({ arCardMode: !settings.arCardMode })}
+        />
+        <Toggle
           label="🎲 แสดงไอคอนบอกชนิดช่อง"
           on={settings.showTileIcons}
           onToggle={() => update({ showTileIcons: !settings.showTileIcons })}

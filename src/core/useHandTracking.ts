@@ -34,6 +34,7 @@ export function useHandTracking(opts: {
   enabled: boolean;
   onFrame: (f: HandFrame) => void;
   onStatus?: (s: HandStatus) => void;
+  mirror?: boolean; // กล้องหน้า = true (default), กล้องหลัง (โหมด AR การ์ด) = false
 }) {
   // เก็บ callback ใน ref เพื่อไม่ต้อง re-init loop ทุกครั้งที่ parent re-render
   const onFrameRef = useRef(opts.onFrame);
@@ -42,6 +43,7 @@ export function useHandTracking(opts: {
   onStatusRef.current = opts.onStatus;
 
   const { videoRef, enabled } = opts;
+  const mirror = opts.mirror ?? true;
 
   useEffect(() => {
     if (!enabled) return;
@@ -114,9 +116,9 @@ export function useHandTracking(opts: {
           pinching = true;
         }
 
-        // ปลายนิ้วชี้ → พิกัดจอ (mirror x เพราะกล้องหน้า)
+        // ปลายนิ้วชี้ → พิกัดจอ (mirror x เฉพาะกล้องหน้า; กล้องหลังไม่ mirror)
         const tip = lm[INDEX_TIP];
-        const targetX = (1 - tip.x) * window.innerWidth;
+        const targetX = (mirror ? 1 - tip.x : tip.x) * window.innerWidth;
         const targetY = tip.y * window.innerHeight;
         if (!smooth.init) {
           smooth.x = targetX;
@@ -137,7 +139,7 @@ export function useHandTracking(opts: {
       cancelAnimationFrame(raf);
       landmarker?.close();
     };
-  }, [enabled, videoRef]);
+  }, [enabled, videoRef, mirror]);
 }
 
 function dist(a: { x: number; y: number }, b: { x: number; y: number }) {

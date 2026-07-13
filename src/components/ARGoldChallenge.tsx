@@ -5,6 +5,7 @@ import { resolveApiAssetUrl } from '@/core/api';
 import { getKingCoinImage } from '@/core/kingAssets';
 import { useHandTracking, type HandStatus, type HandFrame } from '@/core/useHandTracking';
 import { color, radius, elevation, difficultyMeta } from '@/theme/tokens';
+import { ARCardStage } from './ARCardStage';
 
 // ── ช่องทอง = บทเรียน AR ── ส่องกล้อง → คลิปวิดีโอ 15 วิ (placeholder) →
 // ลากคำตอบที่ถูกไปวางในช่อง (drag-to-slot) ในหน้ากล้อง AR → ถูก = ได้เหรียญกษัตริย์
@@ -16,21 +17,26 @@ export function ARGoldChallenge({
   quiz,
   onDone,
   useCamera = true,
+  cardMode = false,
 }: {
   king: King;
   quiz: QuizCard;
   onDone: (correct: boolean) => void;
   useCamera?: boolean; // ปิดได้ในโหมดครู — เล่นบทเรียนบนพื้นหลังเข้มแทน (ยังชนะได้)
+  cardMode?: boolean; // โหมดส่องการ์ดจริง (MindAR) — เปิดเมื่อมี gold-card.mind + ทดสอบแล้ว
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [camReady, setCamReady] = useState(false);
-  const [stage, setStage] = useState<'video' | 'question' | 'done'>('video');
+  const [stage, setStage] = useState<'video' | 'question' | 'done' | 'fail'>('video');
   const [secondsLeft, setSecondsLeft] = useState(VIDEO_SECONDS);
+  // arPhase 'card' = โหมดส่องการ์ดจริง (MindAR, กล้องหลัง) · 'done' = เข้าสู่โหมดปกติ (กล้องหน้า)
+  const [arPhase, setArPhase] = useState<'card' | 'done'>(useCamera && cardMode ? 'card' : 'done');
+  const lessonUrl = resolveApiAssetUrl(quiz.videoUrl || king.arVideo || '');
 
-  // เปิดกล้องแบบ best-effort (ถ้าไม่ได้ ใช้พื้นหลังเข้มแทน — flow ยังเล่นต่อได้)
+  // เปิดกล้องหน้าแบบ best-effort (โหมดปกติ/หลัง fallback) — ข้ามตอน arPhase 'card' (MindAR ใช้กล้องหลังอยู่)
   useEffect(() => {
-    if (!useCamera) return;
+    if (!useCamera || arPhase === 'card') return;
     let cancelled = false;
     (async () => {
       if (!navigator.mediaDevices?.getUserMedia) return;
@@ -58,7 +64,7 @@ export function ARGoldChallenge({
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, []);
+  }, [useCamera, arPhase]);
 
   // นับถอยหลังคลิปวิดีโอ 15 วิ แล้วเข้าสู่คำถาม
   useEffect(() => {
@@ -88,6 +94,23 @@ export function ARGoldChallenge({
 
   const shortName = king.name.split('(')[0].trim();
 
+  // ── โหมดส่องการ์ดจริง (image-target AR) — วิดีโอบทเรียนเล่นทับการ์ดทอง ──
+  // ดูจบ → เข้าคำถาม (โหมดกล้องหน้าเดิม) · AR ไม่ไหว/ไม่มีวิดีโอ → fallback วิดีโอปกติ
+  if (arPhase === 'card') {
+    return (
+      <ARCardStage
+        lessonUrl={lessonUrl}
+        kingName={shortName}
+        onProceed={() => {
+          setArPhase('done');
+          setStage('question');
+        }}
+        onFallback={() => setArPhase('done')}
+        onExit={bail}
+      />
+    );
+  }
+
   return (
     <div style={shell}>
       <video ref={videoRef} playsInline muted style={videoStyle(camReady)} />
@@ -113,6 +136,7 @@ export function ARGoldChallenge({
         <DragQuestion
           quiz={quiz}
           onCorrect={() => setStage('done')}
+          onWrong={() => setStage('fail')}
           videoRef={videoRef}
           handEnabled={useCamera && camReady}
         />
@@ -144,6 +168,21 @@ export function ARGoldChallenge({
             รับเหรียญกษัตริย์ →
           </button>
           <style>{`@keyframes coinPopSpin{0%{transform:scale(.3) rotateY(0);opacity:0}45%{opacity:1}100%{transform:scale(1) rotateY(540deg);opacity:1}}`}</style>
+        </div>
+      )}
+
+      {stage === 'fail' && (
+        <div style={centerCard}>
+          <div style={{ fontSize: 68, lineHeight: 1, margin: '2px 0 4px' }}>💔</div>
+          <h2 style={{ margin: '6px 0', fontSize: 26, color: color.danger }}>
+            ตอบผิด · เสีย ❤️ 1 ดวง
+          </h2>
+          <p style={{ margin: '0 0 16px', fontSize: 18, color: color.textMuted }}>
+            ยังไม่ได้เหรียญ {shortName} — ลองใหม่รอบหน้านะ
+          </p>
+          <button onClick={bail} style={primaryBtn}>
+            รับผล →
+          </button>
         </div>
       )}
     </div>
@@ -215,11 +254,13 @@ function VideoStage({
 function DragQuestion({
   quiz,
   onCorrect,
+  onWrong,
   videoRef,
   handEnabled,
 }: {
   quiz: QuizCard;
   onCorrect: () => void;
+  onWrong: () => void; // วางคำตอบผิด = ตอบผิด → เสียหัวใจ (จัดการโดย ARGoldChallenge/onDone(false))
   videoRef: React.RefObject<HTMLVideoElement | null>;
   handEnabled: boolean;
 }) {
@@ -234,8 +275,8 @@ function DragQuestion({
   const presentRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [overSlot, setOverSlot] = useState(false); // นิ้วที่ถือคำตอบลอยเหนือช่องอยู่ไหม (ไฮไลต์)
-  const [attempts, setAttempts] = useState(0);
-  const [wrongPulse, setWrongPulse] = useState(0);
+  const [wrong, setWrong] = useState(false); // วางคำตอบผิดแล้ว (โชว์ ❌ สั่นสั้น ๆ ก่อนเสียหัวใจ)
+  const settledRef = useRef(false); // กันตัดสินซ้ำ (ถูก/ผิด เกิดครั้งเดียว แม้ frame มือ/pointer ยิงซ้อน)
   const [hidden, setHidden] = useState<number[]>([]); // คำตอบผิดที่ถูกคำใบ้ตัดออก
   const [cursorPresent, setCursorPresent] = useState(false); // เจอมือในเฟรมไหม (ใช้ mount จุดนิ้ว)
   const [handStatus, setHandStatus] = useState<HandStatus>('loading');
@@ -282,12 +323,18 @@ function DragQuestion({
     return x >= r.left - m && x <= r.right + m && y >= r.top - m && y <= r.bottom + m;
   };
 
-  // ตัดสินถูก/ผิด (เรียกเมื่อยืนยันว่าวางลงช่องแล้ว)
+  // ตัดสินถูก/ผิด (เรียกเมื่อยืนยันว่าวางลงช่องแล้ว) — ตัดสินได้ครั้งเดียว
   const commitDrop = (idx: number) => {
-    if (quiz.choices[idx]?.correct) onCorrect();
-    else {
-      setAttempts((a) => a + 1);
-      setWrongPulse((w) => w + 1);
+    if (settledRef.current) return;
+    if (quiz.choices[idx]?.correct) {
+      settledRef.current = true;
+      onCorrect();
+    } else {
+      // ตอบผิด (ไม่มีลองใหม่ฟรีแล้ว) → โชว์ ❌ สั้น ๆ แล้วเสียหัวใจ 1 ดวง
+      settledRef.current = true;
+      setWrong(true);
+      setActiveIndex(null);
+      setTimeout(onWrong, 700);
     }
   };
 
@@ -387,26 +434,28 @@ function DragQuestion({
       {/* ช่องวางคำตอบ — ไฮไลต์เมื่อนิ้วที่ถือคำตอบลอยเหนือช่อง (พร้อมปล่อย) */}
       <div
         ref={slotRef}
-        key={wrongPulse}
+        key={wrong ? 'wrong' : 'idle'}
         style={{
           minHeight: 88,
           borderRadius: radius.lg,
-          border: `3px ${overSlot ? 'solid' : 'dashed'} ${overSlot ? color.success : color.secondary}`,
-          background: overSlot ? '#E6F6E9' : '#FFF9E6',
+          border: `3px ${wrong ? 'solid' : overSlot ? 'solid' : 'dashed'} ${
+            wrong ? color.danger : overSlot ? color.success : color.secondary
+          }`,
+          background: wrong ? '#FDE8E8' : overSlot ? '#E6F6E9' : '#FFF9E6',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: 18,
           fontWeight: 700,
-          color: overSlot ? color.success : color.textMuted,
+          color: wrong ? color.danger : overSlot ? color.success : color.textMuted,
           marginBottom: 16,
           transform: overSlot ? 'scale(1.03)' : 'scale(1)',
           boxShadow: overSlot ? `0 0 0 4px ${color.success}33` : 'none',
           transition: 'transform .12s, background .12s, box-shadow .12s',
-          animation: attempts > 0 ? 'goldShake .4s ease' : undefined,
+          animation: wrong ? 'goldShake .4s ease' : undefined,
         }}
       >
-        {overSlot ? '✅ ปล่อยนิ้วเพื่อวางที่นี่' : attempts > 0 ? '❌ ยังไม่ใช่ ลากคำตอบอื่นมาลอง' : 'วางคำตอบที่นี่'}
+        {wrong ? '❌ ตอบผิด! เสีย ❤️' : overSlot ? '✅ ปล่อยนิ้วเพื่อวางที่นี่' : 'วางคำตอบที่นี่'}
       </div>
 
       {/* คำตอบให้ลาก */}

@@ -62,6 +62,7 @@ export interface Settings {
   difficulty: Difficulty | 'all'; // คัดคำถามตามระดับความยาก
   soundEnabled: boolean; // เสียง + haptic
   arEnabled: boolean; // เปิดปุ่ม AR
+  arCardMode: boolean; // โหมดส่องการ์ดจริง (MindAR image-target) — ต้องมี public/ar/gold-card.mind
   calibrate: boolean; // โหมดปรับตำแหน่งช่องบนภาพกระดาน (สำหรับผู้ดูแล)
   showTileIcons: boolean; // แสดงไอคอนบอกว่าช่องนั้นเป็นเกมอะไร
 }
@@ -71,6 +72,7 @@ const DEFAULT_SETTINGS: Settings = {
   difficulty: 'all',
   soundEnabled: true,
   arEnabled: true,
+  arCardMode: false, // ปิดไว้ก่อน (opt-in) — เปิดเมื่อวาง gold-card.mind + ทดสอบเครื่องจริงแล้ว
   calibrate: false,
   showTileIcons: true,
 };
@@ -91,7 +93,7 @@ interface GameState {
   usedQuizIds: string[]; // กันสุ่มคำถามซ้ำจนกว่าจะใช้ครบ pool
 
   // actions
-  setupGame: (count: number, kingTokenIds?: string[]) => void;
+  setupGame: (count: number, kingTokenIds?: string[], names?: string[]) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   roll: () => Promise<void>;
   chooseBranch: (dest: number) => Promise<void>;
@@ -134,10 +136,10 @@ export const useGame = create<GameState>((set, get) => ({
   doubleNext: false,
   usedQuizIds: [],
 
-  setupGame: (count, kingTokenIds = KING_IDS) => {
+  setupGame: (count, kingTokenIds = KING_IDS, names) => {
     const players: Player[] = Array.from({ length: count }, (_, i) => ({
       id: i,
-      name: NAMES[i],
+      name: names?.[i]?.trim() || NAMES[i], // ชื่อที่ผู้เล่นกรอกเอง (ว่าง = ใช้ชื่อเริ่มต้น)
       token: TOKENS[i],
       kingTokenId: kingTokenIds[i] ?? KING_IDS[i % KING_IDS.length],
       position: 0,

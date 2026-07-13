@@ -199,7 +199,7 @@ server: {
 cd C:\BoardGameAR
 
 # 1) backend — php -S (interpreter none = รัน exe ตรง ไม่ผ่าน node), cwd ต้องเป็นรากโปรเจกต์
-pm2 start php --name bg7-api --interpreter none --cwd C:\BoardGameAR -- -S 127.0.0.1:8000 -t server
+
 
 # 2) frontend — vite dev :5174 (เรียก vite.js ตรง เลี่ยงปัญหา npm.cmd บน pm2/Windows)
 pm2 start "C:\BoardGameAR\node_modules\vite\bin\vite.js" --name bg7-web --cwd C:\BoardGameAR `

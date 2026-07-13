@@ -49,6 +49,9 @@ const STYLE = `
 @media (max-width: 560px) {
   .home-gallery { grid-template-columns: repeat(2, 1fr); }
 }
+.home-name-input { width: 100%; border: none; border-bottom: 1.5px solid #D9C79A; background: transparent; font-family: 'Sarabun', sans-serif; font-weight: 700; font-size: 14px; color: #5A3A1C; padding: 1px 0 3px; outline: none; }
+.home-name-input::placeholder { color: #B7A47A; font-weight: 600; }
+.home-name-input:focus { border-bottom-width: 2px; }
 `;
 
 export function Home() {
@@ -59,6 +62,7 @@ export function Home() {
   const [playerCount, setPlayerCount] = useState(1);
   const [activePlayer, setActivePlayer] = useState(0);
   const [picks, setPicks] = useState<(string | null)[]>([null, null, null, null]);
+  const [names, setNames] = useState<string[]>(['', '', '', '']); // ชื่อที่ผู้เล่นกรอกเอง (ว่าง = ใช้ชื่อเริ่มต้น)
   const [shakeKing, setShakeKing] = useState<string | null>(null);
   const [showStart, setShowStart] = useState(false);
   const shakeTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -138,10 +142,10 @@ export function Home() {
   useEffect(() => {
     if (!showStart) return;
     const id = setTimeout(() => {
-      setupGame(playerCount, picks.slice(0, playerCount) as string[]);
+      setupGame(playerCount, picks.slice(0, playerCount) as string[], names.slice(0, playerCount));
     }, 950);
     return () => clearTimeout(id);
-  }, [showStart, playerCount, picks, setupGame]);
+  }, [showStart, playerCount, picks, names, setupGame]);
 
   return (
     <div
@@ -502,13 +506,12 @@ export function Home() {
                 const on = activePlayer === i;
                 const king = picks[i] ? KINGS.find((k) => k.id === picks[i]) : null;
                 return (
-                  <button
+                  <div
                     key={i}
                     onClick={() => {
                       sfx.step();
                       setActivePlayer(i);
                     }}
-                    aria-pressed={on}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -555,7 +558,25 @@ export function Home() {
                         minWidth: 0,
                       }}
                     >
-                      <span style={{ fontWeight: 600, fontSize: 14, color: '#5A3A1C' }}>ผู้เล่น {TH[i + 1]}</span>
+                      {/* ช่องกรอกชื่อผู้เล่น — ว่างไว้ = ใช้ชื่อเริ่มต้น (placeholder) */}
+                      <input
+                        className="home-name-input"
+                        value={names[i]}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setNames((prev) => {
+                            const n = prev.slice();
+                            n[i] = v;
+                            return n;
+                          });
+                        }}
+                        onFocus={() => setActivePlayer(i)}
+                        onClick={(e) => e.stopPropagation()}
+                        maxLength={16}
+                        placeholder={`ผู้เล่น ${TH[i + 1]}`}
+                        aria-label={`ชื่อผู้เล่น ${TH[i + 1]}`}
+                        style={{ borderBottomColor: hexA(PC[i], 0.5) }}
+                      />
                       <span
                         style={{
                           fontFamily: "'Trirong',serif",
@@ -566,6 +587,7 @@ export function Home() {
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           maxWidth: '100%',
+                          marginTop: 3,
                         }}
                       >
                         {king ? king.name : 'ยังไม่เลือกกษัตริย์'}
@@ -574,7 +596,7 @@ export function Home() {
                     <span style={{ flexShrink: 0, fontWeight: 700, fontSize: king ? 16 : 11, color: PC[i] }}>
                       {king ? '✓' : on ? 'ตาคุณ' : ''}
                     </span>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -720,7 +742,9 @@ export function Home() {
                     >
                       {TH[i + 1]}
                     </span>
-                    <span style={{ fontWeight: 600, fontSize: 14, color: '#5A3A1C' }}>ผู้เล่น {TH[i + 1]}</span>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: '#5A3A1C' }}>
+                      {names[i]?.trim() || `ผู้เล่น ${TH[i + 1]}`}
+                    </span>
                     <span
                       style={{
                         marginLeft: 'auto',

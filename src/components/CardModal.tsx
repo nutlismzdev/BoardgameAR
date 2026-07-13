@@ -9,9 +9,21 @@ import {
   subjectLabel,
   KNOWLEDGE_CAP,
 } from '@/core/content';
-import { color, radius, elevation, difficultyMeta } from '@/theme/tokens';
+import { color, radius, difficultyMeta } from '@/theme/tokens';
 import { ARGoldChallenge } from './ARGoldChallenge';
+import { CardFrame } from './CardFrame';
+import { getCardFront } from '@/core/cardAssets';
+import { sfx } from '@/core/sfx';
 import type { Orientation, KnowledgeCard, SubjectQuizCard } from '@/core/types';
+
+// เอฟเฟกต์ตอนเฉลยคำถาม (แบนเนอร์เด้ง/ปุ่มถูกเด้ง/ปุ่มผิดสั่น/กระดาษหลากสีร่วง)
+const QUIZ_FX = `
+@keyframes quizBanner{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes quizBounce{0%,100%{transform:translateY(0) scale(1)}30%{transform:translateY(-8px) scale(1.18)}60%{transform:translateY(0) scale(1)}}
+@keyframes quizShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+@keyframes quizPop{0%{transform:scale(1)}45%{transform:scale(1.05)}100%{transform:scale(1.02)}}
+@keyframes confettiFall{0%{opacity:0;transform:translateY(-12px) rotate(0)}20%{opacity:1}100%{opacity:0;transform:translateY(96px) rotate(220deg)}}
+`;
 
 // Modal การ์ดรวม (question / goldking / knowledge / penalty / bonus)
 // แนวตั้ง = เด้งจากล่าง (bottom sheet), แนวนอน = กลางจอ (center dialog)
@@ -89,6 +101,14 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
       setAnswered(-1);
     }
   }, [timeLeft, timerOn]);
+  // ── ฟีดแบ็กทันทีตอนเฉลย: เล่นเสียงถูก/ผิดทันทีที่กดตอบ (เดิมเงียบจนไม่รู้ผล) ──
+  useEffect(() => {
+    if (!usesQuizUI || answered === null) return;
+    const correct = answered >= 0 && !!quiz?.choices[answered]?.correct;
+    if (correct) sfx.correct();
+    else sfx.wrong();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answered]);
 
   if (!event) return null;
 
@@ -103,35 +123,6 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
     zIndex: 100,
     padding: isPortrait ? 0 : 24,
   };
-  const panel: React.CSSProperties = {
-    background: color.surface,
-    borderRadius: isPortrait ? `${radius.lg}px ${radius.lg}px 0 0` : radius.lg,
-    boxShadow: elevation.modal,
-    width: isPortrait ? '100%' : 'min(720px, 92vw)',
-    maxHeight: '88vh',
-    overflow: 'auto',
-    padding: 24,
-  };
-
-  const header = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-      <span style={{ fontSize: 26 }}>
-        {isGold ? '🪙' : kind === 'bonus' ? '🎁' : kind === 'penalty' ? '⛓️' : isSubject ? '📚' : '👑'}
-      </span>
-      <strong style={{ fontSize: 20, color: kind === 'penalty' ? color.danger : king?.themeColor ?? color.primary }}>
-        {isGold
-          ? `ชิงเหรียญกษัตริย์: ${king ? shortKing(king.name) : ''}`
-          : kind === 'bonus'
-          ? 'การ์ดโบนัส'
-          : kind === 'penalty'
-          ? 'ช่องทำโทษ'
-          : isSubject
-          ? `สาระการเรียนรู้${king ? ' · ' + shortKing(king.name) : ''}`
-          : king?.name ?? 'การ์ดโชค'}
-      </strong>
-    </div>
-  );
-
   return (
     <>
       {/* บทเรียน AR ช่องทอง (เต็มจอ) — ทับการ์ดปกติ */}
@@ -140,6 +131,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
           king={king}
           quiz={quiz}
           useCamera={settings.arEnabled}
+          cardMode={settings.arCardMode}
           onDone={(correct) => {
             setArGoldOpen(false);
             answerKingCoin(correct, kingId!);
@@ -148,11 +140,17 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
         />
       )}
     <div style={shell}>
-      <div style={panel}>
-        {header}
-
         {/* ── ช่องทอง (AR เท่านั้น) — เข้าสู่บทเรียน AR เพื่อรับเหรียญกษัตริย์ ── */}
         {isGold && king && (
+          <CardFrame
+            kind="goldking"
+            title="ชิงเหรียญกษัตริย์"
+            subtitle={shortKing(king.name)}
+            icon="🪙"
+            bannerFrom="#E8B84B"
+            bannerTo="#B8860B"
+            orientation={orientation}
+          >
           <div>
             <p
               style={{
@@ -175,10 +173,20 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             </ol>
             <PrimaryButton onClick={() => setArGoldOpen(true)} label="📷 เริ่มบทเรียน AR" />
           </div>
+          </CardFrame>
         )}
 
         {/* ── ช่องคำถาม (ฟ้า) + ช่องกลุ่มสาระฯ (เขียวหัวเป็ด) — ใช้จอควิซเดียวกัน ── */}
         {usesQuizUI && quiz && (
+          <CardFrame
+            kind={kind!}
+            title={isSubject ? 'สาระการเรียนรู้' : 'การ์ดคำถาม'}
+            subtitle={king ? shortKing(king.name) : undefined}
+            icon={isSubject ? '📚' : '❓'}
+            bannerFrom={isSubject ? '#26A69A' : '#1E88E5'}
+            bannerTo={isSubject ? '#00695C' : '#0D47A1'}
+            orientation={orientation}
+          >
           <div>
             {/* แถวป้ายบอกบริบทคำถาม: ระดับความยาก (+ วิชา ถ้าเป็นช่องสาระ) */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 12 }}>
@@ -242,10 +250,19 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
                       padding: '16px 18px',
                       minHeight: 56,
                       borderRadius: radius.md,
-                      border: `2px solid ${color.secondary}`,
+                      border: `2px solid ${revealed && c.correct ? color.success : color.secondary}`,
                       background: bg,
                       color: fg,
                       cursor: revealed ? 'default' : 'pointer',
+                      transition: 'background .2s, box-shadow .2s',
+                      boxShadow: revealed && c.correct ? `0 0 0 4px ${color.success}44` : 'none',
+                      animation: revealed
+                        ? c.correct
+                          ? 'quizPop .5s ease'
+                          : i === answered
+                          ? 'quizShake .4s ease'
+                          : undefined
+                        : undefined,
                     }}
                   >
                     {String.fromCharCode(65 + i)}. {c.text}
@@ -288,34 +305,107 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
               </div>
             )}
 
-            {answered !== null && (
-              <div style={{ marginTop: 16 }}>
-                {answered === -1 && (
-                  <p style={{ fontSize: 18, fontWeight: 600, color: color.danger }}>⏱️ หมดเวลา!</p>
-                )}
-                <p style={{ fontSize: 18, color: color.textMuted, lineHeight: 1.55 }}>💡 {quiz.explanation}</p>
-                <PrimaryButton
-                  onClick={() => {
-                    const correct = answered >= 0 && quiz.choices[answered].correct;
-                    answerQuiz(correct, quiz.reward);
-                    setAnswered(null);
-                    closeEvent();
-                  }}
-                  label={
-                    answered >= 0 && quiz.choices[answered].correct
-                      ? `เยี่ยม! รับ 🪙 ${quiz.reward}`
-                      : currentHearts <= 1
-                      ? 'เสีย ❤️ และพักฟื้น 1 เทิร์น →'
-                      : 'เสีย ❤️ ไว้ลองใหม่นะ →'
-                  }
-                />
-              </div>
-            )}
+            {answered !== null &&
+              (() => {
+                const correct = answered >= 0 && !!quiz.choices[answered].correct;
+                const correctText = quiz.choices.find((c) => c.correct)?.text ?? '';
+                return (
+                  <div style={{ marginTop: 16 }}>
+                    {/* แบนเนอร์ผลลัพธ์ — บอกทันทีว่าถูกหรือผิด + ฉลองเมื่อถูก */}
+                    <div
+                      style={{
+                        position: 'relative',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '14px 16px',
+                        borderRadius: radius.md,
+                        marginBottom: 14,
+                        color: '#fff',
+                        background: correct
+                          ? 'linear-gradient(135deg,#2FA84A,#1B7A34)'
+                          : 'linear-gradient(135deg,#E4572E,#B02020)',
+                        boxShadow: correct
+                          ? '0 6px 18px rgba(31,122,52,.4)'
+                          : '0 6px 18px rgba(176,32,32,.32)',
+                        animation: 'quizBanner .45s cubic-bezier(.2,1.3,.5,1) both',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 34,
+                          lineHeight: 1,
+                          animation: correct ? 'quizBounce .6s ease' : 'quizShake .45s ease',
+                        }}
+                      >
+                        {correct ? '🎉' : answered === -1 ? '⏱️' : '💪'}
+                      </span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 20, fontWeight: 900 }}>
+                          {correct ? 'ถูกต้อง! เก่งมาก' : answered === -1 ? 'หมดเวลา!' : 'ยังไม่ถูกนะ'}
+                        </div>
+                        <div style={{ fontSize: 14.5, fontWeight: 600, opacity: 0.96 }}>
+                          {correct ? `ได้เหรียญ 🪙 ${quiz.reward}` : `คำตอบที่ถูกคือ: ${correctText}`}
+                        </div>
+                      </div>
+                      {/* กระดาษหลากสีร่วงลงมา — เฉพาะตอนตอบถูก */}
+                      {correct &&
+                        ['🎊', '⭐', '✨', '🌟', '🎉', '⭐', '✨'].map((e, i) => (
+                          <span
+                            key={i}
+                            style={{
+                              position: 'absolute',
+                              top: -16,
+                              left: `${8 + i * 13}%`,
+                              fontSize: 16,
+                              pointerEvents: 'none',
+                              animation: `confettiFall ${1 + (i % 3) * 0.25}s ease-in ${i * 0.06}s both`,
+                            }}
+                          >
+                            {e}
+                          </span>
+                        ))}
+                    </div>
+                    {/* คำอธิบายโชว์เฉพาะตอนตอบถูก · ตอบผิดโชว์แค่ "คำตอบที่ถูก" ในแบนเนอร์ */}
+                    {correct && (
+                      <p style={{ fontSize: 18, color: color.textMuted, lineHeight: 1.55 }}>💡 {quiz.explanation}</p>
+                    )}
+                    <PrimaryButton
+                      onClick={() => {
+                        answerQuiz(correct, quiz.reward);
+                        setAnswered(null);
+                        closeEvent();
+                      }}
+                      label={
+                        correct
+                          ? `เยี่ยม! รับ 🪙 ${quiz.reward} →`
+                          : currentHearts <= 1
+                          ? 'เสีย ❤️ และพักฟื้น 1 เทิร์น →'
+                          : 'เสีย ❤️ ไว้ลองใหม่นะ →'
+                      }
+                    />
+                    <style>{QUIZ_FX}</style>
+                  </div>
+                );
+              })()}
           </div>
+          </CardFrame>
         )}
 
-        {/* ── ช่องความรู้ (ชมพู) — อ่านเกร็ดแล้วเก็บสะสม 10 ใบ/คน (ไม่มีคำถามทบทวน) ── */}
+        {/* ── ช่องความรู้ (ชมพู) — ใช้ "รูปหน้าการ์ดจริง" เป็นพื้น + วางข้อความทับในกรอบ ── */}
         {kind === 'knowledge' && knowledge && (
+          <CardFrame
+            kind="knowledge"
+            title="การ์ดความรู้"
+            icon="💡"
+            bannerFrom="#EC407A"
+            bannerTo="#C2185B"
+            orientation={orientation}
+            artFront={getCardFront('knowledge')}
+            artRatio="722 / 1019"
+            contentInset={{ top: 20, right: 12, bottom: 9, left: 12 }}
+          >
           <div>
             <p
               style={{
@@ -344,10 +434,19 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
               label="เก็บการ์ดความรู้! รับ 🪙 30 →"
             />
           </div>
+          </CardFrame>
         )}
 
         {/* ── ช่องทำโทษ (แดง) — ถอยหลัง หรือ หยุดพัก 1 ตา ── */}
         {kind === 'penalty' && penalty && (
+          <CardFrame
+            kind="penalty"
+            title="ช่องทำโทษ"
+            icon="⛓️"
+            bannerFrom="#D32F2F"
+            bannerTo="#8E2020"
+            orientation={orientation}
+          >
           <div>
             <p style={{ fontSize: 22, fontWeight: 700, color: color.danger }}>
               {penalty.type === 'back' ? '⛓️ โดนสั่งถอย!' : '💤 โดนสั่งพัก!'}
@@ -368,10 +467,19 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
               label="ยอมรับกรรม 😵 →"
             />
           </div>
+          </CardFrame>
         )}
 
         {/* ── ช่องโบนัส (เขียว) — ได้เหรียญ + ไอเทม แล้วต่อด้วยทางแยก ── */}
         {kind === 'bonus' && (
+          <CardFrame
+            kind="bonus"
+            title="การ์ดโบนัส"
+            icon="🎁"
+            bannerFrom="#43A047"
+            bannerTo="#2E7D32"
+            orientation={orientation}
+          >
           <div>
             <p style={{ fontSize: 22, fontWeight: 600 }}>🎁 ได้รับโบนัสพิเศษ!</p>
             <p style={{ fontSize: 19, margin: '10px 0 20px', lineHeight: 1.55, color: color.textMuted }}>
@@ -392,8 +500,8 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
               label="รับโบนัส 🪙 80 + ไอเทม →"
             />
           </div>
+          </CardFrame>
         )}
-      </div>
     </div>
     </>
   );
