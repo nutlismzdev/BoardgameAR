@@ -16,12 +16,14 @@ export function ARGoldChallenge({
   king,
   quiz,
   onDone,
+  onCancel,
   useCamera = true,
-  cardMode = false,
+  cardMode = true,
 }: {
   king: King;
   quiz: QuizCard;
   onDone: (correct: boolean) => void;
+  onCancel: () => void; // ออก/ยกเลิกก่อนตอบ — ไม่ได้เหรียญ + ไม่เสียหัวใจ (แค่จบเทิร์น)
   useCamera?: boolean; // ปิดได้ในโหมดครู — เล่นบทเรียนบนพื้นหลังเข้มแทน (ยังชนะได้)
   cardMode?: boolean; // โหมดส่องการ์ดจริง (MindAR) — เปิดเมื่อมี gold-card.mind + ทดสอบแล้ว
 }) {
@@ -34,9 +36,10 @@ export function ARGoldChallenge({
   const [arPhase, setArPhase] = useState<'card' | 'done'>(useCamera && cardMode ? 'card' : 'done');
   const lessonUrl = resolveApiAssetUrl(quiz.videoUrl || king.arVideo || '');
 
-  // เปิดกล้องหน้าแบบ best-effort (โหมดปกติ/หลัง fallback) — ข้ามตอน arPhase 'card' (MindAR ใช้กล้องหลังอยู่)
+  // เปิดกล้องหน้าแบบ best-effort (โหมดปกติ/หลัง fallback) — ข้ามตอน arPhase 'card' (MindAR ใช้กล้องหลัง)
+  // และข้ามหน้าจอผล (done/fail) เพราะไม่ต้องใช้กล้อง (กันเปิดกล้องหน้าเปล่า ๆ หลังตอบใน AR)
   useEffect(() => {
-    if (!useCamera || arPhase === 'card') return;
+    if (!useCamera || arPhase === 'card' || stage === 'done' || stage === 'fail') return;
     let cancelled = false;
     (async () => {
       if (!navigator.mediaDevices?.getUserMedia) return;
@@ -64,6 +67,8 @@ export function ARGoldChallenge({
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
+    // stage อ่านค่า ณ ตอน arPhase เปลี่ยน (ไม่ใส่ใน deps เพื่อไม่ให้กล้องรีสตาร์ตทุกครั้งที่เปลี่ยนสเตจ)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useCamera, arPhase]);
 
   // นับถอยหลังคลิปวิดีโอ 15 วิ แล้วเข้าสู่คำถาม
@@ -82,9 +87,17 @@ export function ARGoldChallenge({
     streamRef.current = null;
   };
 
-  const bail = () => {
+  // ออก/ยกเลิกก่อนตอบ = ไม่ได้เหรียญ + ไม่เสียหัวใจ (จบเทิร์นผ่าน onCancel → closeEvent)
+  // ตรงกับป้ายปุ่ม "ยังไม่รับเหรียญ" — การถอนตัวคือเสียโอกาสได้เหรียญ ไม่ใช่ถูกลงโทษ
+  const cancel = () => {
     stopCam();
-    onDone(false); // ออกก่อนตอบ = ไม่ได้เหรียญ (ลองใหม่รอบหน้า)
+    onCancel();
+  };
+
+  // ตอบผิด (จอ fail) = เสียหัวใจ 1 ดวง
+  const loseHeartAndClose = () => {
+    stopCam();
+    onDone(false);
   };
 
   const claim = () => {
@@ -95,18 +108,34 @@ export function ARGoldChallenge({
   const shortName = king.name.split('(')[0].trim();
 
   // ── โหมดส่องการ์ดจริง (image-target AR) — วิดีโอบทเรียนเล่นทับการ์ดทอง ──
-  // ดูจบ → เข้าคำถาม (โหมดกล้องหน้าเดิม) · AR ไม่ไหว/ไม่มีวิดีโอ → fallback วิดีโอปกติ
+  // ดูจบ → เข้าคำถาม (โหมดกล้องหน้าเดิม) · AR ไม่ไหว → fallback วิดีโอปกติ
   if (arPhase === 'card') {
     return (
       <ARCardStage
         lessonUrl={lessonUrl}
         kingName={shortName}
+        renderQuestion={(arVideoRef, handEnabled) => (
+          <DragQuestion
+            quiz={quiz}
+            onCorrect={() => {
+              setArPhase('done');
+              setStage('done');
+            }}
+            onWrong={() => {
+              setArPhase('done');
+              setStage('fail');
+            }}
+            videoRef={arVideoRef}
+            handEnabled={useCamera && handEnabled}
+            mirror={false}
+          />
+        )}
         onProceed={() => {
           setArPhase('done');
           setStage('question');
         }}
         onFallback={() => setArPhase('done')}
-        onExit={bail}
+        onExit={cancel}
       />
     );
   }
@@ -116,7 +145,7 @@ export function ARGoldChallenge({
       <video ref={videoRef} playsInline muted style={videoStyle(camReady)} />
       <div style={shade} />
 
-      <button onClick={bail} style={backBtn}>
+      <button onClick={cancel} style={backBtn}>
         ← ออก (ยังไม่รับเหรียญ)
       </button>
 
@@ -139,6 +168,7 @@ export function ARGoldChallenge({
           onWrong={() => setStage('fail')}
           videoRef={videoRef}
           handEnabled={useCamera && camReady}
+          mirror
         />
       )}
 
@@ -180,7 +210,7 @@ export function ARGoldChallenge({
           <p style={{ margin: '0 0 16px', fontSize: 18, color: color.textMuted }}>
             ยังไม่ได้เหรียญ {shortName} — ลองใหม่รอบหน้านะ
           </p>
-          <button onClick={bail} style={primaryBtn}>
+          <button onClick={loseHeartAndClose} style={primaryBtn}>
             รับผล →
           </button>
         </div>
@@ -257,12 +287,14 @@ function DragQuestion({
   onWrong,
   videoRef,
   handEnabled,
+  mirror = true,
 }: {
   quiz: QuizCard;
   onCorrect: () => void;
   onWrong: () => void; // วางคำตอบผิด = ตอบผิด → เสียหัวใจ (จัดการโดย ARGoldChallenge/onDone(false))
   videoRef: React.RefObject<HTMLVideoElement | null>;
   handEnabled: boolean;
+  mirror?: boolean;
 }) {
   const slotRef = useRef<HTMLDivElement | null>(null);
   const choiceRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -379,7 +411,7 @@ function DragQuestion({
     [activeIndex, hidden],
   );
 
-  useHandTracking({ videoRef, enabled: handEnabled, onFrame: handleFrame, onStatus: setHandStatus });
+  useHandTracking({ videoRef, enabled: handEnabled, onFrame: handleFrame, onStatus: setHandStatus, mirror });
 
   // fallback: แตะลากบนจอ (pointer)
   useEffect(() => {

@@ -1,34 +1,47 @@
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { AR } from '@/ar/arConfig';
 import { createImageTracker, type ImageTracker } from '@/ar/imageTracker';
 import { color, radius } from '@/theme/tokens';
 
 // ── สเตจ "ส่องการ์ดจริง" (image-target AR) ──
-// เปิดกล้องหลัง (MindAR) → เจอการ์ดทอง → เล่นวิดีโอบทเรียนทับบนการ์ด → ครบ 15 วิ/จบคลิป → onProceed()
-// ถ้าไม่มีวิดีโอ / โหลด MindAR ไม่ได้ / หา target ไม่เจอในเวลาที่กำหนด → onFallback() (ไปโหมดวิดีโอปกติ กล้องหน้า)
-type Status = 'loading' | 'scanning' | 'playing' | 'error';
+// เปิดกล้องหลัง (MindAR) → เจอการ์ดทอง → เล่นวิดีโอบทเรียนทับบนการ์ด → เข้าคำถามบนกล้องหลังสตรีมเดียวกัน
+// ถ้าไม่มีวิดีโอจะยังสแกนการ์ดและแสดง placeholder บน target เพื่อพิสูจน์ว่า AR ติดจริง
+// โหลด MindAR ไม่ได้ / หา target ไม่เจอในเวลาที่กำหนด → onFallback() (ไปโหมดวิดีโอปกติ กล้องหน้า)
+type Status = 'loading' | 'scanning' | 'playing' | 'question' | 'error';
 
 export function ARCardStage({
   lessonUrl,
   kingName,
+  renderQuestion,
   onProceed,
   onFallback,
   onExit,
 }: {
   lessonUrl: string; // URL วิดีโอบทเรียน (ว่าง = ไม่มี → fallback)
   kingName: string;
-  onProceed: () => void; // ดูจบ → เข้าคำถาม
+  renderQuestion?: (videoRef: React.RefObject<HTMLVideoElement | null>, handEnabled: boolean) => ReactNode;
+  onProceed: () => void; // fallback กรณีไม่มี renderer คำถาม
   onFallback: () => void; // AR ไม่ไหว → กลับโหมดปกติ
   onExit: () => void; // ออกจากบทเรียน (เท่ากับ bail เดิม)
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const lessonVideoRef = useRef<HTMLVideoElement | null>(null);
+  const mindVideoRef = useRef<HTMLVideoElement | null>(null);
   const trackerRef = useRef<ImageTracker | null>(null);
   const startedRef = useRef(false); // กันเริ่มซ้ำ (StrictMode double-mount)
   const doneRef = useRef(false); // proceed/fallback ครั้งเดียว
   const playingRef = useRef(false); // เจอการ์ด+เล่นวิดีโอแล้ว (กัน scanTimeout เผลอ fallback ทั้งที่เล่นอยู่)
+  const statusRef = useRef<Status>('loading');
   const [status, setStatus] = useState<Status>('loading');
   const [secondsLeft, setSecondsLeft] = useState<number>(AR.lessonSeconds);
+  const [mindVideoReady, setMindVideoReady] = useState(false);
+  const hasLessonVideo = Boolean(lessonUrl);
+
+  const setStageStatus = (next: Status) => {
+    statusRef.current = next;
+    setStatus(next);
+  };
 
   const finishOnce = (fn: () => void) => {
     if (doneRef.current) return;
@@ -36,15 +49,19 @@ export function ARCardStage({
     fn();
   };
 
-  // ไม่มีวิดีโอ → ไม่มีอะไรจะทับการ์ด → ใช้โหมดปกติ (จัดการ placeholder ให้)
-  useEffect(() => {
-    if (!lessonUrl) finishOnce(onFallback);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lessonUrl]);
+  const proceedToQuestion = () => {
+    if (renderQuestion) {
+      // การ์ดถูกจอคำถามบังแล้ว → หยุด render/tracking ของ MindAR ลดโหลด GPU (กล้องยังเล่นให้ MediaPipe)
+      trackerRef.current?.pauseTracking();
+      setStageStatus('question');
+      return;
+    }
+    finishOnce(onProceed);
+  };
 
   // เริ่ม MindAR
   useEffect(() => {
-    if (!lessonUrl || startedRef.current) return;
+    if (startedRef.current) return;
     startedRef.current = true;
     let cancelled = false;
     let scanTimer: ReturnType<typeof setTimeout> | null = null;
@@ -53,7 +70,7 @@ export function ARCardStage({
       try {
         const container = containerRef.current;
         const lessonVideo = lessonVideoRef.current;
-        if (!container || !lessonVideo) throw new Error('container/วิดีโอไม่พร้อม');
+        if (!container || (hasLessonVideo && !lessonVideo)) throw new Error('container/วิดีโอไม่พร้อม');
 
         const tracker = await createImageTracker(container);
         if (cancelled) {
@@ -61,26 +78,40 @@ export function ARCardStage({
           return;
         }
         trackerRef.current = tracker;
-        tracker.setLessonVideo(lessonVideo);
+        if (hasLessonVideo && lessonVideo) {
+          tracker.setLessonVideo(lessonVideo);
+        } else {
+          tracker.setPlaceholderPanel(kingName);
+        }
 
         tracker.onFound(() => {
           playingRef.current = true;
-          setStatus('playing');
-          lessonVideo.play().catch(() => {});
+          setStageStatus('playing');
+          lessonVideo?.play().catch(() => {});
         });
         tracker.onLost(() => {
-          setStatus('scanning');
-          lessonVideo.pause();
+          if (statusRef.current === 'question') return;
+          setStageStatus('scanning');
+          lessonVideo?.pause();
         });
-        // ดูจบคลิป → เข้าคำถาม
-        lessonVideo.onended = () => finishOnce(onProceed);
+        // ดูจบคลิป → เข้าคำถามบนสตรีมกล้องหลังเดียวกับ MindAR
+        if (lessonVideo) lessonVideo.onended = proceedToQuestion;
 
         await tracker.start();
         if (cancelled) {
           tracker.stop();
           return;
         }
-        setStatus('scanning');
+        mindVideoRef.current = tracker.getVideo();
+        setMindVideoReady(Boolean(mindVideoRef.current));
+        if (!mindVideoRef.current) {
+          setTimeout(() => {
+            if (cancelled || !trackerRef.current) return;
+            mindVideoRef.current = trackerRef.current.getVideo();
+            setMindVideoReady(Boolean(mindVideoRef.current));
+          }, 250);
+        }
+        setStageStatus('scanning');
         // หา target ไม่เจอในเวลาที่กำหนด → fallback
         scanTimer = setTimeout(() => {
           if (!playingRef.current) finishOnce(onFallback);
@@ -95,15 +126,18 @@ export function ARCardStage({
       if (scanTimer) clearTimeout(scanTimer);
       trackerRef.current?.stop();
       trackerRef.current = null;
+      mindVideoRef.current = null;
+      setMindVideoReady(false);
+      startedRef.current = false; // ให้ init รอบใหม่ทำงานได้ (สำคัญกับ React.StrictMode dev ที่ mount ซ้ำ)
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lessonUrl]);
+  }, [hasLessonVideo, kingName]);
 
-  // นับถอยหลังตอนกำลังเล่น (สำรองกรณีคลิปยาว/ไม่ยิง ended) → ครบเวลาก็เข้าคำถาม
+  // นับถอยหลังตอนกำลังเล่น (สำรองกรณีคลิปยาว/ไม่ยิง ended) → ครบเวลาก็เข้าคำถามบนสตรีม MindAR
   useEffect(() => {
     if (status !== 'playing') return;
     if (secondsLeft <= 0) {
-      finishOnce(onProceed);
+      proceedToQuestion();
       return;
     }
     const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
@@ -115,8 +149,10 @@ export function ARCardStage({
     <div style={shell}>
       {/* MindAR mount = กล้อง + canvas AR เต็มจอ */}
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
-      {/* วิดีโอบทเรียน (ซ่อน) — ใช้เป็น texture ทับการ์ด */}
-      <video ref={lessonVideoRef} src={lessonUrl} muted playsInline preload="auto" style={{ display: 'none' }} />
+      {/* วิดีโอบทเรียน (ซ่อน) — ใช้เป็น texture ทับการ์ด ถ้ายังไม่มีวิดีโอจะใช้ placeholder plane แทน */}
+      {hasLessonVideo && (
+        <video ref={lessonVideoRef} src={lessonUrl} muted playsInline preload="auto" style={{ display: 'none' }} />
+      )}
 
       {/* overlay UI */}
       <button onClick={() => finishOnce(onExit)} style={backBtn}>
@@ -125,7 +161,7 @@ export function ARCardStage({
       <div style={badge}>🪙 ส่องการ์ดทอง · {kingName}</div>
 
       {/* กรอบเล็ง + คำแนะนำ ระหว่างยังไม่เจอการ์ด */}
-      {status !== 'playing' && (
+      {status !== 'playing' && status !== 'question' && (
         <div style={centerHint}>
           <div style={reticle} />
           <div style={{ fontSize: 18, fontWeight: 800, marginTop: 16 }}>
@@ -143,12 +179,16 @@ export function ARCardStage({
       {/* แถบเวลาระหว่างเล่นวิดีโอบนการ์ด */}
       {status === 'playing' && (
         <div style={playingBar}>
-          <span style={{ fontSize: 16, fontWeight: 800 }}>🎬 วิดีโอบทเรียน · เหลือ {secondsLeft} วิ</span>
-          <button onClick={() => finishOnce(onProceed)} style={skipBtn}>
+          <span style={{ fontSize: 16, fontWeight: 800 }}>
+            {hasLessonVideo ? '🎬 วิดีโอบทเรียน' : '🃏 พบการ์ด AR'} · เหลือ {secondsLeft} วิ
+          </span>
+          <button onClick={proceedToQuestion} style={skipBtn}>
             ข้ามไปตอบคำถาม →
           </button>
         </div>
       )}
+
+      {status === 'question' && renderQuestion?.(mindVideoRef, mindVideoReady)}
     </div>
   );
 }

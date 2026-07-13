@@ -137,6 +137,11 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             answerKingCoin(correct, kingId!);
             closeEvent();
           }}
+          onCancel={() => {
+            // ถอนตัวก่อนตอบ — ไม่ได้เหรียญ + ไม่เสียหัวใจ แค่จบเทิร์น
+            setArGoldOpen(false);
+            closeEvent();
+          }}
         />
       )}
     <div style={shell}>

@@ -1,7 +1,7 @@
 # AR การ์ดจริง — Live Plan (ช่องทอง / เหรียญกษัตริย์)
 
 > เอกสาร "แผนมีชีวิต" — อัปเดตทุกครั้งที่ทำคืบ ติ๊ก `[x]` เมื่อเสร็จ
-> อัปเดตล่าสุด: 2026-07-13 · สถานะ: **เฟส 1 (วางฐาน)**
+> อัปเดตล่าสุด: 2026-07-13 · สถานะ: **เฟส 3 (hand-tracking บนสตรีมเดียว)**
 
 ## เป้าหมาย
 
@@ -60,19 +60,24 @@
 
 ## เฟส 2 — ต่อ AR จริง (โค้ดเสร็จ · build ผ่าน · ต้องทดสอบเครื่อง)
 - [x] ~~ดาวน์โหลด js วาง public~~ → เปลี่ยนเป็น **npm** `three@0.152.0` + `mind-ar@1.2.5` (`--ignore-scripts` ข้าม canvas) + dynamic import (lazy chunk)
-- [ ] **คอมไพล์ภาพการ์ดทอง → `public/ar/gold-card.mind`** ← เหลือ (ผู้ใช้ทำผ่านเครื่องมือออนไลน์ ดู README)
+- [x] **คอมไพล์ภาพการ์ดทอง → `public/ar/gold-card.mind`**
 - [x] `imageTracker.ts`: MindARThree + anchor + THREE.VideoTexture plane ทับการ์ด
 - [x] `ARCardStage.tsx`: สเตจ scan → video (วิดีโอทับการ์ด) กล้องหลัง + UI นำทาง + แถบเวลา
 - [x] `ARGoldChallenge.tsx`: โหมด `arPhase 'card'|'done'` + gate กล้องหน้าไม่เปิดตอน 'card'
-- [x] fallback อัตโนมัติ: ไม่มีวิดีโอ / โหลด MindAR ไม่ได้ / หา target ไม่เจอใน `scanTimeoutMs` → วิดีโอปกติ (กล้องหน้า)
-- [x] setting **`arCardMode`** (opt-in, default false) + toggle ใน Teacher Mode — กันโหลด 2.4MB ก่อนพร้อม
-- [ ] วาง `gold-card.mind` แล้วเปิด toggle → ทดสอบ scan+วิดีโอบนเครื่องจริง
+- [x] fallback อัตโนมัติ: โหลด MindAR ไม่ได้ / หา target ไม่เจอใน `scanTimeoutMs` → วิดีโอปกติ (กล้องหน้า); ถ้าไม่มีวิดีโอจะใช้ placeholder บนการ์ด
+- [x] setting **`arCardMode`** + toggle ใน Teacher Mode — ปัจจุบันเปิดเป็นค่าเริ่มต้นเมื่อมี `.mind`
+- [ ] ทดสอบ scan+วิดีโอบนเครื่องจริง
 
 ## เฟส 3 — hand-tracking บนสตรีมเดียว
-- [ ] แชร์ `<video>` ของ MindAR ให้ MediaPipe (`useHandTracking` รับ external videoRef + `mirror:false`)
-- [ ] สเตจ question: จีบนิ้วลากคำตอบ (reuse `DragQuestion`) บนภาพกล้องหลัง
+- [x] แชร์ `<video>` ของ MindAR ให้ MediaPipe (`useHandTracking` รับ external videoRef + `mirror:false`)
+- [x] สเตจ question: จีบนิ้วลากคำตอบ (reuse `DragQuestion`) บนภาพกล้องหลัง
 - [ ] ทดสอบ GPU/เฟรมเรต โหมด A vs B → เลือก
-- [ ] ตัวชี้ปลายนิ้ว + feedback (มีอยู่แล้ว)
+- [x] ตัวชี้ปลายนิ้ว + feedback (reuse จาก `DragQuestion`)
+
+## Code review fixes (2026-07-13)
+- [x] 🔴 `ARCardStage` `startedRef` รีเซ็ตใน cleanup → AR ไม่ค้างใน dev (React.StrictMode mount ซ้ำ)
+- [x] 🟡 `imageTracker.pauseTracking()` — เข้าสเตจคำถาม → หยุด render + TF.js detection (กล้องยังเล่นให้ MediaPipe) ลดโหลด GPU
+- [x] 🟡 ออก/ยกเลิกก่อนตอบ = **ไม่เสียหัวใจ** (onCancel → closeEvent) · เสียหัวใจเฉพาะตอบผิดจริง (จอ fail → onDone(false))
 
 ## เฟส 4 — ขัดเกลา/ทดสอบ
 - [ ] ทดสอบ iPad Safari (HTTPS, user-gesture, autoplay muted+playsInline)
@@ -84,6 +89,8 @@
 ## Gotchas (ห้ามลืม)
 - iOS Safari: ต้อง HTTPS + getUserMedia จาก user gesture; วิดีโอ texture `muted + playsInline + autoplay`
 - กล้องหลัง `facingMode: environment`; **ไม่ mirror** (ต่างจากกล้องหน้าเดิม)
-- เปิดกล้อง 1 ตัวเท่านั้น → MindAR + MediaPipe **แชร์ video element เดียว**
+- เปิดกล้อง 1 ตัวเท่านั้น → MindAR + MediaPipe **แชร์ video element เดียว** (`mindar.getVideo()`) ✅ ต่อแล้ว
 - ห้ามฟอยล์เมทัลลิก
-- MindAR three prod bundle: ตรวจว่ามี THREE ในตัวไหม หรือต้องโหลด `three` แยก
+- ✅ แก้แล้ว: ใช้ npm `three@0.152.0` (เวอร์ชันใหม่ถอด `sRGBEncoding` ที่ mind-ar 1.2.5 ใช้)
+- ⚠️ ทดสอบ: MindAR (TF.js) + MediaPipe รันพร้อมกันตอนสเตจ question → เฝ้าดูเฟรมเรต/ความร้อนบนแท็บเล็ต (เฟส 4)
+- ⚠️ arCardMode default = true แล้ว (มี gold-card.mind) → ทุกช่องทองจะโหลด chunk AR ~2.4MB (lazy) ครั้งแรก

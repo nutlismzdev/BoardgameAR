@@ -72,7 +72,7 @@ const DEFAULT_SETTINGS: Settings = {
   difficulty: 'all',
   soundEnabled: true,
   arEnabled: true,
-  arCardMode: false, // ปิดไว้ก่อน (opt-in) — เปิดเมื่อวาง gold-card.mind + ทดสอบเครื่องจริงแล้ว
+  arCardMode: true, // เปิดโหมดส่องการ์ดจริงเป็นค่าเริ่มต้น เมื่อมี public/ar/gold-card.mind แล้ว
   calibrate: false,
   showTileIcons: true,
 };
