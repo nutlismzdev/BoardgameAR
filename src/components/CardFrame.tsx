@@ -44,9 +44,36 @@ export function CardFrame({
   const canFlip = !!back && !prefersReducedMotion();
   const [phase, setPhase] = useState<Phase>(canFlip ? 'back' : 'front');
   const didFlip = useRef(canFlip); // ให้หน้าการ์ดแอนิเมชัน "พลิกเข้า" เฉพาะเมื่อมาจากหลังการ์ด
+  const [backReady, setBackReady] = useState(false); // รูปหลังการ์ดโหลด/decode เสร็จหรือยัง
+
+  // preload รูปหลังการ์ด (ไฟล์ใหญ่) ให้พร้อมก่อนเริ่มพลิก — กันการ์ดว่าง/ลอยตอนโหลดไม่ทัน
+  useEffect(() => {
+    if (!back) return;
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      setBackReady(true);
+    };
+    const img = new Image();
+    img.onload = finish;
+    img.onerror = finish; // รูปพัง = ไม่ค้าง เดินหน้าต่อ
+    img.src = back;
+    if (img.complete) finish(); // กรณี cache แล้ว (onload อาจไม่ยิงใน React)
+    const safety = setTimeout(finish, 1500); // เพดานกันค้างถ้ารูปช้ามาก
+    return () => clearTimeout(safety);
+  }, [back]);
+
+  // preload รูปหน้าโหมด art ตั้งแต่ตอนโชว์หลังการ์ด → พร้อมเผยทันทีตอนพลิกเสร็จ (ไม่ pop-in)
+  useEffect(() => {
+    if (!artFront) return;
+    const img = new Image();
+    img.src = artFront;
+  }, [artFront]);
 
   useEffect(() => {
     if (phase === 'back') {
+      if (!backReady) return; // รอรูปหลังการ์ดพร้อมก่อนค่อยเริ่มพลิก
       const t = setTimeout(() => setPhase('flipping'), 780);
       return () => clearTimeout(t);
     }
@@ -54,7 +81,7 @@ export function CardFrame({
       const t = setTimeout(() => setPhase('front'), 380);
       return () => clearTimeout(t);
     }
-  }, [phase]);
+  }, [phase, backReady]);
 
   const isPortrait = orientation === 'portrait';
 
@@ -65,7 +92,8 @@ export function CardFrame({
         <img
           src={back}
           alt="หลังการ์ด"
-          onClick={() => phase === 'back' && setPhase('flipping')}
+          decoding="async"
+          onClick={() => phase === 'back' && backReady && setPhase('flipping')}
           style={{
             display: 'block',
             height: 'min(80vh, 640px)',
@@ -73,13 +101,17 @@ export function CardFrame({
             aspectRatio: artRatio,
             objectFit: 'contain',
             borderRadius: 18,
+            background: 'rgba(233,220,194,.6)', // พื้น placeholder — กันการ์ดว่าง/ลอยระหว่างรูปยังโหลด
             boxShadow: elevation.modal,
-            cursor: 'pointer',
+            cursor: backReady ? 'pointer' : 'default',
             transformOrigin: 'center',
+            // เริ่มลอยเชิญแตะ "หลังรูปพร้อม" เท่านั้น (ก่อนพร้อมอยู่นิ่ง ไม่ลอยทั้งที่ว่าง)
             animation:
               phase === 'flipping'
                 ? 'cardFlipAway .38s ease-in forwards'
-                : 'cardBackIdle 2.4s ease-in-out infinite',
+                : backReady
+                ? 'cardBackIdle 2.4s ease-in-out infinite'
+                : undefined,
           }}
         />
         <style>{FLIP_KEYFRAMES}</style>
@@ -102,7 +134,14 @@ export function CardFrame({
         <img
           src={artFront}
           alt={title}
-          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+          decoding="async"
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            display: 'block',
+            background: 'rgba(233,220,194,.5)', // พื้น placeholder กัน pop-in ตอนรูปยังโหลด
+          }}
         />
         <div
           style={{
