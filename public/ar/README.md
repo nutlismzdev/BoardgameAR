@@ -5,12 +5,16 @@
 
 ## ต้องมี 1 ไฟล์ (ยังไม่ commit — ต้องเตรียมเอง)
 
-### `gold-card.mind` — image target ที่คอมไพล์จากภาพการ์ดทอง
-1. เตรียมภาพหน้าการ์ด AR ทอง (เวอร์ชันสุดท้ายที่จะปริ้นจริง เช่นจาก `public/assets/cards/ar-front.png`)
-2. คอมไพล์เป็น `.mind`:
+### `gold-card.mind` — image target (รองรับหลายด้าน = multi-target)
+1. เตรียมภาพการ์ด AR ทอง เวอร์ชันสุดท้ายที่จะปริ้นจริง — **หน้าและหลัง** (เช่น `ar-front.png`, `ar-back.png`)
+2. คอมไพล์เป็น `.mind` (multi-target):
    - ออนไลน์: https://hiukim.github.io/mind-ar-js-doc/tools/compile
-   - อัปโหลดภาพ → กด "Start" → ดาวน์โหลด `targets.mind` → เปลี่ยนชื่อเป็น `gold-card.mind`
+   - อัปโหลด **`ar-front.png` ก่อน (=target 0) แล้ว `ar-back.png` (=target 1)** — ใส่หลายรูปในครั้งเดียวได้
+   - กด "Start" → ดาวน์โหลด `targets.mind` → เปลี่ยนชื่อเป็น `gold-card.mind`
 3. วางไฟล์ที่ `public/ar/gold-card.mind`
+
+> โค้ดจับ target ตาม `AR.targetIndices` ใน `src/ar/arConfig.ts` — `[0,1]` = จับทั้งหน้าและหลัง
+> ถ้าอยากจับด้านเดียว เปลี่ยนเป็น `[0]` · ถ้าคอมไพล์แค่รูปเดียวแต่ตั้ง `[0,1]` ก็ยังทำงาน (target 1 แค่ไม่เจอ)
 
 > path ตั้งใน `src/ar/arConfig.ts` (`mindTargetUrl`)
 

@@ -37,23 +37,36 @@ export async function createImageTracker(container: HTMLElement): Promise<ImageT
     uiError: 'no',
   });
   const { renderer, scene, camera } = mindar;
+  // multi-target: ผูก anchor ทุก index ที่ตั้งไว้ (หน้า=0, หลัง=1) → ส่องด้านไหนก็เจอ
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const anchor: any = mindar.addAnchor(AR.targetIndex);
+  const anchors: any[] = AR.targetIndices.map((i) => mindar.addAnchor(i));
 
   let foundCb: (() => void) | null = null;
   let lostCb: (() => void) | null = null;
-  anchor.onTargetFound = () => foundCb?.();
-  anchor.onTargetLost = () => lostCb?.();
+  anchors.forEach((a) => {
+    a.onTargetFound = () => foundCb?.();
+    a.onTargetLost = () => lostCb?.();
+  });
 
-  let targetMesh: THREE.Mesh | null = null;
+  // ระนาบปัจจุบัน (วิดีโอ/placeholder) วางซ้ำบนทุก anchor เพื่อให้ส่องด้านไหนก็เห็นภาพเดียวกัน
+  let disposePlane: (() => void) | null = null;
 
-  const disposeTargetMesh = () => {
-    if (!targetMesh) return;
-    const mat = targetMesh.material as THREE.MeshBasicMaterial;
-    mat.map?.dispose();
-    mat.dispose();
-    targetMesh.geometry.dispose();
-    targetMesh = null;
+  // สร้างระนาบขนาดตามการ์ดแล้ววางลงทุก anchor (แชร์ texture/geometry/material ชุดเดียว)
+  const mountPlane = (texture: THREE.Texture) => {
+    disposePlane?.();
+    const geometry = new THREE.PlaneGeometry(AR.videoPlaneScale, AR.videoPlaneScale * AR.cardAspectHeight);
+    const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false, side: THREE.DoubleSide });
+    const meshes = anchors.map((a) => {
+      const m = new THREE.Mesh(geometry, material);
+      a.group.add(m);
+      return m;
+    });
+    disposePlane = () => {
+      meshes.forEach((m) => m.parent?.remove(m));
+      geometry.dispose();
+      material.dispose();
+      texture.dispose();
+    };
   };
 
   const renderLoop = () => renderer.render(scene, camera);
@@ -84,30 +97,18 @@ export async function createImageTracker(container: HTMLElement): Promise<ImageT
       } catch {
         /* no-op */
       }
-      disposeTargetMesh();
+      disposePlane?.();
     },
 
     setLessonVideo(video: HTMLVideoElement) {
-      disposeTargetMesh();
-      // ระนาบขนาดตามการ์ด (กว้าง 1 หน่วยใน anchor space, สูง = สัดส่วนการ์ด) × scale
-      const w = AR.videoPlaneScale;
-      const h = AR.videoPlaneScale * AR.cardAspectHeight;
       const texture = new THREE.VideoTexture(video);
       // สีให้ตรง (renderer เป็น sRGB) + เห็นได้ทั้งสองด้าน (กัน back-face culling ทำให้วิดีโอไม่ขึ้น)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (texture as any).encoding = (THREE as any).sRGBEncoding;
-      const geometry = new THREE.PlaneGeometry(w, h);
-      const material = new THREE.MeshBasicMaterial({
-        map: texture,
-        toneMapped: false,
-        side: THREE.DoubleSide,
-      });
-      targetMesh = new THREE.Mesh(geometry, material);
-      anchor.group.add(targetMesh);
+      mountPlane(texture);
     },
 
     setPlaceholderPanel(title: string) {
-      disposeTargetMesh();
       const canvas = document.createElement('canvas');
       canvas.width = 1024;
       canvas.height = 1434;
@@ -133,15 +134,7 @@ export async function createImageTracker(container: HTMLElement): Promise<ImageT
         ctx.font = '42px sans-serif';
         ctx.fillText('พร้อมเข้าสู่คำถาม', canvas.width / 2, 1215);
       }
-      const texture = new THREE.CanvasTexture(canvas);
-      const geometry = new THREE.PlaneGeometry(AR.videoPlaneScale, AR.videoPlaneScale * AR.cardAspectHeight);
-      const material = new THREE.MeshBasicMaterial({
-        map: texture,
-        toneMapped: false,
-        side: THREE.DoubleSide,
-      });
-      targetMesh = new THREE.Mesh(geometry, material);
-      anchor.group.add(targetMesh);
+      mountPlane(new THREE.CanvasTexture(canvas));
     },
 
     onFound(cb) {
