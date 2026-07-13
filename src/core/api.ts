@@ -121,6 +121,22 @@ export async function uploadGoldVideo(file: File): Promise<string> {
   return json.data.url;
 }
 
+// อัปโหลดรูปประกอบคำถาม (field 'image') — คืน path แบบ uploads/<file>
+export async function uploadQuestionImage(file: File): Promise<string> {
+  const form = new FormData();
+  form.set('image', file);
+  const res = await fetch(`${requireBaseUrl()}/upload.php`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: form,
+  });
+  const json = (await res.json().catch(() => null)) as ApiResponse<{ url: string }> | null;
+  if (!json || !res.ok || !json.ok || !json.data?.url) {
+    throw new Error(json?.error || 'อัปโหลดรูปไม่สำเร็จ');
+  }
+  return json.data.url;
+}
+
 export async function updateCard<T extends ContentType>(
   type: T,
   payload: ContentByType<T>

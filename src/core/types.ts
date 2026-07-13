@@ -71,6 +71,7 @@ export interface QuizCard {
   choices: QuizChoice[];
   explanation: string;
   videoUrl?: string;
+  imageUrl?: string; // ภาพประกอบคำถาม (optional) — path/URL (relative = ผ่าน API base)
 }
 
 export type GoldQuizCard = QuizCard;

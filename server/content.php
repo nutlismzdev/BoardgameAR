@@ -17,6 +17,10 @@ if ($type === 'gold') {
 if ($type === 'subject') {
     ensure_subject_table();
 }
+// ภาพประกอบคำถาม — รองรับทุกชนิดคำถาม (quiz/gold/subject) ยกเว้น knowledge
+if ($type !== 'knowledge' && $type !== '') {
+    ensure_image_column($table);
+}
 
 const VALID_SUBJECTS = ['social', 'math', 'science', 'art', 'health_pe', 'foreign_language'];
 
@@ -31,6 +35,21 @@ function ensure_gold_video_column(): void
         get_db()->exec('ALTER TABLE gold_quiz ADD COLUMN video_url VARCHAR(255) NULL AFTER explanation');
     }
     $done = true;
+}
+
+// เพิ่มคอลัมน์ image_url ให้ตารางคำถาม (quiz/gold_quiz/subject_quiz) อัตโนมัติสำหรับ DB เดิม
+// $table มาจาก table_for_type() (whitelist) จึงปลอดภัยกับการ interpolate
+function ensure_image_column(string $table): void
+{
+    static $done = [];
+    if (isset($done[$table])) {
+        return;
+    }
+    $stmt = get_db()->query("SHOW COLUMNS FROM {$table} LIKE 'image_url'");
+    if (!$stmt->fetch()) {
+        get_db()->exec("ALTER TABLE {$table} ADD COLUMN image_url VARCHAR(255) NULL AFTER explanation");
+    }
+    $done[$table] = true;
 }
 
 // สร้างตาราง subject_quiz อัตโนมัติสำหรับฐานข้อมูลเดิมที่ยังไม่ได้รัน schema.sql ใหม่
@@ -83,6 +102,7 @@ function db_to_card(array $row, string $type): array
         'choices' => $choices,
         'explanation' => $row['explanation'],
     ];
+    $card['imageUrl'] = $row['image_url'] ?? '';
     if ($type === 'gold') {
         $card['videoUrl'] = $row['video_url'] ?? '';
     }
@@ -208,6 +228,11 @@ function save_card(string $table, string $type, array $body, bool $isUpdate): vo
             $stmt->execute([$id, $kingId, $difficulty, $reward, $timeLimit, $question, $choicesJson, $explanation]);
         }
     }
+
+    // ภาพประกอบคำถาม — อัปเดตแยกแบบ uniform ทุกชนิด (ไม่ต้องแก้ทุก query ด้านบน)
+    $imageUrl = trim((string) ($body['imageUrl'] ?? ''));
+    $stmt = get_db()->prepare("UPDATE {$table} SET image_url = ? WHERE id = ?");
+    $stmt->execute([$imageUrl, $id]);
 }
 
 if ($method === 'GET') {

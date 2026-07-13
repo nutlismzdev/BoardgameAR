@@ -9,6 +9,7 @@ import {
   resolveApiAssetUrl,
   updateCard,
   uploadGoldVideo,
+  uploadQuestionImage,
   type ContentType,
 } from '@/core/api';
 import { KINGS, SUBJECTS, subjectLabel, syncContent } from '@/core/content';
@@ -343,6 +344,7 @@ function CardEditor({
 }) {
   const [localError, setLocalError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [imgUploading, setImgUploading] = useState(false);
   const isKnowledge = type === 'knowledge';
   const isGold = type === 'gold';
   const isSubject = type === 'subject';
@@ -516,6 +518,54 @@ function CardEditor({
             style={textarea}
           />
         </Field>
+      )}
+
+      {!isKnowledge && (
+        <div style={videoUploadPanel}>
+          <div>
+            <strong>รูปภาพประกอบคำถาม (ไม่บังคับ)</strong>
+            <p style={{ ...muted, margin: '4px 0 0' }}>อัปโหลดไฟล์ภาพ — JPG, PNG, WebP, GIF ไม่เกิน 10 MB</p>
+          </div>
+          {(value as QuizCard).imageUrl?.trim() ? (
+            <img
+              src={resolveVideoUrl((value as QuizCard).imageUrl)}
+              alt=""
+              style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 8, objectFit: 'contain', display: 'block' }}
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          ) : (
+            <div style={videoEmpty}>ยังไม่มีรูป — คำถามจะเป็นข้อความล้วน</div>
+          )}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <label style={uploadButton}>
+              {imgUploading ? 'กำลังอัปโหลด...' : 'อัปโหลดรูป'}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                disabled={imgUploading}
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.currentTarget.files?.[0];
+                  e.currentTarget.value = '';
+                  if (!file) return;
+                  setImgUploading(true);
+                  setLocalError('');
+                  uploadQuestionImage(file)
+                    .then((url) => patch({ imageUrl: url } as Partial<Card>))
+                    .catch((err) => setLocalError(err instanceof Error ? err.message : 'อัปโหลดรูปไม่สำเร็จ'))
+                    .finally(() => setImgUploading(false));
+                }}
+              />
+            </label>
+            {(value as QuizCard).imageUrl?.trim() && (
+              <button onClick={() => patch({ imageUrl: '' } as Partial<Card>)} style={secondaryButton}>
+                ล้างรูป
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       {isGold && (

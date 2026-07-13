@@ -6,6 +6,7 @@ import { getKingCoinImage } from '@/core/kingAssets';
 import { useHandTracking, type HandStatus, type HandFrame } from '@/core/useHandTracking';
 import { color, radius, elevation, difficultyMeta } from '@/theme/tokens';
 import { ARCardStage } from './ARCardStage';
+import { QuestionImage } from './QuestionImage';
 
 // ── ช่องทอง = บทเรียน AR ── ส่องกล้อง → คลิปวิดีโอ 15 วิ (placeholder) →
 // ลากคำตอบที่ถูกไปวางในช่อง (drag-to-slot) ในหน้ากล้อง AR → ถูก = ได้เหรียญกษัตริย์
@@ -462,6 +463,8 @@ function DragQuestion({
         </span>
       </div>
       <p style={{ fontSize: 20, fontWeight: 700, margin: '8px 0 14px' }}>{quiz.question}</p>
+      <QuestionImage url={quiz.imageUrl} maxHeight={160} />
+
 
       {/* ช่องวางคำตอบ — ไฮไลต์เมื่อนิ้วที่ถือคำตอบลอยเหนือช่อง (พร้อมปล่อย) */}
       <div

@@ -12,6 +12,7 @@ import {
 import { color, radius, difficultyMeta } from '@/theme/tokens';
 import { ARGoldChallenge } from './ARGoldChallenge';
 import { CardFrame } from './CardFrame';
+import { QuestionImage } from './QuestionImage';
 import { getCardFront } from '@/core/cardAssets';
 import { sfx } from '@/core/sfx';
 import type { Orientation, KnowledgeCard, SubjectQuizCard } from '@/core/types';
@@ -223,6 +224,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
               </div>
             )}
             <p style={{ fontSize: 22, fontWeight: 600, marginBottom: 16 }}>❓ {quiz.question}</p>
+            <QuestionImage url={quiz.imageUrl} />
             <div
               style={{
                 display: 'grid',
