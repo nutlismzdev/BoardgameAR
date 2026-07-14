@@ -32,10 +32,11 @@ export function QrChallengePanel({
     const url = buildChallengeUrl(challenge);
     setErr('');
     QRCode.toDataURL(url, {
-      width: 480,
-      margin: 1,
+      width: 640,
+      // ISO/IEC 18004 กำหนด quiet zone รอบ QR อย่างน้อย 4 modules
+      margin: 4,
       errorCorrectionLevel: 'M',
-      color: { dark: '#3A1B0A', light: '#ffffff' },
+      color: { dark: '#000000', light: '#ffffff' },
     })
       .then(setDataUrl)
       .catch((e) => {
@@ -194,10 +195,10 @@ const seal: CSSProperties = {
 };
 
 const qrBox: CSSProperties = {
-  width: 'clamp(168px, 38vh, 280px)',
+  width: 'clamp(220px, 42vh, 340px)',
   aspectRatio: '1 / 1',
   background: '#fff',
-  borderRadius: 10,
+  borderRadius: 0,
   display: 'grid',
   placeItems: 'center',
   overflow: 'hidden',

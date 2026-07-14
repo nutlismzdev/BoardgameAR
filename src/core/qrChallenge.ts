@@ -11,6 +11,7 @@ export interface QrChallenge {
   c: string[]; // ตัวเลือก
   a: number; // index ตัวเลือกที่ถูก
   r: number; // เหรียญรางวัลเมื่อตอบถูก
+  s?: number; // เวลาตอบ (วินาที) — เริ่มนับเมื่อหน้าคำถามเปิดบนมือถือ
   t?: string; // ป้ายบริบท (พระนาม/วิชา)
   d?: 'easy' | 'medium' | 'hard'; // ระดับความยาก
   x?: string; // คำอธิบายเฉลย (optional)
@@ -62,13 +63,14 @@ export function buildChallengeUrl(ch: QrChallenge, base?: string): string {
 }
 
 // แปลง QuizCard (ช่องฟ้า/สาระ) → payload สำหรับ QR
-export function buildQuizChallenge(quiz: QuizCard, label?: string, id?: string): QrChallenge {
+export function buildQuizChallenge(quiz: QuizCard, label?: string, id?: string, timeLimitSec?: number): QrChallenge {
   return {
     i: id,
     q: quiz.question,
     c: quiz.choices.map((ch) => ch.text),
     a: quiz.choices.findIndex((ch) => ch.correct),
     r: quiz.reward,
+    s: timeLimitSec,
     t: label,
     d: quiz.difficulty,
     x: quiz.explanation,

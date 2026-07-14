@@ -18,9 +18,25 @@ export function AnswerPage() {
     return raw ? decodeChallenge(raw) : null;
   }, []);
   const [picked, setPicked] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(() => challenge?.s ?? 0);
   const [sent, setSent] = useState<'idle' | 'sending' | 'ok' | 'fail'>('idle');
   // ส่งผลอัตโนมัติได้ไหม (มี challenge id + backend) — ถ้าไม่ ใช้โหมดกดผลเองบน tablet
   const auto = !!challenge?.i && challengeApiAvailable();
+  const timerOn = (challenge?.s ?? 0) > 0;
+
+  // เริ่มนับเมื่อกล้องเปิดหน้าคำถามสำเร็จ ใช้ deadline จริงเพื่อไม่ให้เวลาเพี้ยนเมื่อ browser อยู่เบื้องหลัง
+  useEffect(() => {
+    if (!challenge || !timerOn || picked !== null) return;
+    const deadline = Date.now() + challenge.s! * 1000;
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      if (remaining === 0) setPicked(-1);
+    };
+    tick();
+    const interval = window.setInterval(tick, 250);
+    return () => window.clearInterval(interval);
+  }, [challenge, picked, timerOn]);
 
   // ตอบแล้ว → ส่งผลขึ้น server อัตโนมัติ (ครั้งเดียว, ปุ่มถูก disable หลังตอบ)
   useEffect(() => {
@@ -62,6 +78,21 @@ export function AnswerPage() {
         <h1 style={{ fontSize: 22, fontWeight: 700, color: '#2A2118', lineHeight: 1.4, textAlign: 'center' }}>
           {challenge.q}
         </h1>
+
+        {timerOn && !answered && (
+          <div style={timerWrap} role="timer" aria-live="polite">
+            <div style={timerTrack}>
+              <div
+                style={{
+                  ...timerFill,
+                  width: `${(timeLeft / challenge.s!) * 100}%`,
+                  background: timeLeft <= 5 ? '#C62828' : '#C9A227',
+                }}
+              />
+            </div>
+            <strong style={{ color: timeLeft <= 5 ? '#C62828' : '#6B4E00' }}>{timeLeft} วินาที</strong>
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 4 }}>
           {challenge.c.map((text, i) => {
@@ -107,7 +138,7 @@ export function AnswerPage() {
               <span style={{ fontSize: 30 }}>{correct ? '🎉' : '💪'}</span>
               <div>
                 <div style={{ fontSize: 20, fontWeight: 800 }}>
-                  {correct ? 'ถูกต้อง! เก่งมาก' : 'ยังไม่ถูกนะ'}
+                  {correct ? 'ถูกต้อง! เก่งมาก' : picked === -1 ? 'หมดเวลาตอบ' : 'ยังไม่ถูกนะ'}
                 </div>
                 {correct && <div style={{ fontSize: 14, opacity: 0.95 }}>ได้เหรียญ 🪙 {challenge.r}</div>}
               </div>
@@ -177,6 +208,26 @@ const resultBanner: CSSProperties = {
   color: '#fff',
   padding: '14px 16px',
   borderRadius: 14,
+};
+
+const timerWrap: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+};
+
+const timerTrack: CSSProperties = {
+  flex: 1,
+  height: 9,
+  borderRadius: 999,
+  background: '#E4D8C1',
+  overflow: 'hidden',
+};
+
+const timerFill: CSSProperties = {
+  height: '100%',
+  borderRadius: 999,
+  transition: 'width .25s linear, background .2s',
 };
 
 const backToTablet: CSSProperties = {

@@ -81,8 +81,11 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   // payload สำหรับโหมด QR — memo ให้ reference นิ่ง (ไม่งั้น QR วาดใหม่ทุก render)
   const qrLabel = isSubject ? subjectName : king ? shortKing(king.name) : undefined;
   const qrChallenge = useMemo(
-    () => (qrMode && quiz ? buildQuizChallenge(quiz, qrLabel, genChallengeId()) : null),
-    [quiz, qrMode, qrLabel]
+    () =>
+      qrMode && quiz
+        ? buildQuizChallenge(quiz, qrLabel, genChallengeId(), settings.timerEnabled ? quiz.timeLimitSec : undefined)
+        : null,
+    [quiz, qrMode, qrLabel, settings.timerEnabled]
   );
   const penalty = kind === 'penalty' ? event?.tile.penalty ?? null : null;
 
