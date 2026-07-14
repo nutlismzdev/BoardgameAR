@@ -1,9 +1,8 @@
-// ── โหมด QR: ฝังคำถามลง URL#hash ให้ผู้เล่นสแกนไปตอบบน "มือถือส่วนตัว" ──
-// tablet encode → วาดเป็น QR ; มือถือ decode จาก location.hash แล้ว render เอง (ไม่เรียก API)
-// ออนไลน์แค่ตอน "โหลดหน้า answer.html" เท่านั้น — ตรรกะคำถาม/เฉลยทำบนมือถือล้วน
-// ⚠️ payload มี index เฉลย (a) → โหมด "เชื่อใจ": มือถือ (ของผู้เล่นเอง) เห็นได้ ผู้เล่นอื่นเห็นแค่ QR ทึบ
+// ── โหมด QR: ปกติใช้ URL สั้น + challenge id และโหลด payload ชั่วคราวจาก API ──
+// ถ้า API ใช้ไม่ได้ ฝัง payload ใน URL#hash เป็น fallback เพื่อให้เกมยังดำเนินต่อได้
+// การตรวจคำตอบทำบนมือถือในโหมดเชื่อใจ แล้วส่งเฉพาะผลกลับจอกลาง
 // ไฟล์นี้ต้อง standalone (ไม่ import store/UI) เพื่อให้ answer bundle เล็ก
-import type { QuizCard } from './types';
+import type { King, QuizCard } from './types';
 
 export interface QrChallenge {
   i?: string; // challenge id — ใช้จับคู่ผลตอบระหว่างมือถือ↔tablet (โหมดอัตโนมัติผ่าน server)
@@ -15,6 +14,12 @@ export interface QrChallenge {
   t?: string; // ป้ายบริบท (พระนาม/วิชา)
   d?: 'easy' | 'medium' | 'hard'; // ระดับความยาก
   x?: string; // คำอธิบายเฉลย (optional)
+}
+
+export interface GoldArChallenge extends QrChallenge {
+  mode: 'gold-ar';
+  king: King;
+  quiz: QuizCard;
 }
 
 // id สุ่มสำหรับ 1 คำถาม — ไม่พึ่ง crypto.randomUUID (ใช้ไม่ได้บน http LAN ที่ไม่ secure context)
@@ -57,9 +62,15 @@ export function decodeChallenge(s: string): QrChallenge | null {
 }
 
 // URL ที่ฝังใน QR — สแกนแล้วเปิด answer.html พร้อม payload ใน hash
-export function buildChallengeUrl(ch: QrChallenge, base?: string): string {
+export function buildChallengeUrl(ch: QrChallenge, base?: string, page = 'answer.html'): string {
   const origin = (base || (typeof window !== 'undefined' ? window.location.origin : '')).replace(/\/$/, '');
-  return `${origin}/answer.html#${encodeChallenge(ch)}`;
+  return `${origin}/${page}#${encodeChallenge(ch)}`;
+}
+
+// URL สั้นสำหรับ QR มาตรฐาน — มือถือโหลด payload จาก server ด้วย challenge id
+export function buildCompactChallengeUrl(id: string, base?: string, page = 'answer.html'): string {
+  const origin = (base || (typeof window !== 'undefined' ? window.location.origin : '')).replace(/\/$/, '');
+  return `${origin}/${page}?id=${encodeURIComponent(id)}`;
 }
 
 // แปลง QuizCard (ช่องฟ้า/สาระ) → payload สำหรับ QR
@@ -74,5 +85,14 @@ export function buildQuizChallenge(quiz: QuizCard, label?: string, id?: string, 
     t: label,
     d: quiz.difficulty,
     x: quiz.explanation,
+  };
+}
+
+export function buildGoldArChallenge(king: King, quiz: QuizCard, id: string): GoldArChallenge {
+  return {
+    ...buildQuizChallenge(quiz, king.name, id),
+    mode: 'gold-ar',
+    king,
+    quiz,
   };
 }

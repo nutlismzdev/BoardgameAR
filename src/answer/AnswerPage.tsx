@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { decodeChallenge } from '@/core/qrChallenge';
-import { challengeApiAvailable, postChallengeResult } from '@/core/challengeApi';
+import { challengeApiAvailable, fetchChallenge, postChallengeResult } from '@/core/challengeApi';
 
 // ── หน้าตอบคำถามบนมือถือส่วนตัว ──
-// อ่าน payload จาก location.hash → โชว์คำถาม+ตัวเลือก → ตอบแล้วเห็นผลทันที (ตรวจในเครื่อง)
-// ผลไม่ถูกส่งกลับอัตโนมัติ — ผู้เล่นกลับไปกด "ถูก/ผิด" ที่ tablet กลาง (โหมดเชื่อใจ)
+// ปกติโหลด payload ด้วย challenge id; รองรับ payload ใน hash เป็น fallback เมื่อไม่มี backend
+// ตรวจคำตอบในเครื่องและส่งผลกลับจอกลางอัตโนมัติเมื่อ API พร้อม
 const DIFF: Record<string, { label: string; bg: string }> = {
   easy: { label: 'ง่าย', bg: '#2E7D32' },
   medium: { label: 'ปานกลาง', bg: '#B8860B' },
@@ -13,16 +13,40 @@ const DIFF: Record<string, { label: string; bg: string }> = {
 };
 
 export function AnswerPage() {
-  const challenge = useMemo(() => {
+  const inlineChallenge = useMemo(() => {
     const raw = typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') : '';
     return raw ? decodeChallenge(raw) : null;
   }, []);
+  const challengeId = useMemo(
+    () => (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('id') : null),
+    []
+  );
+  const [challenge, setChallenge] = useState(inlineChallenge);
+  const [loading, setLoading] = useState(() => !!challengeId && !inlineChallenge);
   const [picked, setPicked] = useState<number | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(() => challenge?.s ?? 0);
+  const [timeLeft, setTimeLeft] = useState(0);
   const [sent, setSent] = useState<'idle' | 'sending' | 'ok' | 'fail'>('idle');
   // ส่งผลอัตโนมัติได้ไหม (มี challenge id + backend) — ถ้าไม่ ใช้โหมดกดผลเองบน tablet
   const auto = !!challenge?.i && challengeApiAvailable();
   const timerOn = (challenge?.s ?? 0) > 0;
+
+  useEffect(() => {
+    if (!challengeId || inlineChallenge) return;
+    let cancelled = false;
+    fetchChallenge(challengeId)
+      .then((nextChallenge) => {
+        if (!cancelled) setChallenge(nextChallenge);
+      })
+      .catch(() => {
+        if (!cancelled) setChallenge(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [challengeId, inlineChallenge]);
 
   // เริ่มนับเมื่อกล้องเปิดหน้าคำถามสำเร็จ ใช้ deadline จริงเพื่อไม่ให้เวลาเพี้ยนเมื่อ browser อยู่เบื้องหลัง
   useEffect(() => {
@@ -45,8 +69,15 @@ export function AnswerPage() {
     postChallengeResult(challenge.i, picked === challenge.a)
       .then(() => setSent('ok'))
       .catch(() => setSent('fail'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [picked]);
+  }, [auto, challenge?.a, challenge?.i, picked]);
+
+  if (loading) {
+    return (
+      <div style={shell}>
+        <div style={card}>กำลังโหลดคำถาม…</div>
+      </div>
+    );
+  }
 
   if (!challenge) {
     return (

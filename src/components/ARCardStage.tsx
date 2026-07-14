@@ -133,9 +133,9 @@ export function ARCardStage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasLessonVideo, kingName]);
 
-  // นับถอยหลังตอนกำลังเล่น (สำรองกรณีคลิปยาว/ไม่ยิง ended) → ครบเวลาก็เข้าคำถามบนสตรีม MindAR
+  // ไม่มีวิดีโอจึงใช้เวลาสำรองกับ placeholder; วิดีโอจริงรอ event ended เพื่อไม่ตัดคลิปกลางทาง
   useEffect(() => {
-    if (status !== 'playing') return;
+    if (status !== 'playing' || hasLessonVideo) return;
     if (secondsLeft <= 0) {
       proceedToQuestion();
       return;
@@ -143,7 +143,7 @@ export function ARCardStage({
     const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, secondsLeft]);
+  }, [hasLessonVideo, status, secondsLeft]);
 
   return (
     <div style={shell}>
@@ -189,7 +189,7 @@ export function ARCardStage({
       {status === 'playing' && (
         <div style={playingBar}>
           <span style={{ fontSize: 16, fontWeight: 800 }}>
-            {hasLessonVideo ? '🎬 วิดีโอบทเรียน' : '🃏 พบการ์ด AR'} · เหลือ {secondsLeft} วิ
+            {hasLessonVideo ? '🎬 กำลังเล่นวิดีโอบทเรียน' : `🃏 พบการ์ด AR · เหลือ ${secondsLeft} วิ`}
           </span>
           <button onClick={proceedToQuestion} style={skipBtn}>
             ข้ามไปตอบคำถาม →

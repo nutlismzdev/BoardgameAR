@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { sfx } from '@/core/sfx';
-import { getCardBack, getCardFront } from '@/core/cardAssets';
+import { getCardBack, getCardFront, preloadCardArt } from '@/core/cardAssets';
 
 // ── ด่าน "จั่วการ์ด" — โชว์การ์ดคว่ำ 5 ใบ (รูปหลังการ์ดจริง) ให้ผู้เล่นแตะเลือกเอง ──
 // เลือกใบไหนก็พลิกเผย "หน้าการ์ดจริง" ของชนิดนั้น แล้วค่อยเปิดเนื้อหา
@@ -28,12 +28,32 @@ export function CardPicker({ kind, onPicked }: { kind: PickKind; onPicked: () =>
   const front = getCardFront(kind);
   const glow = GLOW[kind];
   const [chosen, setChosen] = useState<number | null>(null);
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const revealTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setChosen(null);
+    setLoadState('loading');
+    preloadCardArt(kind)
+      .then(() => {
+        if (!cancelled) setLoadState('ready');
+      })
+      .catch(() => {
+        if (!cancelled) setLoadState('error');
+      });
+    return () => {
+      cancelled = true;
+      if (revealTimerRef.current !== null) window.clearTimeout(revealTimerRef.current);
+    };
+  }, [kind, loadAttempt]);
 
   const pick = (i: number) => {
     if (chosen !== null) return; // เลือกได้ครั้งเดียว
     setChosen(i);
     sfx.reveal();
-    setTimeout(onPicked, 900); // รอเอฟเฟกต์พลิกการ์ดจบก่อนเผยเนื้อหา
+    revealTimerRef.current = window.setTimeout(onPicked, 900); // รอเอฟเฟกต์พลิกการ์ดจบก่อนเผยเนื้อหา
   };
 
   const mid = (COUNT - 1) / 2;
@@ -47,6 +67,19 @@ export function CardPicker({ kind, onPicked }: { kind: PickKind; onPicked: () =>
         </p>
       </div>
 
+      {loadState === 'loading' ? (
+        <div style={loadingWrap} role="status" aria-live="polite">
+          <span style={loadingSeal}>๗</span>
+          กำลังเตรียมสำรับ…
+        </div>
+      ) : loadState === 'error' ? (
+        <div style={loadingWrap} role="alert">
+          <span>โหลดรูปการ์ดไม่สำเร็จ</span>
+          <button type="button" style={retryBtn} onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
+            ลองอีกครั้ง
+          </button>
+        </div>
+      ) : (
       <div style={fanWrap}>
         {Array.from({ length: COUNT }, (_, i) => {
           const rot = (i - mid) * 8; // พัดออกเป็นรูปพัด
@@ -57,6 +90,7 @@ export function CardPicker({ kind, onPicked }: { kind: PickKind; onPicked: () =>
             <button
               key={i}
               onClick={() => pick(i)}
+              disabled={chosen !== null}
               className="pick-card"
               style={{
                 ...cardBtn,
@@ -75,15 +109,16 @@ export function CardPicker({ kind, onPicked }: { kind: PickKind; onPicked: () =>
             >
               {/* ตัวพลิก 3D: หน้าหลัง (back) → พลิกเผยหน้าจริง (front) */}
               <div style={{ ...flipInner, transform: isChosen ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
-                {back && <img src={back} alt="" draggable={false} style={{ ...face, transform: 'rotateY(0deg)' }} />}
+                {back && <img src={back} alt="" draggable={false} decoding="async" style={{ ...face, transform: 'rotateY(0deg)' }} />}
                 {front && (
-                  <img src={front} alt="" draggable={false} style={{ ...face, transform: 'rotateY(180deg)' }} />
+                  <img src={front} alt="" draggable={false} decoding="async" style={{ ...face, transform: 'rotateY(180deg)' }} />
                 )}
               </div>
             </button>
           );
         })}
       </div>
+      )}
 
       <style>{PICK_FX}</style>
     </div>
@@ -153,7 +188,42 @@ const face: CSSProperties = {
   boxShadow: 'inset 0 0 0 2px rgba(255,255,255,.25)',
 };
 
+const loadingWrap: CSSProperties = {
+  minHeight: 'clamp(210px, 44vw, 320px)',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 12,
+  color: '#FFE9A8',
+  fontSize: 17,
+  fontWeight: 700,
+};
+
+const loadingSeal: CSSProperties = {
+  width: 54,
+  height: 54,
+  display: 'grid',
+  placeItems: 'center',
+  border: '3px double #C9A227',
+  borderRadius: '50%',
+  animation: 'pickLoadPulse 1s ease-in-out infinite',
+};
+
+const retryBtn: CSSProperties = {
+  minHeight: 42,
+  padding: '9px 18px',
+  color: '#2A2118',
+  background: '#FFE9A8',
+  border: '1px solid #C9A227',
+  borderRadius: 6,
+  fontSize: 15,
+  fontWeight: 800,
+  cursor: 'pointer',
+};
+
 const PICK_FX = `
 @keyframes pickBackdropIn{from{opacity:0}to{opacity:1}}
+@keyframes pickLoadPulse{0%,100%{opacity:.45;transform:scale(.94)}50%{opacity:1;transform:scale(1)}}
 .pick-card:hover{filter:brightness(1.07) drop-shadow(0 0 16px rgba(255,255,255,.4)) !important;}
 `;

@@ -1,7 +1,7 @@
 <?php
 // ช่องกลางให้ "มือถือผู้เล่น" กับ "tablet กลาง" คุยกัน (โหมด QR อัตโนมัติ)
-// มือถือ POST ผลการตอบ (ถูก/ผิด) ขึ้นมา → tablet GET (poll) มารับ แล้วเดินเกมต่อเอง
-// โหมดเชื่อใจ: ผู้เล่นตรวจคำตอบในเครื่องตัวเองแล้ว server แค่ส่งต่อผล ไม่เก็บเฉลย
+// tablet ลงทะเบียน payload ชั่วคราว → มือถือโหลดคำถามและ POST ผล → tablet poll แล้วเดินเกมต่อ
+// challenge id สุ่มใหม่ทุกข้อ และข้อมูลถูกล้างเมื่ออายุเกิน 1 ชั่วโมง
 require_once __DIR__ . '/lib.php';
 
 handle_cors();
@@ -14,16 +14,42 @@ get_db()->exec('DELETE FROM qr_challenge WHERE created_at < (NOW() - INTERVAL 1 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method === 'POST') {
-    // มือถือส่งผลการตอบขึ้นมา
     $body = read_json_body();
     $id = require_string($body, 'id');
-    if (strlen($id) > 40) {
+    if (!preg_match('/^[A-Za-z0-9_-]{8,40}$/', $id)) {
         send_json(['ok' => false, 'error' => 'invalid id'], 400);
+    }
+    if (isset($body['challenge']) && is_array($body['challenge'])) {
+        $challenge = $body['challenge'];
+        $choices = $challenge['c'] ?? null;
+        $answer = $challenge['a'] ?? null;
+        $validChoices = is_array($choices)
+            && count($choices) >= 2
+            && count($choices) <= 6
+            && count(array_filter($choices, 'is_string')) === count($choices);
+        if (!isset($challenge['q']) || !is_string($challenge['q']) || trim($challenge['q']) === '' || !$validChoices || !is_int($answer) || $answer < 0 || $answer >= count($choices)) {
+            send_json(['ok' => false, 'error' => 'invalid challenge'], 400);
+        }
+        $payload = json_encode($challenge, JSON_UNESCAPED_UNICODE);
+        if ($payload === false || strlen($payload) > 20000) {
+            send_json(['ok' => false, 'error' => 'challenge too large'], 400);
+        }
+        $stmt = get_db()->prepare(
+            'INSERT INTO qr_challenge (id, payload, answered, correct) VALUES (?, ?, 0, 0)
+             ON DUPLICATE KEY UPDATE payload = VALUES(payload), created_at = CURRENT_TIMESTAMP'
+        );
+        $stmt->execute([$id, $payload]);
+        send_json(['ok' => true]);
+    }
+
+    // มือถือส่งผลการตอบขึ้นมา
+    if (!array_key_exists('correct', $body) || !is_bool($body['correct'])) {
+        send_json(['ok' => false, 'error' => 'invalid correct result'], 400);
     }
     $correct = (int) ((bool) ($body['correct'] ?? false));
     $stmt = get_db()->prepare(
-        'INSERT INTO qr_challenge (id, correct) VALUES (?, ?)
-         ON DUPLICATE KEY UPDATE correct = VALUES(correct)'
+        'INSERT INTO qr_challenge (id, answered, correct) VALUES (?, 1, ?)
+         ON DUPLICATE KEY UPDATE correct = IF(answered = 0, VALUES(correct), correct), answered = 1'
     );
     $stmt->execute([$id, $correct]);
     send_json(['ok' => true]);
@@ -34,13 +60,21 @@ $id = trim((string) ($_GET['id'] ?? ''));
 if ($id === '') {
     send_json(['ok' => false, 'error' => 'missing id'], 400);
 }
-$stmt = get_db()->prepare('SELECT correct FROM qr_challenge WHERE id = ?');
+$wantPayload = ($_GET['payload'] ?? '') === '1';
+$stmt = get_db()->prepare('SELECT payload, answered, correct FROM qr_challenge WHERE id = ?');
 $stmt->execute([$id]);
 $row = $stmt->fetch();
 if ($row === false) {
-    send_json(['ok' => true, 'answered' => false]);
+    send_json($wantPayload ? ['ok' => false, 'error' => 'challenge not found'] : ['ok' => true, 'answered' => false], $wantPayload ? 404 : 200);
 }
-send_json(['ok' => true, 'answered' => true, 'correct' => (bool) $row['correct']]);
+if ($wantPayload) {
+    $challenge = json_decode((string) ($row['payload'] ?? ''), true);
+    if (!is_array($challenge)) {
+        send_json(['ok' => false, 'error' => 'challenge payload not found'], 404);
+    }
+    send_json(['ok' => true, 'challenge' => $challenge]);
+}
+send_json(['ok' => true, 'answered' => (bool) $row['answered'], 'correct' => (bool) $row['correct']]);
 
 // สร้างตารางอัตโนมัติสำหรับ DB เดิม (ฟังก์ชัน top-level ถูก hoist — เรียกก่อนนิยามได้)
 function ensure_challenge_table(): void
@@ -52,9 +86,18 @@ function ensure_challenge_table(): void
     get_db()->exec(
         'CREATE TABLE IF NOT EXISTS qr_challenge (
             id VARCHAR(40) PRIMARY KEY,
+            payload LONGTEXT NULL,
+            answered TINYINT(1) NOT NULL DEFAULT 0,
             correct TINYINT(1) NOT NULL DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
     );
+    $columns = get_db()->query('SHOW COLUMNS FROM qr_challenge')->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array('payload', $columns, true)) {
+        get_db()->exec('ALTER TABLE qr_challenge ADD COLUMN payload LONGTEXT NULL AFTER id');
+    }
+    if (!in_array('answered', $columns, true)) {
+        get_db()->exec('ALTER TABLE qr_challenge ADD COLUMN answered TINYINT(1) NOT NULL DEFAULT 0 AFTER payload');
+    }
     $done = true;
 }

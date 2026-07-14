@@ -11,10 +11,11 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      // multi-page: index.html = เกมหลัก (tablet) · answer.html = หน้าตอบบนมือถือ (โหลดเบา แยก bundle)
+      // multi-page: เกมหลัก + หน้าตอบ QR + ภารกิจ AR บนมือถือ
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         answer: fileURLToPath(new URL('./answer.html', import.meta.url)),
+        ar: fileURLToPath(new URL('./ar.html', import.meta.url)),
       },
     },
   },

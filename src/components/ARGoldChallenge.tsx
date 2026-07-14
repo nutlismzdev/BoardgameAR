@@ -74,14 +74,14 @@ export function ARGoldChallenge({
 
   // นับถอยหลังคลิปวิดีโอ 15 วิ แล้วเข้าสู่คำถาม
   useEffect(() => {
-    if (stage !== 'video') return;
+    if (stage !== 'video' || lessonUrl) return;
     if (secondsLeft <= 0) {
       setStage('question');
       return;
     }
     const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
     return () => clearTimeout(t);
-  }, [stage, secondsLeft]);
+  }, [lessonUrl, stage, secondsLeft]);
 
   const stopCam = () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -159,6 +159,7 @@ export function ARGoldChallenge({
           shortName={shortName}
           secondsLeft={secondsLeft}
           onSkip={() => setStage('question')}
+          onEnded={() => setStage('question')}
         />
       )}
 
@@ -227,12 +228,14 @@ function VideoStage({
   shortName,
   secondsLeft,
   onSkip,
+  onEnded,
 }: {
   king: King;
   quiz: QuizCard;
   shortName: string;
   secondsLeft: number;
   onSkip: () => void;
+  onEnded: () => void;
 }) {
   const pct = ((VIDEO_SECONDS - secondsLeft) / VIDEO_SECONDS) * 100;
   const lessonVideo = resolveApiAssetUrl(quiz.videoUrl || king.arVideo || '');
@@ -247,6 +250,7 @@ function VideoStage({
             autoPlay
             muted
             playsInline
+            onEnded={onEnded}
             style={{ width: '100%', maxHeight: 300, display: 'block', background: '#000' }}
           />
         </div>
@@ -267,11 +271,15 @@ function VideoStage({
           </div>
         </div>
       )}
-      <div style={{ height: 8, background: '#00000018', borderRadius: 99, marginTop: 12, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${pct}%`, background: color.secondary, transition: 'width 1s linear' }} />
-      </div>
+      {!lessonVideo && (
+        <div style={{ height: 8, background: '#00000018', borderRadius: 99, marginTop: 12, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${pct}%`, background: color.secondary, transition: 'width 1s linear' }} />
+        </div>
+      )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-        <span style={{ fontSize: 16, fontWeight: 700, color: color.textMuted }}>เหลือ {secondsLeft} วิ</span>
+        <span style={{ fontSize: 16, fontWeight: 700, color: color.textMuted }}>
+          {lessonVideo ? 'วิดีโอจบแล้วเข้าสู่คำถาม' : `เหลือ ${secondsLeft} วิ`}
+        </span>
         <button onClick={onSkip} style={skipBtn}>
           ข้ามวิดีโอ →
         </button>
@@ -310,9 +318,17 @@ function DragQuestion({
   const [overSlot, setOverSlot] = useState(false); // นิ้วที่ถือคำตอบลอยเหนือช่องอยู่ไหม (ไฮไลต์)
   const [wrong, setWrong] = useState(false); // วางคำตอบผิดแล้ว (โชว์ ❌ สั่นสั้น ๆ ก่อนเสียหัวใจ)
   const settledRef = useRef(false); // กันตัดสินซ้ำ (ถูก/ผิด เกิดครั้งเดียว แม้ frame มือ/pointer ยิงซ้อน)
+  const wrongTimerRef = useRef<number | null>(null);
   const [hidden, setHidden] = useState<number[]>([]); // คำตอบผิดที่ถูกคำใบ้ตัดออก
   const [cursorPresent, setCursorPresent] = useState(false); // เจอมือในเฟรมไหม (ใช้ mount จุดนิ้ว)
   const [handStatus, setHandStatus] = useState<HandStatus>('loading');
+
+  useEffect(
+    () => () => {
+      if (wrongTimerRef.current !== null) window.clearTimeout(wrongTimerRef.current);
+    },
+    []
+  );
 
   // เขียนตำแหน่งจุดนิ้ว + ชิปที่ลากลง DOM โดยตรง (เลี่ยง re-render ต่อเฟรม)
   const applyLivePos = (x: number, y: number) => {
@@ -367,7 +383,7 @@ function DragQuestion({
       settledRef.current = true;
       setWrong(true);
       setActiveIndex(null);
-      setTimeout(onWrong, 700);
+      wrongTimerRef.current = window.setTimeout(onWrong, 700);
     }
   };
 

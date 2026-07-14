@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import QRCode from 'qrcode';
-import { buildChallengeUrl } from '@/core/qrChallenge';
+import { buildChallengeUrl, buildCompactChallengeUrl } from '@/core/qrChallenge';
 import type { QrChallenge } from '@/core/qrChallenge';
-import { challengeApiAvailable, fetchChallengeResult } from '@/core/challengeApi';
+import { challengeApiAvailable, fetchChallengeResult, registerChallenge } from '@/core/challengeApi';
 import { color, radius } from '@/theme/tokens';
 
 // ── ฝั่ง tablet กลาง: คำถามไม่ปรากฏบนจอกลาง โชว์เป็น "ตราส่วนตัว" (QR) ให้สแกนไปตอบบนมือถือ ──
@@ -11,9 +11,13 @@ import { color, radius } from '@/theme/tokens';
 export function QrChallengePanel({
   challenge,
   onResult,
+  onCancel,
+  variant = 'quiz',
 }: {
   challenge: QrChallenge;
   onResult: (correct: boolean) => void;
+  onCancel?: () => void;
+  variant?: 'quiz' | 'gold-ar';
 }) {
   const [dataUrl, setDataUrl] = useState<string>('');
   const [err, setErr] = useState<string>('');
@@ -29,21 +33,43 @@ export function QrChallengePanel({
 
   // สร้าง QR
   useEffect(() => {
-    const url = buildChallengeUrl(challenge);
+    let cancelled = false;
     setErr('');
-    QRCode.toDataURL(url, {
-      width: 640,
-      // ISO/IEC 18004 กำหนด quiet zone รอบ QR อย่างน้อย 4 modules
-      margin: 4,
-      errorCorrectionLevel: 'M',
-      color: { dark: '#000000', light: '#ffffff' },
-    })
-      .then(setDataUrl)
+    setDataUrl('');
+
+    const generate = async () => {
+      const page = variant === 'gold-ar' ? 'ar.html' : 'answer.html';
+      let url = buildChallengeUrl(challenge, undefined, page);
+      if (auto && challenge.i) {
+        try {
+          await registerChallenge(challenge);
+          url = buildCompactChallengeUrl(challenge.i, undefined, page);
+        } catch {
+          // Backend ใช้ไม่ได้ชั่วคราว: QR แบบฝัง payload ยังตอบและแจ้งผลเองได้
+        }
+      }
+      return QRCode.toDataURL(url, {
+        width: 640,
+        // ISO/IEC 18004 กำหนด quiet zone รอบ QR อย่างน้อย 4 modules
+        margin: 4,
+        errorCorrectionLevel: 'M',
+        color: { dark: '#000000', light: '#ffffff' },
+      });
+    };
+
+    void generate()
+      .then((nextDataUrl) => {
+        if (!cancelled) setDataUrl(nextDataUrl);
+      })
       .catch((e) => {
+        if (cancelled) return;
         setDataUrl('');
         setErr(String(e?.message ?? e));
       });
-  }, [challenge]);
+    return () => {
+      cancelled = true;
+    };
+  }, [auto, challenge, variant]);
 
   // โหมดอัตโนมัติ: poll ผลตอบจากมือถือผ่าน server
   useEffect(() => {
@@ -78,7 +104,8 @@ export function QrChallengePanel({
   return (
     <div style={wrap}>
       <div style={eyebrow}>
-        <span aria-hidden>🔒</span> คำถามส่วนตัว
+        <span aria-hidden>{variant === 'gold-ar' ? '🪙' : '🔒'}</span>{' '}
+        {variant === 'gold-ar' ? 'ภารกิจ AR การ์ดทอง' : 'คำถามส่วนตัว'}
       </div>
 
       {/* ตราประทับ: QR ในกรอบทอง + มุมกรอบแบบเอกสารราชการ/viewfinder */}
@@ -98,7 +125,11 @@ export function QrChallengePanel({
         </div>
       </div>
 
-      <p style={caption}>สแกนด้วยมือถือเพื่อดูคำถามบนเครื่องของคุณ</p>
+      <p style={caption}>
+        {variant === 'gold-ar'
+          ? 'สแกนด้วยกล้องมือถือ แล้วส่องการ์ดทองเพื่อเริ่มบทเรียน AR'
+          : 'สแกนด้วยมือถือเพื่อดูคำถามบนเครื่องของคุณ'}
+      </p>
 
       {auto ? (
         <>
@@ -136,6 +167,12 @@ export function QrChallengePanel({
           </div>
         </>
       )}
+
+      {variant === 'gold-ar' && onCancel ? (
+        <button type="button" style={cancelBtn} onClick={onCancel}>
+          ยกเลิกภารกิจนี้
+        </button>
+      ) : null}
 
       <style>{`
         @keyframes qrSealIn { from { opacity: 0; transform: scale(.92) } to { opacity: 1; transform: none } }
@@ -294,3 +331,14 @@ function ghostBtn(c: string): CSSProperties {
 }
 
 const errText: CSSProperties = { color: color.danger, fontSize: 12.5, padding: 10, textAlign: 'center' };
+
+const cancelBtn: CSSProperties = {
+  fontFamily: 'inherit',
+  fontSize: 14,
+  fontWeight: 700,
+  color: color.textMuted,
+  background: 'transparent',
+  border: 'none',
+  padding: '7px 12px',
+  cursor: 'pointer',
+};

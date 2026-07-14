@@ -15,7 +15,7 @@ import { CardPicker } from './CardPicker';
 import { CardFrame } from './CardFrame';
 import { QuestionImage } from './QuestionImage';
 import { QrChallengePanel } from './QrChallengePanel';
-import { buildQuizChallenge, genChallengeId } from '@/core/qrChallenge';
+import { buildGoldArChallenge, buildQuizChallenge, genChallengeId } from '@/core/qrChallenge';
 import { getCardFront } from '@/core/cardAssets';
 import { sfx } from '@/core/sfx';
 import type { Orientation, KnowledgeCard, SubjectQuizCard, TileEvent } from '@/core/types';
@@ -86,6 +86,10 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
         ? buildQuizChallenge(quiz, qrLabel, genChallengeId(), settings.timerEnabled ? quiz.timeLimitSec : undefined)
         : null,
     [quiz, qrMode, qrLabel, settings.timerEnabled]
+  );
+  const goldArChallenge = useMemo(
+    () => (settings.qrAnswerMode && isGold && king && quiz ? buildGoldArChallenge(king, quiz, genChallengeId()) : null),
+    [isGold, king, quiz, settings.qrAnswerMode]
   );
   const penalty = kind === 'penalty' ? event?.tile.penalty ?? null : null;
 
@@ -184,6 +188,17 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             bannerTo="#B8860B"
             orientation={orientation}
           >
+          {goldArChallenge ? (
+            <QrChallengePanel
+              challenge={goldArChallenge}
+              variant="gold-ar"
+              onResult={(correct) => {
+                answerKingCoin(correct, kingId!);
+                closeEvent();
+              }}
+              onCancel={closeEvent}
+            />
+          ) : (
           <div>
             <p
               style={{
@@ -206,6 +221,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             </ol>
             <PrimaryButton onClick={() => setArGoldOpen(true)} label="📷 เริ่มบทเรียน AR" />
           </div>
+          )}
           </CardFrame>
         )}
 

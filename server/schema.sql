@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS app_config (
 -- ช่องกลางให้มือถือ↔tablet คุยกัน (โหมด QR อัตโนมัติ) — challenge อายุสั้น, ล้างเองเมื่อเกิน 1 ชม.
 CREATE TABLE IF NOT EXISTS qr_challenge (
   id VARCHAR(40) PRIMARY KEY,
+  payload LONGTEXT NULL,
+  answered TINYINT(1) NOT NULL DEFAULT 0,
   correct TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
