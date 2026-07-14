@@ -19,6 +19,13 @@ const ERA_COLOR: Record<string, string> = {
 const TH = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
 const toThai = (s: string | number) => String(s).replace(/[0-9]/g, (d) => TH[+d]);
 
+// แยกพระนามยาว: ดึงส่วนในวงเล็บ (เช่น "รัชกาลที่ ๕") ออกมาโชว์เป็นบรรทัดเล็ก
+// ชื่อหลักจะสั้นลง อ่านง่าย ไม่ต้องตัดคำแบบเสียความสมพระเกียรติ
+function splitKingName(name: string): { main: string; rank: string | null } {
+  const m = name.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+  return m ? { main: m[1].trim(), rank: m[2].trim() } : { main: name, rank: null };
+}
+
 // แปลง rgba จาก hex + alpha
 function hexA(hex: string, a: number) {
   const h = hex.replace('#', '');
@@ -282,11 +289,23 @@ export function Home() {
                 const claimed = owner !== -1;
                 const mine = owner === activePlayer;
                 const ownerColor = claimed ? PC[owner] : null;
+                const { main, rank } = splitKingName(king.name);
                 return (
                   <div
                     key={king.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => selectKing(king.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        selectKing(king.id);
+                      }
+                    }}
+                    aria-label={`ผู้เล่น ${activePlayer + 1} เลือก ${king.name}`}
                     style={{
                       position: 'relative',
+                      cursor: 'pointer',
                       display: 'flex',
                       flexDirection: 'column',
                       background: '#FFFDF6',
@@ -386,14 +405,10 @@ export function Home() {
                       </div>
                     </div>
 
-                    {/* โซนเลือก */}
+                    {/* โซนข้อมูล (คลิกเลือกได้จากทั้งการ์ด — handler อยู่ที่ div นอก) */}
                     <div
-                      role="button"
-                      onClick={() => selectKing(king.id)}
-                      aria-label={`ผู้เล่น ${activePlayer + 1} เลือก ${king.name}`}
                       style={{
                         padding: '10px 12px 12px',
-                        cursor: 'pointer',
                         background: mine ? hexA(ownerColor!, 0.1) : 'transparent',
                         transition: 'background .18s',
                         userSelect: 'none',
@@ -402,21 +417,25 @@ export function Home() {
                       }}
                     >
                       <div
+                        title={king.name}
                         style={{
                           fontFamily: "'Trirong',serif",
                           fontWeight: 600,
-                          fontSize: 14,
-                          lineHeight: 1.2,
+                          fontSize: 'clamp(12px, 1.35vw, 13.5px)',
+                          lineHeight: 1.22,
                           color: '#3A2A18',
-                          minHeight: 36,
-                          display: 'flex',
-                          alignItems: 'center',
+                          minHeight: 34, // 2 บรรทัด — การ์ดสูงเท่ากันทุกใบไม่ว่าชื่อสั้น/ยาว
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          wordBreak: 'break-word',
                         }}
                       >
-                        {king.name}
+                        {main}
                       </div>
-                      <div style={{ fontSize: 11.5, color: '#9A7B4A', marginTop: 2 }}>
-                        {toThai(king.reignPeriod)}
+                      <div style={{ fontSize: 11, color: '#9A7B4A', marginTop: 3, lineHeight: 1.3 }}>
+                        {rank ? `${rank} · ${toThai(king.reignPeriod)}` : toThai(king.reignPeriod)}
                       </div>
                       <div
                         style={{
@@ -590,7 +609,7 @@ export function Home() {
                           marginTop: 3,
                         }}
                       >
-                        {king ? king.name : 'ยังไม่เลือกกษัตริย์'}
+                        {king ? splitKingName(king.name).main : 'ยังไม่เลือกกษัตริย์'}
                       </span>
                     </span>
                     <span style={{ flexShrink: 0, fontWeight: 700, fontSize: king ? 16 : 11, color: PC[i] }}>
@@ -645,7 +664,7 @@ export function Home() {
                   cursor: 'pointer',
                 }}
               >
-                🏛 โหมดพิพิธภัณฑ์
+                🏛 พิพิธภัณฑ์
               </button>
               <button
                 onClick={() => {
@@ -668,7 +687,7 @@ export function Home() {
                   cursor: 'pointer',
                 }}
               >
-                ⚙ โหมดครู
+                ⚙ การตั้งค่า
               </button>
             </div>
           </aside>
