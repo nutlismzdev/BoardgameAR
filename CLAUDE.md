@@ -31,7 +31,7 @@ Stack: React 18 + TypeScript + Zustand (state) + Vite. ไม่มี test runn
 - **ชนะเมื่อเก็บ "เหรียญกษัตริย์" ครบ 7 พระองค์** → `Player.kingCoins`
 - เหรียญกษัตริย์ได้จาก **ช่องทอง (goldking) เท่านั้น** และต้อง **ตอบคำถาม AR ถูก**
 - **เกมจบทางเดียว: มีผู้เล่นเก็บเหรียญกษัตริย์ครบ 7** (`finishTurn` ใน store.ts) — **ถอด `maxRounds`/ลิมิตรอบออกแล้ว** (round ยังนับไว้ภายในแต่ไม่ใช้จบเกม/ไม่โชว์)
-- ทอยได้ 6 = ทอยซ้ำ (bonus roll) ยกเว้นผู้เล่นติดพักฟื้น/skip อยู่
+- **ทอยได้ 6 = ส่งตาปกติ** (เอาโบนัสทอยซ้ำออกแล้ว — ทุกเลขจบเทิร์นแล้วส่งให้คนถัดไป)
 - **ระบบหัวใจ:** ผู้เล่นเริ่ม `MAX_HEARTS = 3` (`Player.hearts`). ตอบคำถามฟ้าผิดหรือ AR ทองไม่สำเร็จ → เสีย 1 หัวใจ. ถ้าหัวใจเหลือ 0 → ตั้ง `skipNext` อย่างน้อย 1 เพื่อพักฟื้น 1 เทิร์น; เมื่อถูกข้ามจนพักครบ จะกลับมาพร้อม 1 หัวใจ
 
 ### ระบบเดียว = `kingCoins` (เก็บครบ 7 ชนะ)
@@ -57,9 +57,10 @@ Stack: React 18 + TypeScript + Zustand (state) + Vite. ไม่มี test runn
 | 8,16,26,33,40,45 (นอก) + 50,57,65,73 (ใน) | goldking | 👑 ทองเรืองแสง `#C9A227` | บทเรียน AR (คลิป 15 วิ + ลากคำตอบ) ชิงเหรียญกษัตริย์ — **10 ช่อง** ให้เก็บครบ 7 ได้ |
 | 32 | bonus | 💚 เขียว `#2E9E44` | การ์ดโบนัส (เหรียญ+ไอเทม) **+ เป็นจุดทางแยก** |
 
+- **4, 22, 38 = `shop` 🛒 น้ำตาล `#6D4C41`** — เปิด `ShopModal` ซื้อไอเทม **เฉพาะเมื่อหยุดช่องนี้** (ต้องลงพอดี) → จำกัดการเข้าถึงร้าน (ไม่ให้ซื้อได้ตลอด) · ปิดร้าน = จบเทิร์น
 - ช่องที่เหลือ = `blank` (ช่องเดินเปล่า โชว์เลข index)
 - **ช่อง 6, 12, 36 = `blank` แต่เป็นจุดทางแยก** (อย่าใส่ช่องพิเศษทับจุดแยก — คำถาม/ไอคอนจะโดน ForkOverlay บัง)
-- **`TileType` = `question` / `knowledge` / `subject` / `goldking` / `bonus` / `penalty` / `blank`** — type `start`/`mission`/`chance`/`coin`/`king`/`special` ถูกลบออกจาก type แล้ว (ช่อง 0 = penalty ไม่มี +100 ผ่าน START)
+- **`TileType` = `question` / `knowledge` / `subject` / `goldking` / `bonus` / `penalty` / `shop` / `blank`** — type `start`/`mission`/`chance`/`coin`/`king`/`special` ถูกลบออกจาก type แล้ว (ช่อง 0 = penalty ไม่มี +100 ผ่าน START)
 - **ช่อง subject:** ผูก `kingId` ต่อช่อง (เหมือนช่องฟ้า) แล้ว `getSubjectQuizForKing` สุ่มคละวิชาในคลังของพระองค์นั้น · `SubjectArea` 6 ค่า + meta (`SUBJECTS`/`subjectLabel`) อยู่ใน `content.ts` · การ์ด = `SubjectQuizCard` (QuizCard + `subject`)
 
 ### ทางแยก 4 จุด (fork) — เอนจิน generic ตาม `next.length > 1`
@@ -98,7 +99,7 @@ roll() → rolling(หมุน) → moving → runMovement()
     - penalty/question/knowledge/bonus → makeTileEvent → pendingEvent (UI เปิด CardModal)
     - blank → finishTurn เลย
 chooseBranch(dest): stepTo(dest) แล้ว runMovement(remaining-1)   ← นับก้าวผ่าน fork ถูกต้อง (verified)
-finishTurn(): เช็กชนะ (kingCoins≥7) → ถ้าทอย 6 เล่นต่อ ไม่งั้นหาผู้เล่นถัดไป
+finishTurn(): เช็กชนะ (kingCoins≥7) → ส่งเทิร์นให้ผู้เล่นถัดไปเสมอ (ไม่มีโบนัสทอย 6 แล้ว)
               โดย **ข้ามคนที่ skipNext>0** (ลด skipNext ลง 1) — ไม่มีเช็ก maxRounds แล้ว
 ```
 
@@ -109,6 +110,7 @@ finishTurn(): เช็กชนะ (kingCoins≥7) → ถ้าทอย 6 เ
 ## Card / เนื้อหา (`CardModal.tsx`)
 
 เปิดตาม `pendingEvent.kind`: **question / goldking / knowledge / bonus / penalty** (บล็อก king/mission/chance ลบออกจากโค้ดแล้ว)
+- **🎴 ด่านจั่วการ์ด (`CardPicker.tsx`):** การ์ด 4 ชนิด (question/subject/knowledge/goldking) ต้อง "จั่วเลือกใบ" ก่อนเปิดเนื้อหา — โชว์การ์ดคว่ำ 5 ใบเป็นรูปพัด (**ใช้รูปการ์ดจริง `getCardBack(kind)` = `/assets/cards/{kind}-back.png`**) ผู้เล่นแตะเลือก 1 ใบ → **พลิก 3D เผยหน้าจริง `getCardFront` (`{kind}-front.png`)** ~0.9 วิ แล้วค่อยเผยเนื้อหา · **เป็น UI gate ล้วนใน CardModal (state `picked`) ไม่แตะ store** — เนื้อหายัง random เดิม (getXForKing) แค่ให้ฟีลว่าความสุ่มมาจากมือผู้เล่น · penalty/bonus ไม่ต้องจั่ว (เปิดตรง) · **รีเซ็ต `picked` แบบ sync ตอน render** (prevEventRef) เพราะ CardModal ไม่ unmount ระหว่างการ์ด · ตัวจับเวลาควิซถูก gate ให้เริ่มนับหลังจั่วเสร็จ
 - **goldking = AR เท่านั้น** (`ARGoldChallenge.tsx` เต็มจอ): กล้อง → คลิป 15 วิ (ใช้ `quiz.videoUrl` จาก CMS ถ้ามี, fallback `King.arVideo`/placeholder) → **ลากคำตอบไปวางช่อง** (drag-to-slot) → ถูก = `answerKingCoin(correct, kingId)` (+เหรียญ 120) → สเตจ done โชว์ **ภาพเหรียญพระองค์นั้นหมุนเด้ง**
   - **คำใบ้ด้วยเหรียญ:** ปุ่ม "💡 ใช้คำใบ้ · จ่าย 🪙 60" (`buyHint`/`HINT_PRICE`) ตัดคำตอบผิด 2 ข้อ (ครั้งเดียว/คำถาม)
   - ผิด/ออกก่อนตอบใน AR → `answerKingCoin(false, kingId)` → เสียหัวใจผ่าน `damageCurrentPlayer`
@@ -136,8 +138,17 @@ finishTurn(): เช็กชนะ (kingCoins≥7) → ถ้าทอย 6 เ
 - **คอมโบ:** ตอบถูกติดกัน → ตัวคูณเหรียญ (`comboMult`, `streak`)
 - **ระบบหัวใจ:** `MAX_HEARTS=3`, `Player.hearts`; helper `damageCurrentPlayer` ลดหัวใจและตั้งพักฟื้นเมื่อเหลือ 0. HUD แสดงหัวใจผู้เล่นปัจจุบัน + แถบผู้เล่นหลายคนแสดงหัวใจแต่ละคน
 - **ไอเทม:** `fiftyFifty` / `skip` / `double` / `heartPotion` (`items`, `ITEM_META`) — ได้จากช่องโบนัส **หรือซื้อในร้านค้า**
-- **💰 ร้านค้าไอเทม (coin sink):** `ShopModal.tsx` เปิดจากปุ่ม 🛒 แถบขวา → `buyItem(type)` หักเหรียญ (`ITEM_PRICE`: 50:50=80, skip=120, ×2=150, heartPotion=100). `heartPotion` ฟื้นหัวใจผู้เล่นปัจจุบัน 1 ดวงผ่าน `useItem('heartPotion')`; + คำใบ้ AR (`buyHint`, `HINT_PRICE=60`) เป็น coin sink ที่ผูกกับเงื่อนไขชนะ
+- **💰 ร้านค้าไอเทม (coin sink):** `ShopModal.tsx` เปิด **เฉพาะเมื่อหยุดที่ช่องร้านค้า `shop` (4/22/38)** — `pendingEvent.kind==='shop'` ใน `GameBoard.landscape.tsx` render โมดัล, ปิดร้าน = `closeEvent` (จบเทิร์น) · **ถอดปุ่ม 🛒 ที่โผล่ตลอดออกแล้ว** เพื่อจำกัดไม่ให้ซื้อได้ทุกเวลา · `buyItem(type)` หักเหรียญ (`ITEM_PRICE`: 50:50=80, skip=120, ×2=150, heartPotion=100). `heartPotion` ฟื้นหัวใจผู้เล่นปัจจุบัน 1 ดวงผ่าน `useItem('heartPotion')`; + คำใบ้ AR (`buyHint`, `HINT_PRICE=60`) เป็น coin sink ที่ผูกกับเงื่อนไขชนะ
 - **~~เควส + บอสทบทวน~~ ถูกลบแล้ว** (`QuestPanel.tsx` + `dailyQuest`/`bossCleared`/`completeBossReview`/`QUESTS`/`DailyQuest`/`QuestKind` เอาออกหมด)
+- **💾 บันทึกเกม + resume อัตโนมัติ:** `store.ts` ห่อด้วย `zustand/persist` → เซฟทั้ง slice ลง `localStorage['bg7_save']` ทุกครั้งที่ state เปลี่ยน (partialize: players/currentPlayerIndex/round/settings/streak/items/doubleNext/usedQuizIds + `savedAt`) · **`SAVE_TTL_MS = 15 นาที`** — เปิดแอปแล้ว `merge` เช็ก ถ้าเซฟยังไม่หมดอายุ + มีผู้เล่น → **resume เข้าเกมทันที** (ไม่ต้องมีปุ่ม), เกินเวลา → ทิ้งเซฟ เริ่มที่ Home
+  - **กฎเหล็ก:** phase ชั่วคราว (`rolling`/`moving`/`forking`/`resolving`) resume ไม่ได้ (async closure หาย) → `savablePhase` เก็บเป็น `idle` เสมอ + `merge` เคลียร์ `pendingEvent`/`pendingFork`/`fx`/`lastRoll` → กลับมาที่ "รอผู้เล่นปัจจุบันทอย" (ยอมเสียการ์ด/เทิร์นที่ค้างครึ่ง)
+  - **ออกจากเกมมี confirm:** ปุ่ม 🏠 + ปุ่ม back เบราว์เซอร์ → `requestExit()` → `exitPrompt` → `ExitConfirm.tsx`. back เบราว์เซอร์ดักด้วย `history.pushState`/`popstate` ใน `App.tsx` (SPA นี้ไม่มี router). ยืนยัน → `confirmExit`→`backToHome` (phase setup → ไม่ resume)
+  - **หมายเหตุ:** `settings` ถูก persist ด้วย → `App.tsx` ต้อง `setSoundEnabled(soundEnabled)` sync เข้าโมดูล `sfx` (flag `enabled` ภายในไม่รู้เรื่อง persist)
+- **📱 โหมด QR ตอบบนมือถือ (privacy):** `settings.qrAnswerMode` (Teacher Mode) — ช่อง**ฟ้า/สาระ** พอจั่วใบเสร็จ tablet โชว์ **QR แทน UI ควิซ** (คำถามไม่โผล่บนจอกลาง = ผู้เล่นอื่นไม่เห็น) ผู้เล่นสแกนด้วยมือถือตัวเอง → เปิด `answer.html` (แยก entry โหลดเบา ~48KB ไม่ลาก MindAR) ตอบเห็นผลทันที
+  - **ผลกลับ tablet 2 โหมด:** (1) **อัตโนมัติ** ถ้าตั้ง `VITE_API_BASE` — มือถือ POST ผลขึ้น `server/challenge.php` → tablet **poll ทุก ~1.3 วิ** (`core/challengeApi.ts`) → เดินเกมต่อเอง · (2) **fallback กดเอง** ถ้าไม่มี backend/เน็ตหลุด → ปุ่ม ตอบถูก/ตอบผิด บน tablet · `resolvedRef` กัน resolve ซ้ำ (poll+กดเองชนกัน)
+  - คำถามฝังใน **URL#hash** (base64url UTF-8 รองรับไทย, `core/qrChallenge.ts` ใช้ร่วม 2 ฝั่ง — มี `i`=challenge id จับคู่ผล) · payload มี index เฉลย (โหมดเชื่อใจยอมรับได้) · gold AR/knowledge ยังไม่เข้าโหมดนี้
+  - ไฟล์: `answer.html` (root) + `src/answer/` (entry มือถือ) · `QrChallengePanel.tsx` (tablet: วาด QR ด้วย `qrcode` + poll/ปุ่ม) · `core/challengeApi.ts` · `server/challenge.php` (+ ตาราง `qr_challenge` auto-migrate/schema.sql) · `vite.config.ts` multi-page (main+answer)
+  - **CORS:** มือถือโหลด `answer.html` จาก origin ของแอป แล้ว POST ไป `VITE_API_BASE` — ต้องมี origin ของแอปใน `config.php['allowed_origins']`
 - **AR:** เฉพาะ**ช่องทอง** (`ARGoldChallenge.tsx`). `settings.arEnabled` = เปิด/ปิดกล้อง (ปิดแล้วเล่นบนพื้นหลังเข้ม ยังชนะได้). วิดีโอจริงมาจาก `QuizCard.videoUrl`/CMS ถ้ามี. **`ARLauncher.tsx` (poster maker) ถูกลบแล้ว**
 - **หมากกษัตริย์:** PNG `public/assets/chess/1.png..7.png` (ลำดับตาม `king.order`) ผ่าน `getKingPawnImage`
 - **เหรียญกษัตริย์ (ภาพ):** PNG `public/assets/coins/{king.id}.png` ผ่าน `getKingCoinImage` (source ไทยอยู่ root `Coin/`) — โชว์ผ่าน `KingCoinRow.tsx` (ช่องเก็บเหรียญ ได้แล้ว=ทองเรือง/ยังไม่ได้=จางเส้นประ) ที่ **HUD (มุมขวาบน) · GameOver · พิพิธภัณฑ์ · การ์ด AR · KingDetailModal**
@@ -155,7 +166,7 @@ src/
     content.ts      ← อ่าน JSON เนื้อหา (คัด/สุ่มการ์ด)
     api.ts          ← client สำหรับ PHP API + upload video + resolve asset URL
     kingAssets.ts   ← id พระองค์ → หมาก `/assets/chess/{order}.png` + เหรียญ `/assets/coins/{id}.png`
-    diceLogic.ts    ← rollDie, isBonusRoll
+    diceLogic.ts    ← rollDie
     sfx.ts          ← เสียง (Web Audio) + เพลงพื้นหลัง (startBackgroundMusic ใน App.tsx)
   data/
     board-layout.json  ← ผังช่อง 0–76 + next[] (กราฟ) + penalty/label

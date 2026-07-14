@@ -1,0 +1,30 @@
+// ── ช่องกลางให้มือถือ↔tablet คุยกัน (โหมด QR อัตโนมัติ) ──
+// เบา standalone (ใช้ทั้งฝั่ง tablet และ answer bundle) — ไม่ import store/UI
+const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '');
+
+// มี backend ให้คุยไหม — ถ้าไม่ตั้ง VITE_API_BASE จะ fallback เป็นกดผลเองบน tablet
+export function challengeApiAvailable(): boolean {
+  return !!API_BASE;
+}
+
+// มือถือส่งผลการตอบขึ้น server (ผู้เล่นตรวจในเครื่องแล้ว)
+export async function postChallengeResult(id: string, correct: boolean): Promise<void> {
+  if (!API_BASE) throw new Error('ยังไม่ได้ตั้งค่า VITE_API_BASE');
+  const res = await fetch(`${API_BASE}/challenge.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, correct }),
+  });
+  if (!res.ok) throw new Error(`challenge post ${res.status}`);
+}
+
+// tablet poll ว่ามีผลหรือยัง
+export async function fetchChallengeResult(id: string): Promise<{ answered: boolean; correct: boolean }> {
+  if (!API_BASE) return { answered: false, correct: false };
+  const res = await fetch(`${API_BASE}/challenge.php?id=${encodeURIComponent(id)}`);
+  const json = (await res.json().catch(() => null)) as
+    | { ok?: boolean; answered?: boolean; correct?: boolean }
+    | null;
+  if (!json || !json.ok) return { answered: false, correct: false };
+  return { answered: !!json.answered, correct: !!json.correct };
+}

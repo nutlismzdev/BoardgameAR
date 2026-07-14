@@ -24,14 +24,15 @@ export function GameBoardLandscape() {
   const players = useGame((s) => s.players);
   const currentIdx = useGame((s) => s.currentPlayerIndex);
   const player = players[currentIdx];
-  const backToHome = useGame((s) => s.backToHome);
+  const requestExit = useGame((s) => s.requestExit);
   const fx = useGame((s) => s.fx);
   const streak = useGame((s) => s.streak);
   const phase = useGame((s) => s.phase);
   const pendingFork = useGame((s) => s.pendingFork);
   const chooseBranch = useGame((s) => s.chooseBranch);
+  const pendingEvent = useGame((s) => s.pendingEvent);
+  const closeEvent = useGame((s) => s.closeEvent);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [shopOpen, setShopOpen] = useState(false);
   const playerRefs = useRef<(HTMLDivElement | null)[]>([]);
   const previousPlayerRef = useRef(currentIdx);
   const [turnNotice, setTurnNotice] = useState<string | null>(null);
@@ -222,7 +223,7 @@ export function GameBoardLandscape() {
           <button onClick={() => setSettingsOpen(true)} style={iconBtn} aria-label="ตั้งค่า">
             ⚙️
           </button>
-          <button onClick={backToHome} style={iconBtn} aria-label="กลับหน้าแรก">
+          <button onClick={requestExit} style={iconBtn} aria-label="กลับหน้าแรก">
             🏠
           </button>
         </div>
@@ -281,10 +282,7 @@ export function GameBoardLandscape() {
         </div>
 
         <div style={bottomControls}>
-          {/* ร้านค้าไอเทม (ใช้เหรียญซื้อ) + แถบไอเทมที่มี */}
-          <button onClick={() => setShopOpen(true)} style={shopBtn}>
-            🛒 ร้านค้าไอเทม
-          </button>
+          {/* แถบไอเทมที่มี — ซื้อไอเทมได้เฉพาะเมื่อหยุดที่ "ช่องร้านค้า" 🛒 บนกระดาน */}
           <ItemBar />
 
           {/* ปุ่มทอยลูกเต๋า (การ์ด 3D) */}
@@ -299,7 +297,8 @@ export function GameBoardLandscape() {
         <ForkOverlay options={pendingFork.options} onChoose={(d) => chooseBranch(d)} />
       )}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
-      {shopOpen && <ShopModal onClose={() => setShopOpen(false)} />}
+      {/* ร้านค้าเปิดเฉพาะตอนหยุดที่ช่องร้านค้า — ปิดร้าน = จบเทิร์น */}
+      {pendingEvent?.kind === 'shop' && <ShopModal onClose={closeEvent} />}
 
       {turnNotice && (
         <div style={turnToast}>
@@ -579,20 +578,6 @@ const iconBtn: React.CSSProperties = {
   boxShadow: '0 3px 10px rgba(0,0,0,.18)',
   cursor: 'pointer',
   animation: 'panelFloat 4s ease-in-out infinite',
-};
-
-const shopBtn: React.CSSProperties = {
-  fontFamily: 'inherit',
-  fontSize: 16,
-  fontWeight: 800,
-  color: '#6B4E1E',
-  background: 'linear-gradient(160deg, #FFE9A8, #E9B93C)',
-  border: '1.5px solid #C9A227',
-  borderRadius: radius.pill,
-  padding: '9px 0',
-  minHeight: 42,
-  cursor: 'pointer',
-  boxShadow: '0 3px 10px rgba(160,110,20,.25)',
 };
 
 const collectionSlot: React.CSSProperties = {

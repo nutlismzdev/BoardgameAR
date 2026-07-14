@@ -40,6 +40,7 @@ export const tileColor: Record<string, string> = {
   bonus: '#2E9E44', // เขียว
   chance: '#6A1B9A', // ม่วง
   penalty: '#8E2020', // แดงเข้ม — ช่องทำโทษ
+  shop: '#6D4C41', // น้ำตาลตลาด — ช่องร้านค้าไอเทม
   special: '#607D8B',
 };
 
@@ -55,6 +56,7 @@ export const tileIcon: Record<string, string> = {
   bonus: '🎁',
   chance: '🌀',
   penalty: '⛓️',
+  shop: '🛒',
   special: '⏭️',
 };
 
@@ -81,5 +83,6 @@ export const tileLabel: Record<string, string> = {
   bonus: 'โบนัส',
   chance: 'โชค',
   penalty: 'ทำโทษ',
+  shop: 'ร้านค้า',
   special: 'พิเศษ',
 };

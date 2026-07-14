@@ -66,6 +66,11 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           onToggle={() => update({ soundEnabled: !settings.soundEnabled })}
         />
         <Toggle
+          label="📱 ตอบคำถามผ่านมือถือ"
+          on={settings.qrAnswerMode}
+          onToggle={() => update({ qrAnswerMode: !settings.qrAnswerMode })}
+        />
+        <Toggle
           label="📷 เปิดกล้อง AR (ช่องทอง)"
           on={settings.arEnabled}
           onToggle={() => update({ arEnabled: !settings.arEnabled })}

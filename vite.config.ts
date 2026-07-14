@@ -9,6 +9,15 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  build: {
+    rollupOptions: {
+      // multi-page: index.html = เกมหลัก (tablet) · answer.html = หน้าตอบบนมือถือ (โหลดเบา แยก bundle)
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        answer: fileURLToPath(new URL('./answer.html', import.meta.url)),
+      },
+    },
+  },
   server: {
     host: true, // ให้เข้าถึงจากแท็บเล็ตในวง LAN เดียวกันได้
     // vite 5.4.12+ บล็อก Host แปลกปลอม — ต้อง allow โดเมนที่เข้าผ่าน cloudflare tunnel

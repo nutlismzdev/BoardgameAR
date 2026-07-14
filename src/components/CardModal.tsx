@@ -11,11 +11,14 @@ import {
 } from '@/core/content';
 import { color, radius, difficultyMeta } from '@/theme/tokens';
 import { ARGoldChallenge } from './ARGoldChallenge';
+import { CardPicker } from './CardPicker';
 import { CardFrame } from './CardFrame';
 import { QuestionImage } from './QuestionImage';
+import { QrChallengePanel } from './QrChallengePanel';
+import { buildQuizChallenge, genChallengeId } from '@/core/qrChallenge';
 import { getCardFront } from '@/core/cardAssets';
 import { sfx } from '@/core/sfx';
-import type { Orientation, KnowledgeCard, SubjectQuizCard } from '@/core/types';
+import type { Orientation, KnowledgeCard, SubjectQuizCard, TileEvent } from '@/core/types';
 
 // เอฟเฟกต์ตอนเฉลยคำถาม (แบนเนอร์เด้ง/ปุ่มถูกเด้ง/ปุ่มผิดสั่น/กระดาษหลากสีร่วง)
 const QUIZ_FX = `
@@ -47,6 +50,10 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   const [answered, setAnswered] = useState<number | null>(null);
   const [hidden, setHidden] = useState<number[]>([]); // ตัวเลือกที่ 50:50 ตัดออก
   const [arGoldOpen, setArGoldOpen] = useState(false);
+  // เก็บ "event ที่จั่วเลือกใบไปแล้ว" แทน boolean — event ใหม่ย่อม !== ตัวนี้เสมอ ด่านจั่วจึงโผล่ทุกใบ
+  // (เลี่ยง boolean ที่ต้องรีเซ็ตเองซึ่งค้างได้ ทำให้การ์ดใบต่อ ๆ ไปข้ามด่านจั่ว)
+  const [pickedEvent, setPickedEvent] = useState<TileEvent | null>(null);
+  const picked = !!event && pickedEvent === event;
 
   const kind = event?.kind;
   const kingId = event?.tile.kingId ?? null;
@@ -55,6 +62,8 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   const isQuizKind = kind === 'question'; // เฉพาะช่องฟ้าที่ใช้ UI ควิซปกติ
   const isSubject = kind === 'subject'; // ช่องกลุ่มสาระฯ ใช้ UI ควิซเดียวกับช่องฟ้า แต่คัดจากคลังสาระ
   const usesQuizUI = isQuizKind || isSubject; // ทั้งสองใช้จอควิซ + จับเวลา + ไอเทมชุดเดียวกัน
+  // โหมด QR: ช่องฟ้า/สาระ → โชว์ QR ให้ตอบบนมือถือส่วนตัวแทน UI ควิซบน tablet (ไม่มีตัวจับเวลา)
+  const qrMode = settings.qrAnswerMode && usesQuizUI;
 
   // ช่องทองก็ต้องมีคำถาม (ใช้กับ drag-to-slot ใน AR) จึงสุ่ม quiz ไว้ด้วย
   const quiz = useMemo(
@@ -69,6 +78,12 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
     [event]
   );
   const subjectName = isSubject && quiz ? subjectLabel((quiz as SubjectQuizCard).subject) : '';
+  // payload สำหรับโหมด QR — memo ให้ reference นิ่ง (ไม่งั้น QR วาดใหม่ทุก render)
+  const qrLabel = isSubject ? subjectName : king ? shortKing(king.name) : undefined;
+  const qrChallenge = useMemo(
+    () => (qrMode && quiz ? buildQuizChallenge(quiz, qrLabel, genChallengeId()) : null),
+    [quiz, qrMode, qrLabel]
+  );
   const penalty = kind === 'penalty' ? event?.tile.penalty ?? null : null;
 
   // การ์ดความรู้ = สุ่มใบที่ยังไม่มี 1 ใบต่อการลงช่อง (ไม่มีปุ่มสุ่มใหม่แล้ว)
@@ -92,16 +107,16 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
     setArGoldOpen(false);
   }, [event]);
   useEffect(() => {
-    if (!timerOn || !usesQuizUI || answered !== null || timeLeft <= 0) return;
+    if (qrMode || !picked || !timerOn || !usesQuizUI || answered !== null || timeLeft <= 0) return;
     const t = setTimeout(() => setTimeLeft((s) => s - 1), 1000);
     return () => clearTimeout(t);
-  }, [timeLeft, answered, kind, timerOn]);
-  // หมดเวลา → บังคับเฉลย (นับเป็นตอบผิด: index -1)
+  }, [timeLeft, answered, kind, timerOn, picked, qrMode]);
+  // หมดเวลา → บังคับเฉลย (นับเป็นตอบผิด: index -1) — เฉพาะหลังจั่วการ์ดแล้ว (ไม่ทำในโหมด QR)
   useEffect(() => {
-    if (timerOn && usesQuizUI && timeLeft === 0 && answered === null && quiz) {
+    if (!qrMode && picked && timerOn && usesQuizUI && timeLeft === 0 && answered === null && quiz) {
       setAnswered(-1);
     }
-  }, [timeLeft, timerOn]);
+  }, [timeLeft, timerOn, picked, qrMode]);
   // ── ฟีดแบ็กทันทีตอนเฉลย: เล่นเสียงถูก/ผิดทันทีที่กดตอบ (เดิมเงียบจนไม่รู้ผล) ──
   useEffect(() => {
     if (!usesQuizUI || answered === null) return;
@@ -112,6 +127,12 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   }, [answered]);
 
   if (!event) return null;
+  // ช่องร้านค้าเปิด ShopModal แยก (ใน layout) ไม่ใช่การ์ด — CardModal ไม่ต้องเรนเดอร์ (กันเงา overlay เปล่า)
+  if (kind === 'shop') return null;
+
+  // การ์ด 4 ชนิดนี้ต้อง "จั่วเลือกใบ" ก่อนเปิดเนื้อหา (คำถาม/สาระ/ความรู้/ทอง AR)
+  // ช่องทำโทษ/โบนัสไม่ใช่การ์ดสะสม → เปิดตรง ๆ เหมือนเดิม
+  const needsDraw = kind === 'question' || kind === 'subject' || kind === 'knowledge' || kind === 'goldking';
 
   const isPortrait = orientation === 'portrait';
   const shell: React.CSSProperties = {
@@ -145,6 +166,9 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
           }}
         />
       )}
+    {needsDraw && !picked ? (
+      <CardPicker kind={kind as 'question' | 'subject' | 'knowledge' | 'goldking'} onPicked={() => setPickedEvent(event)} />
+    ) : (
     <div style={shell}>
         {/* ── ช่องทอง (AR เท่านั้น) — เข้าสู่บทเรียน AR เพื่อรับเหรียญกษัตริย์ ── */}
         {isGold && king && (
@@ -193,6 +217,15 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             bannerTo={isSubject ? '#00695C' : '#0D47A1'}
             orientation={orientation}
           >
+          {qrMode && qrChallenge ? (
+            <QrChallengePanel
+              challenge={qrChallenge}
+              onResult={(ok) => {
+                answerQuiz(ok, quiz.reward);
+                closeEvent();
+              }}
+            />
+          ) : (
           <div>
             {/* แถวป้ายบอกบริบทคำถาม: ระดับความยาก (+ วิชา ถ้าเป็นช่องสาระ) */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 12 }}>
@@ -397,6 +430,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
                 );
               })()}
           </div>
+          )}
           </CardFrame>
         )}
 
@@ -510,6 +544,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
           </CardFrame>
         )}
     </div>
+    )}
     </>
   );
 }

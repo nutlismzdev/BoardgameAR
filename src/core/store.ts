@@ -2,10 +2,11 @@
 // ไฟล์ Layout (portrait/landscape) เพียงอ่าน state และเรียก action เท่านั้น ห้ามฝัง logic
 
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import boardData from '@/data/board-layout.json';
 import kingsData from '@/data/kings.json';
 import type { Player, Tile, TileEvent, Difficulty } from './types';
-import { rollDie, isBonusRoll } from './diceLogic';
+import { rollDie } from './diceLogic';
 import { sfx, setSoundEnabled, startBackgroundMusic, stopBackgroundMusic } from './sfx';
 
 const TILES = boardData.tiles as Tile[];
@@ -32,6 +33,14 @@ export interface FxSignal {
 let fxCounter = 0;
 
 export const MAX_HEARTS = 3;
+
+// ── บันทึกเกม (resume อัตโนมัติภายในเวลาที่กำหนด) ──
+export const SAVE_TTL_MS = 15 * 60 * 1000; // 15 นาที: เกินนี้เซฟหมดอายุ เริ่มใหม่ที่หน้า Home
+const SAVE_KEY = 'bg7_save';
+// phase ชั่วคราว (rolling/moving/forking/resolving) resume ไม่ได้ → เก็บเป็น idle เสมอ
+function savablePhase(phase: GamePhase): GamePhase {
+  return phase === 'setup' || phase === 'gameover' ? phase : 'idle';
+}
 
 // ── ไอเทมพาวเวอร์อัพ ──
 export type ItemType = 'fiftyFifty' | 'skip' | 'double' | 'heartPotion';
@@ -65,6 +74,7 @@ export interface Settings {
   arCardMode: boolean; // โหมดส่องการ์ดจริง (MindAR image-target) — ต้องมี public/ar/gold-card.mind
   calibrate: boolean; // โหมดปรับตำแหน่งช่องบนภาพกระดาน (สำหรับผู้ดูแล)
   showTileIcons: boolean; // แสดงไอคอนบอกว่าช่องนั้นเป็นเกมอะไร
+  qrAnswerMode: boolean; // ช่องคำถาม/สาระ → โชว์ QR ให้สแกนตอบบนมือถือส่วนตัว (แทนตอบบน tablet)
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -75,6 +85,7 @@ const DEFAULT_SETTINGS: Settings = {
   arCardMode: true, // เปิดโหมดส่องการ์ดจริงเป็นค่าเริ่มต้น เมื่อมี public/ar/gold-card.mind แล้ว
   calibrate: false,
   showTileIcons: true,
+  qrAnswerMode: false,
 };
 
 interface GameState {
@@ -91,6 +102,7 @@ interface GameState {
   items: ItemBag; // คลังไอเทมพาวเวอร์อัพ
   doubleNext: boolean; // ×2 เหรียญรางวัลถัดไป
   usedQuizIds: string[]; // กันสุ่มคำถามซ้ำจนกว่าจะใช้ครบ pool
+  exitPrompt: boolean; // เปิดกล่องยืนยันออกจากเกม (ปุ่ม 🏠 หรือปุ่ม back เบราว์เซอร์)
 
   // actions
   setupGame: (count: number, kingTokenIds?: string[], names?: string[]) => void;
@@ -110,6 +122,9 @@ interface GameState {
   closeEvent: () => void;
   nextTurn: () => void;
   backToHome: () => void;
+  requestExit: () => void;
+  cancelExit: () => void;
+  confirmExit: () => void;
 }
 
 const TOKENS = ['🐘', '⛵', '🛕', '🐉'];
@@ -121,7 +136,9 @@ function makeTileEvent(tile: Tile): TileEvent | null {
   return { tile, kind: tile.type };
 }
 
-export const useGame = create<GameState>((set, get) => ({
+export const useGame = create<GameState>()(
+  persist(
+    (set, get) => ({
   players: [],
   currentPlayerIndex: 0,
   phase: 'setup',
@@ -135,6 +152,7 @@ export const useGame = create<GameState>((set, get) => ({
   items: { fiftyFifty: 0, skip: 0, double: 0, heartPotion: 0 },
   doubleNext: false,
   usedQuizIds: [],
+  exitPrompt: false,
 
   setupGame: (count, kingTokenIds = KING_IDS, names) => {
     const players: Player[] = Array.from({ length: count }, (_, i) => ({
@@ -368,20 +386,76 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   closeEvent: () => {
-    const value = get().lastRoll ?? 0;
-    finishTurn(set, get, value);
+    finishTurn(set, get);
   },
 
   nextTurn: () => {
-    const value = get().lastRoll ?? 0;
-    finishTurn(set, get, value);
+    finishTurn(set, get);
   },
 
   backToHome: () => {
     stopBackgroundMusic();
     set({ players: [], phase: 'setup', currentPlayerIndex: 0, round: 1, lastRoll: null, pendingEvent: null });
   },
-}));
+
+  // เปิด/ปิด/ยืนยัน กล่องออกจากเกม — เส้นทางออกทั้งปุ่ม 🏠 และปุ่ม back เบราว์เซอร์รวมมาที่นี่
+  requestExit: () => set({ exitPrompt: true }),
+  cancelExit: () => set({ exitPrompt: false }),
+  confirmExit: () => {
+    set({ exitPrompt: false });
+    get().backToHome();
+  },
+    }),
+    {
+      name: SAVE_KEY,
+      storage: createJSONStorage(() => localStorage),
+      version: 1,
+      // เก็บเฉพาะ field ที่ serialize ได้ + เสถียร (fx/pendingEvent/pendingFork/exitPrompt ไม่เก็บ)
+      partialize: (s) => ({
+        players: s.players,
+        currentPlayerIndex: s.currentPlayerIndex,
+        round: s.round,
+        settings: s.settings,
+        streak: s.streak,
+        items: s.items,
+        doubleNext: s.doubleNext,
+        usedQuizIds: s.usedQuizIds,
+        phase: savablePhase(s.phase),
+        savedAt: Date.now(), // ประทับเวลาทุกครั้งที่ state เปลี่ยน = "เวลาที่เล่นล่าสุด"
+      }),
+      // เปิดแอป: resume เข้าเกมทันทีถ้าเซฟยังไม่หมดอายุ ไม่งั้นทิ้งเซฟ เริ่มที่หน้า Home
+      merge: (persisted, current) => {
+        const p = persisted as (Partial<GameState> & { savedAt?: number }) | undefined;
+        const resumable =
+          !!p &&
+          p.phase === 'idle' &&
+          Array.isArray(p.players) &&
+          p.players.length > 0 &&
+          typeof p.savedAt === 'number' &&
+          Date.now() - p.savedAt <= SAVE_TTL_MS;
+        if (!resumable) return current;
+        return {
+          ...current,
+          players: p.players as Player[],
+          currentPlayerIndex: p.currentPlayerIndex ?? 0,
+          round: p.round ?? 1,
+          settings: { ...current.settings, ...(p.settings ?? {}) },
+          streak: p.streak ?? 0,
+          items: p.items ?? current.items,
+          doubleNext: p.doubleNext ?? false,
+          usedQuizIds: p.usedQuizIds ?? [],
+          // snap กลับสถานะเสถียร: รอผู้เล่นปัจจุบันทอย (กัน phase ชั่วคราว/การ์ดค้างเมื่อ resume)
+          phase: 'idle',
+          pendingEvent: null,
+          pendingFork: null,
+          fx: null,
+          lastRoll: null,
+          exitPrompt: false,
+        };
+      },
+    }
+  )
+);
 
 // ── เดินหมากตามกราฟ (รองรับทางแยก) ──
 
@@ -416,7 +490,6 @@ async function runMovement(set: any, get: any, idx: number, steps: number) {
 
 // หยุดที่ช่องปลายทาง → เปิดการ์ด/ให้เหรียญ ตามชนิดช่อง
 async function resolveLanding(set: any, get: any, idx: number) {
-  const value = get().lastRoll ?? 0;
   const player = get().players[idx];
   const tile = TILES[player.position] as Tile;
 
@@ -426,7 +499,7 @@ async function resolveLanding(set: any, get: any, idx: number) {
     if (!nextKing) {
       set({ phase: 'resolving' });
       await wait(300);
-      finishTurn(set, get, value);
+      finishTurn(set, get);
       return;
     }
     set({
@@ -440,12 +513,12 @@ async function resolveLanding(set: any, get: any, idx: number) {
   set({ phase: 'resolving', pendingEvent: event });
   if (!event) {
     await wait(500);
-    finishTurn(set, get, value);
+    finishTurn(set, get);
   }
 }
 
-// จบเทิร์น: ถ้าทอยได้ 6 เล่นต่อ ไม่งั้นส่งเทิร์น
-function finishTurn(set: any, get: any, rolled: number) {
+// จบเทิร์น: ส่งเทิร์นให้ผู้เล่นถัดไปเสมอ (ไม่มีโบนัสทอยซ้ำแล้ว — ทอย 6 = ส่งตาปกติ)
+function finishTurn(set: any, get: any) {
   const { currentPlayerIndex, players, round } = get();
   set({ pendingEvent: null });
 
@@ -453,11 +526,6 @@ function finishTurn(set: any, get: any, rolled: number) {
   if (players.some((p: Player) => p.kingCoins.length >= KING_IDS.length)) {
     sfx.win();
     set({ phase: 'gameover', lastRoll: null });
-    return;
-  }
-
-  if (isBonusRoll(rolled) && players[currentPlayerIndex].skipNext <= 0) {
-    set({ phase: 'idle' }); // ผู้เล่นเดิมทอยอีกครั้ง
     return;
   }
 
