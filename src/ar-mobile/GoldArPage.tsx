@@ -7,11 +7,16 @@ import type { GoldArChallenge } from '@/core/qrChallenge';
 const ARGoldChallenge = lazy(() =>
   import('@/components/ARGoldChallenge').then((module) => ({ default: module.ARGoldChallenge }))
 );
+const QrVideoStage = lazy(() =>
+  import('./QrVideoStage').then((module) => ({ default: module.QrVideoStage }))
+);
 
 type PageState =
   | 'loading'
   | 'ready'
-  | 'playing'
+  | 'qr-video'
+  | 'card-fallback'
+  | 'question'
   | 'sending'
   | 'sent'
   | 'manual-complete'
@@ -73,14 +78,29 @@ export function GoldArPage() {
     [challenge?.i]
   );
 
-  if (state === 'playing' && challenge) {
+  if (state === 'qr-video' && challenge?.i) {
+    return (
+      <Suspense fallback={<StatusScreen title="กำลังเตรียมตัวติดตาม QR…" />}>
+        <QrVideoStage
+          challengeId={challenge.i}
+          lessonUrl={challenge.quiz.videoUrl || challenge.king.arVideo || ''}
+          kingName={challenge.king.name}
+          onEnded={() => setState('question')}
+          onFallback={() => setState('card-fallback')}
+        />
+      </Suspense>
+    );
+  }
+
+  if ((state === 'card-fallback' || state === 'question') && challenge) {
     return (
       <Suspense fallback={<StatusScreen title="กำลังเตรียมระบบ AR…" />}>
         <ARGoldChallenge
           king={challenge.king}
           quiz={challenge.quiz}
           useCamera
-          cardMode
+          cardMode={state === 'card-fallback'}
+          startAtQuestion={state === 'question'}
           onDone={(correct) => void sendResult(correct)}
           onCancel={() => setState('cancelled')}
         />
@@ -130,8 +150,8 @@ export function GoldArPage() {
           <span>ชมวิดีโอ AR</span>
           <span>ลากคำตอบ</span>
         </div>
-        <button type="button" style={startButton} onClick={() => setState('playing')}>
-          เปิดกล้องและเริ่ม AR
+        <button type="button" style={startButton} onClick={() => setState('qr-video')}>
+          เปิดกล้องและส่อง QR
         </button>
       </section>
     </main>

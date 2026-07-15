@@ -20,6 +20,7 @@ export function ARGoldChallenge({
   onCancel,
   useCamera = true,
   cardMode = true,
+  startAtQuestion = false,
 }: {
   king: King;
   quiz: QuizCard;
@@ -27,14 +28,15 @@ export function ARGoldChallenge({
   onCancel: () => void; // ออก/ยกเลิกก่อนตอบ — ไม่ได้เหรียญ + ไม่เสียหัวใจ (แค่จบเทิร์น)
   useCamera?: boolean; // ปิดได้ในโหมดครู — เล่นบทเรียนบนพื้นหลังเข้มแทน (ยังชนะได้)
   cardMode?: boolean; // โหมดส่องการ์ดจริง (MindAR) — เปิดเมื่อมี gold-card.mind + ทดสอบแล้ว
+  startAtQuestion?: boolean; // ใช้เมื่อ mobile QR stage เล่นวิดีโอจบแล้ว
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [camReady, setCamReady] = useState(false);
-  const [stage, setStage] = useState<'video' | 'question' | 'done' | 'fail'>('video');
+  const [stage, setStage] = useState<'video' | 'question' | 'done' | 'fail'>(startAtQuestion ? 'question' : 'video');
   const [secondsLeft, setSecondsLeft] = useState(VIDEO_SECONDS);
   // arPhase 'card' = โหมดส่องการ์ดจริง (MindAR, กล้องหลัง) · 'done' = เข้าสู่โหมดปกติ (กล้องหน้า)
-  const [arPhase, setArPhase] = useState<'card' | 'done'>(useCamera && cardMode ? 'card' : 'done');
+  const [arPhase, setArPhase] = useState<'card' | 'done'>(useCamera && cardMode && !startAtQuestion ? 'card' : 'done');
   const lessonUrl = resolveApiAssetUrl(quiz.videoUrl || king.arVideo || '');
 
   // เปิดกล้องหน้าแบบ best-effort (โหมดปกติ/หลัง fallback) — ข้ามตอน arPhase 'card' (MindAR ใช้กล้องหลัง)
