@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { decodeChallenge } from '@/core/qrChallenge';
 import { challengeApiAvailable, fetchChallenge, postChallengeResult } from '@/core/challengeApi';
+
+// lazy — jsqr หนัก ~130KB และหน้านี้ต้องเบา (มือถือเด็กโหลดใหม่ทุกคำถามผ่านไวไฟโรงเรียน)
+// กล้องสแกนใช้ "หลังตอบเสร็จ" เท่านั้น จึงไม่ควรถ่วงตอนโหลดคำถาม → โหลดตอนต้องใช้จริง
+const QrRescanner = lazy(() => import('./QrRescanner').then((m) => ({ default: m.QrRescanner })));
 
 // ── หน้าตอบคำถามบนมือถือส่วนตัว ──
 // ปกติโหลด payload ด้วย challenge id; รองรับ payload ใน hash เป็น fallback เมื่อไม่มี backend
@@ -194,12 +198,39 @@ export function AnswerPage() {
                 </>
               )}
             </div>
+
+            {/* ตอบเสร็จแล้วเปิดกล้องค้างรอใบต่อไปเลย — ไม่ต้องออกไปเปิดแอปกล้องใหม่ทุกตา
+                (รอให้ส่งผลเสร็จก่อน ไม่งั้นแย่งแบนด์วิดท์/ทำจังหวะสับสน) */}
+            {sent !== 'sending' && (
+              <Suspense fallback={<div style={scannerLoading}>📷 กำลังเตรียมกล้อง…</div>}>
+                <QrRescanner onFound={goToChallenge} />
+              </Suspense>
+            )}
           </div>
         )}
       </div>
     </div>
   );
 }
+
+// ไปยังการ์ดใบใหม่ที่สแกนเจอ — เปลี่ยนแค่ hash เบราว์เซอร์จะไม่ reload เอง
+// (payload อยู่ใน hash) จึงต้องสั่ง reload เพื่อให้ AnswerPage อ่าน challenge ใหม่
+// หน้านี้เป็น entry เล็ก (~48KB) reload จึงเร็วกว่าการรื้อ state ทั้งหน้าให้ยุ่ง
+function goToChallenge(url: string) {
+  const next = new URL(url, window.location.href);
+  const onlyHashChanged = next.pathname === window.location.pathname && next.search === window.location.search;
+  window.location.href = next.href;
+  if (onlyHashChanged) window.location.reload();
+}
+
+const scannerLoading: CSSProperties = {
+  padding: '18px 12px',
+  borderRadius: 16,
+  border: '1px dashed #C8B48A',
+  textAlign: 'center',
+  fontSize: 14,
+  color: '#6B5E4E',
+};
 
 const shell: CSSProperties = {
   minHeight: '100dvh',

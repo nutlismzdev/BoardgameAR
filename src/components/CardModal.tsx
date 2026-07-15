@@ -15,6 +15,7 @@ import { CardPicker } from './CardPicker';
 import { CardFrame } from './CardFrame';
 import { QuestionImage } from './QuestionImage';
 import { QrChallengePanel } from './QrChallengePanel';
+import { ResultStamp, STAMP_MS } from './ResultStamp';
 import { buildGoldArChallenge, buildQuizChallenge, genChallengeId } from '@/core/qrChallenge';
 import { getCardFront } from '@/core/cardAssets';
 import { sfx } from '@/core/sfx';
@@ -27,66 +28,7 @@ const QUIZ_FX = `
 @keyframes quizShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
 @keyframes quizPop{0%{transform:scale(1)}45%{transform:scale(1.05)}100%{transform:scale(1.02)}}
 @keyframes confettiFall{0%{opacity:0;transform:translateY(-12px) rotate(0)}20%{opacity:1}100%{opacity:0;transform:translateY(96px) rotate(220deg)}}
-/* ตราประทับ: กระแทกลงมาจากบน → เด้งนิ่ง → จางหาย (ให้ความรู้สึก "ตัดสินแล้ว") */
-@keyframes stampIn{
-  0%{opacity:0;transform:scale(2.6) rotate(-18deg)}
-  55%{opacity:1;transform:scale(.92) rotate(-8deg)}
-  70%{transform:scale(1.06) rotate(-8deg)}
-  82%{transform:scale(1) rotate(-8deg)}
-  100%{opacity:0;transform:scale(1.04) rotate(-8deg)}
-}
-/* ผิด = สั่นซ้ายขวาพร้อมตราแดง (ภาษากายของ "ไม่ใช่") */
-@keyframes stampWrongIn{
-  0%{opacity:0;transform:scale(2.6)}
-  45%{opacity:1;transform:scale(1)}
-  55%{transform:scale(1) translateX(-10px)}
-  65%{transform:scale(1) translateX(10px)}
-  75%{transform:scale(1) translateX(-6px)}
-  85%{transform:scale(1) translateX(0)}
-  100%{opacity:0;transform:scale(1)}
-}
-@media (prefers-reduced-motion: reduce){
-  @keyframes stampIn{0%{opacity:0}20%,80%{opacity:1}100%{opacity:0}}
-  @keyframes stampWrongIn{0%{opacity:0}20%,80%{opacity:1}100%{opacity:0}}
-}
 `;
-
-// ตราประทับกลางจอ — ตัวหนังสือใหญ่พอให้เห็นจากระยะที่เด็กนั่งล้อมโต๊ะ
-const stampWrap: React.CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  display: 'grid',
-  placeItems: 'center',
-  zIndex: 130, // เหนือการ์ด (100) แต่ใต้ AR เต็มจอ
-  pointerEvents: 'none',
-};
-
-const stampBase: React.CSSProperties = {
-  width: 'min(38vh, 200px)',
-  aspectRatio: '1',
-  display: 'grid',
-  placeItems: 'center',
-  fontSize: 'min(22vh, 118px)',
-  fontWeight: 900,
-  lineHeight: 1,
-  color: '#fff',
-  borderRadius: '50%',
-  border: '7px solid rgba(255,255,255,.92)',
-};
-
-const stampCorrect: React.CSSProperties = {
-  ...stampBase,
-  background: 'radial-gradient(circle at 38% 32%, #4CC96A, #1B7A34)',
-  boxShadow: '0 0 0 8px rgba(31,122,52,.28), 0 18px 44px rgba(0,0,0,.42)',
-  animation: 'stampIn 1.1s cubic-bezier(.2,1.4,.4,1) both',
-};
-
-const stampWrong: React.CSSProperties = {
-  ...stampBase,
-  background: 'radial-gradient(circle at 38% 32%, #E4572E, #B02020)',
-  boxShadow: '0 0 0 8px rgba(176,32,32,.26), 0 18px 44px rgba(0,0,0,.42)',
-  animation: 'stampWrongIn 1.1s cubic-bezier(.2,1.2,.4,1) both',
-};
 
 // Modal การ์ดรวม (question / goldking / knowledge / penalty / bonus)
 // แนวตั้ง = เด้งจากล่าง (bottom sheet), แนวนอน = กลางจอ (center dialog)
@@ -113,6 +55,16 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   // (เจอจริงตอนรีวิว: วัดได้ opacity ค้าง 0) · `id` ใช้เป็น key บังคับ remount ทุกครั้งที่ตอบ
   const [stamp, setStamp] = useState<{ id: number; kind: 'correct' | 'wrong' } | null>(null);
   const stampSeq = useRef(0);
+  // timer หน่วงปิดการ์ดโหมด QR ให้ตราประทับเล่นจบ — ต้องเก็บไว้เคลียร์
+  // ไม่งั้นถ้าการ์ดถูกปิดด้วยทางอื่นก่อน timer จะไปสั่ง closeEvent ทับ "การ์ดใบถัดไป"
+  const qrCloseRef = useRef<number | null>(null);
+  const clearQrClose = () => {
+    if (qrCloseRef.current !== null) {
+      window.clearTimeout(qrCloseRef.current);
+      qrCloseRef.current = null;
+    }
+  };
+  useEffect(() => clearQrClose, []);
   const [hidden, setHidden] = useState<number[]>([]); // ตัวเลือกที่ 50:50 ตัดออก
   const [arGoldOpen, setArGoldOpen] = useState(false);
   // เก็บ "event ที่จั่วเลือกใบไปแล้ว" แทน boolean — event ใหม่ย่อม !== ตัวนี้เสมอ ด่านจั่วจึงโผล่ทุกใบ
@@ -177,10 +129,12 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   }, [event]);
   useEffect(() => {
     setArGoldOpen(false);
-    // ต้องเคลียร์ตราประทับตอนเปลี่ยนการ์ดด้วย — ถ้าผู้เล่นกด "เดินเกมต่อ" ภายใน 1.1 วิ
+    // ต้องเคลียร์ตราประทับตอนเปลี่ยนการ์ดด้วย — ถ้าผู้เล่นกด "เดินเกมต่อ" ภายใน STAMP_MS
     // (ซึ่งเป็นเรื่องปกติ เพราะปุ่มอยู่ตรงนั้น) `answered` จะกลับเป็น null → cleanup ของ effect
     // ไปยกเลิก timer ที่จะเคลียร์ตรา → ตราค้างข้ามการ์ด
     setStamp(null);
+    clearQrClose(); // การ์ดเปลี่ยนแล้ว timer ปิดของใบเก่าต้องไม่ไปปิดใบใหม่
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event]);
   useEffect(() => {
     if (qrMode || !picked || !timerOn || !usesQuizUI || answered !== null || timeLeft <= 0) return;
@@ -193,15 +147,19 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
       setAnswered(-1);
     }
   }, [timeLeft, timerOn, picked, qrMode]);
-  // ── ฟีดแบ็กทันทีตอนเฉลย: เสียง + ตราประทับเด้งกลางจอ ──
-  useEffect(() => {
-    if (!usesQuizUI || answered === null) return;
-    const correct = answered >= 0 && !!quiz?.choices[answered]?.correct;
+  // เด้งตราประทับ + เสียง — ใช้ร่วมกันทั้งโหมดตอบบน tablet และโหมดตอบผ่านมือถือ (QR)
+  const showResult = (correct: boolean) => {
     if (correct) sfx.correct();
     else sfx.wrong();
     stampSeq.current += 1;
     setStamp({ id: stampSeq.current, kind: correct ? 'correct' : 'wrong' });
-    const t = setTimeout(() => setStamp(null), 1100);
+  };
+
+  // ── ฟีดแบ็กทันทีตอนเฉลย (โหมดตอบบน tablet) ──
+  useEffect(() => {
+    if (!usesQuizUI || answered === null) return;
+    showResult(answered >= 0 && !!quiz?.choices[answered]?.correct);
+    const t = setTimeout(() => setStamp(null), STAMP_MS);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answered]);
@@ -250,16 +208,9 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
           จงใจเป็น position:fixed ทับทั้งจอ (ไม่ได้อยู่ในกล่องการ์ดที่เลื่อนได้)
           เพราะฟีดแบ็กต้องเห็นแน่นอนไม่ว่าเด็กจะเลื่อนการ์ดค้างไว้ตรงไหน · pointerEvents:none
           เพื่อไม่บังการกดปุ่ม แล้วจางหายเองใน 1.1 วิ */}
-      {stamp && (
-        // key = id ที่เพิ่มทุกครั้งที่ตอบ → บังคับ remount ให้อนิเมชันเล่นใหม่เสมอ
-        // แม้ตอบถูกติดกันหลายใบ (ชนิดเดิม) ก็ยังเด้งทุกครั้ง
-        <div key={stamp.id} style={stampWrap} aria-hidden="true">
-          <div style={stamp.kind === 'correct' ? stampCorrect : stampWrong}>
-            {stamp.kind === 'correct' ? '✓' : '✕'}
-          </div>
-          <style>{QUIZ_FX}</style>
-        </div>
-      )}
+      {/* key = id ที่เพิ่มทุกครั้งที่ตอบ → บังคับ remount ให้อนิเมชันเล่นใหม่เสมอ
+          แม้ตอบถูกติดกันหลายใบ (ชนิดเดิม) ก็ยังเด้งทุกครั้ง */}
+      {stamp && <ResultStamp key={stamp.id} kind={stamp.kind} />}
 
       {/* บทเรียน AR ช่องทอง (เต็มจอ) — ทับการ์ดปกติ */}
       {arGoldOpen && isGold && king && quiz && (
@@ -349,8 +300,13 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             <QrChallengePanel
               challenge={qrChallenge}
               onResult={(ok) => {
+                // โหมด QR ไม่เคยเซ็ต `answered` (มือถือเป็นคนตอบ) → effect ตราประทับไม่ทำงาน
+                // ต้องเด้งเอง ไม่งั้นจอกลางไม่บอกอะไรเลย การ์ดปิดไปเฉย ๆ
+                showResult(ok);
                 answerQuiz(ok, quiz.reward);
-                closeEvent();
+                // หน่วงปิดการ์ดให้ตราเล่นจบก่อน — closeEvent ทำให้ event=null แล้ว CardModal
+                // return null ทั้งก้อน (ตราอยู่ในนั้น) ถ้าปิดทันทีตราจะหายในเสี้ยววินาที
+                qrCloseRef.current = window.setTimeout(closeEvent, STAMP_MS);
               }}
             />
           ) : (
