@@ -101,6 +101,59 @@ export function AnswerPage() {
   const correct = answered && picked === challenge.a;
   const diff = challenge.d ? DIFF[challenge.d] : null;
 
+  // ── ตอบแล้ว → ปิดคำถามเก่าทิ้งทั้งหมด เหลือแค่ "ผล + กล้องรอใบต่อไป" ──
+  // คำถาม/ตัวเลือกไม่มีประโยชน์แล้วหลังตอบ แถมกินที่จนกล้องตกใต้จอ (เคยล้น 197px)
+  // ตัดทิ้งเลยดีกว่าเลื่อนหนี — กล้องได้เป็นพระเอกเต็มจอเดียว ไม่ต้องสกรอลล์
+  if (answered) {
+    return (
+      <div style={shell}>
+        <div style={card}>
+          <div style={{ ...resultBanner, background: correct ? '#2E7D32' : '#B02020' }}>
+            <span style={{ fontSize: 30 }}>{correct ? '🎉' : '💪'}</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 20, fontWeight: 800 }}>
+                {correct ? 'ถูกต้อง! เก่งมาก' : picked === -1 ? 'หมดเวลาตอบ' : 'ยังไม่ถูกนะ'}
+              </div>
+              {/* ตอบผิดต้องบอกเฉลยตรงนี้ — เดิมดูจากตัวเลือกที่ไฮไลต์เขียว แต่ตอนนี้ซ่อนไปแล้ว */}
+              <div style={{ fontSize: 14, opacity: 0.95 }}>
+                {correct ? `ได้เหรียญ 🪙 ${challenge.r}` : `คำตอบที่ถูกคือ: ${challenge.c[challenge.a]}`}
+              </div>
+            </div>
+          </div>
+
+          {challenge.x && (
+            <p style={{ fontSize: 15, color: '#6B5E4E', lineHeight: 1.5, margin: 0 }}>💡 {challenge.x}</p>
+          )}
+
+          <div style={backToTablet}>
+            {auto ? (
+              sent === 'ok' ? (
+                <>✓ ส่งคำตอบแล้ว — จอกลางจะไปต่อให้เอง</>
+              ) : sent === 'fail' ? (
+                <>
+                  ส่งไม่สำเร็จ · แจ้งผล <b>“{correct ? 'ตอบถูก' : 'ตอบผิด'}”</b> ที่จอกลาง
+                </>
+              ) : (
+                <>⏳ กำลังส่งคำตอบ…</>
+              )
+            ) : (
+              <>
+                👉 แจ้งผล <b>“{correct ? 'ตอบถูก' : 'ตอบผิด'}”</b> ที่จอกลาง
+              </>
+            )}
+          </div>
+
+          {/* กล้องรอใบต่อไป — รอส่งผลเสร็จก่อน ไม่งั้นแย่งแบนด์วิดท์/จังหวะสับสน */}
+          {sent !== 'sending' && (
+            <Suspense fallback={<div style={scannerLoading}>📷 กำลังเตรียมกล้อง…</div>}>
+              <QrRescanner onFound={goToChallenge} />
+            </Suspense>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={shell}>
       <div style={card}>
@@ -114,7 +167,7 @@ export function AnswerPage() {
           {challenge.q}
         </h1>
 
-        {timerOn && !answered && (
+        {timerOn && (
           <div style={timerWrap} role="timer" aria-live="polite">
             <div style={timerTrack}>
               <div
@@ -129,85 +182,28 @@ export function AnswerPage() {
           </div>
         )}
 
+        {/* บล็อกนี้เรนเดอร์เฉพาะ "ก่อนตอบ" (ตอบแล้ว return ไปทางอื่นตั้งแต่ด้านบน)
+            จึงไม่ต้องมีสถานะไฮไลต์เฉลย/disabled อีกแล้ว */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 4 }}>
-          {challenge.c.map((text, i) => {
-            const isPicked = picked === i;
-            const isAnswer = challenge.a === i;
-            let bg = '#FBF3E4';
-            let fg = '#2A2118';
-            let border = '#C9A227';
-            if (answered) {
-              if (isAnswer) {
-                bg = '#2E7D32';
-                fg = '#fff';
-                border = '#2E7D32';
-              } else if (isPicked) {
-                bg = '#C62828';
-                fg = '#fff';
-                border = '#C62828';
-              }
-            }
-            return (
-              <button
-                key={i}
-                disabled={answered}
-                onClick={() => setPicked(i)}
-                style={{
-                  ...choiceBtn,
-                  background: bg,
-                  color: fg,
-                  border: `2px solid ${border}`,
-                  cursor: answered ? 'default' : 'pointer',
-                }}
-              >
-                <b style={{ marginRight: 8 }}>{String.fromCharCode(65 + i)}.</b>
-                {text}
-              </button>
-            );
-          })}
+          {challenge.c.map((text, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setPicked(i)}
+              style={{
+                ...choiceBtn,
+                background: '#FBF3E4',
+                color: '#2A2118',
+                border: '2px solid #C9A227',
+                cursor: 'pointer',
+              }}
+            >
+              <b style={{ marginRight: 8 }}>{String.fromCharCode(65 + i)}.</b>
+              {text}
+            </button>
+          ))}
         </div>
 
-        {answered && (
-          <div style={{ marginTop: 4 }}>
-            <div style={{ ...resultBanner, background: correct ? '#2E7D32' : '#B02020' }}>
-              <span style={{ fontSize: 30 }}>{correct ? '🎉' : '💪'}</span>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 800 }}>
-                  {correct ? 'ถูกต้อง! เก่งมาก' : picked === -1 ? 'หมดเวลาตอบ' : 'ยังไม่ถูกนะ'}
-                </div>
-                {correct && <div style={{ fontSize: 14, opacity: 0.95 }}>ได้เหรียญ 🪙 {challenge.r}</div>}
-              </div>
-            </div>
-            {challenge.x && (
-              <p style={{ fontSize: 16, color: '#6B5E4E', lineHeight: 1.5, marginTop: 12 }}>💡 {challenge.x}</p>
-            )}
-            <div style={backToTablet}>
-              {auto ? (
-                sent === 'ok' ? (
-                  <>✓ ส่งคำตอบแล้ว — จอกลางจะไปต่อให้เอง</>
-                ) : sent === 'fail' ? (
-                  <>
-                    ส่งไม่สำเร็จ · แจ้งผล <b>“{correct ? 'ตอบถูก' : 'ตอบผิด'}”</b> ที่จอกลาง
-                  </>
-                ) : (
-                  <>⏳ กำลังส่งคำตอบ…</>
-                )
-              ) : (
-                <>
-                  👉 แจ้งผล <b>“{correct ? 'ตอบถูก' : 'ตอบผิด'}”</b> ที่จอกลาง
-                </>
-              )}
-            </div>
-
-            {/* ตอบเสร็จแล้วเปิดกล้องค้างรอใบต่อไปเลย — ไม่ต้องออกไปเปิดแอปกล้องใหม่ทุกตา
-                (รอให้ส่งผลเสร็จก่อน ไม่งั้นแย่งแบนด์วิดท์/ทำจังหวะสับสน) */}
-            {sent !== 'sending' && (
-              <Suspense fallback={<div style={scannerLoading}>📷 กำลังเตรียมกล้อง…</div>}>
-                <QrRescanner onFound={goToChallenge} />
-              </Suspense>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
