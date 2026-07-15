@@ -85,7 +85,7 @@ const DEFAULT_SETTINGS: Settings = {
   arCardMode: true, // เปิดโหมดส่องการ์ดจริงเป็นค่าเริ่มต้น เมื่อมี public/ar/gold-card.mind แล้ว
   calibrate: false,
   showTileIcons: true,
-  qrAnswerMode: false,
+  qrAnswerMode: true, // ตอบบนมือถือส่วนตัวเป็นค่าเริ่มต้น — คำถามไม่โผล่บนจอกลาง ผู้เล่นอื่นไม่เห็นเฉลย
 };
 
 interface GameState {

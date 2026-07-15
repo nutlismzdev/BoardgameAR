@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGame } from '@/core/store';
 import {
   getKing,
@@ -27,7 +27,66 @@ const QUIZ_FX = `
 @keyframes quizShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
 @keyframes quizPop{0%{transform:scale(1)}45%{transform:scale(1.05)}100%{transform:scale(1.02)}}
 @keyframes confettiFall{0%{opacity:0;transform:translateY(-12px) rotate(0)}20%{opacity:1}100%{opacity:0;transform:translateY(96px) rotate(220deg)}}
+/* ตราประทับ: กระแทกลงมาจากบน → เด้งนิ่ง → จางหาย (ให้ความรู้สึก "ตัดสินแล้ว") */
+@keyframes stampIn{
+  0%{opacity:0;transform:scale(2.6) rotate(-18deg)}
+  55%{opacity:1;transform:scale(.92) rotate(-8deg)}
+  70%{transform:scale(1.06) rotate(-8deg)}
+  82%{transform:scale(1) rotate(-8deg)}
+  100%{opacity:0;transform:scale(1.04) rotate(-8deg)}
+}
+/* ผิด = สั่นซ้ายขวาพร้อมตราแดง (ภาษากายของ "ไม่ใช่") */
+@keyframes stampWrongIn{
+  0%{opacity:0;transform:scale(2.6)}
+  45%{opacity:1;transform:scale(1)}
+  55%{transform:scale(1) translateX(-10px)}
+  65%{transform:scale(1) translateX(10px)}
+  75%{transform:scale(1) translateX(-6px)}
+  85%{transform:scale(1) translateX(0)}
+  100%{opacity:0;transform:scale(1)}
+}
+@media (prefers-reduced-motion: reduce){
+  @keyframes stampIn{0%{opacity:0}20%,80%{opacity:1}100%{opacity:0}}
+  @keyframes stampWrongIn{0%{opacity:0}20%,80%{opacity:1}100%{opacity:0}}
+}
 `;
+
+// ตราประทับกลางจอ — ตัวหนังสือใหญ่พอให้เห็นจากระยะที่เด็กนั่งล้อมโต๊ะ
+const stampWrap: React.CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  display: 'grid',
+  placeItems: 'center',
+  zIndex: 130, // เหนือการ์ด (100) แต่ใต้ AR เต็มจอ
+  pointerEvents: 'none',
+};
+
+const stampBase: React.CSSProperties = {
+  width: 'min(38vh, 200px)',
+  aspectRatio: '1',
+  display: 'grid',
+  placeItems: 'center',
+  fontSize: 'min(22vh, 118px)',
+  fontWeight: 900,
+  lineHeight: 1,
+  color: '#fff',
+  borderRadius: '50%',
+  border: '7px solid rgba(255,255,255,.92)',
+};
+
+const stampCorrect: React.CSSProperties = {
+  ...stampBase,
+  background: 'radial-gradient(circle at 38% 32%, #4CC96A, #1B7A34)',
+  boxShadow: '0 0 0 8px rgba(31,122,52,.28), 0 18px 44px rgba(0,0,0,.42)',
+  animation: 'stampIn 1.1s cubic-bezier(.2,1.4,.4,1) both',
+};
+
+const stampWrong: React.CSSProperties = {
+  ...stampBase,
+  background: 'radial-gradient(circle at 38% 32%, #E4572E, #B02020)',
+  boxShadow: '0 0 0 8px rgba(176,32,32,.26), 0 18px 44px rgba(0,0,0,.42)',
+  animation: 'stampWrongIn 1.1s cubic-bezier(.2,1.2,.4,1) both',
+};
 
 // Modal การ์ดรวม (question / goldking / knowledge / penalty / bonus)
 // แนวตั้ง = เด้งจากล่าง (bottom sheet), แนวนอน = กลางจอ (center dialog)
@@ -48,6 +107,12 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   const markQuizSeen = useGame((s) => s.markQuizSeen);
   const currentHearts = useGame((s) => s.players[s.currentPlayerIndex]?.hearts ?? 3);
   const [answered, setAnswered] = useState<number | null>(null);
+  // ตราประทับผลลัพธ์กลางจอ — เก็บ `id` ที่เพิ่มขึ้นทุกครั้งด้วย ไม่ใช่แค่ชนิด
+  // เพราะถ้าเก็บแค่ 'correct'/'wrong' แล้วตอบถูกสองใบติดกัน setStamp('correct') จะได้ค่าเดิม
+  // → React bail out ไม่ re-render → element ไม่ remount → **อนิเมชันไม่เล่นซ้ำ ตราไม่ขึ้นเลย**
+  // (เจอจริงตอนรีวิว: วัดได้ opacity ค้าง 0) · `id` ใช้เป็น key บังคับ remount ทุกครั้งที่ตอบ
+  const [stamp, setStamp] = useState<{ id: number; kind: 'correct' | 'wrong' } | null>(null);
+  const stampSeq = useRef(0);
   const [hidden, setHidden] = useState<number[]>([]); // ตัวเลือกที่ 50:50 ตัดออก
   const [arGoldOpen, setArGoldOpen] = useState(false);
   // เก็บ "event ที่จั่วเลือกใบไปแล้ว" แทน boolean — event ใหม่ย่อม !== ตัวนี้เสมอ ด่านจั่วจึงโผล่ทุกใบ
@@ -112,6 +177,10 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   }, [event]);
   useEffect(() => {
     setArGoldOpen(false);
+    // ต้องเคลียร์ตราประทับตอนเปลี่ยนการ์ดด้วย — ถ้าผู้เล่นกด "เดินเกมต่อ" ภายใน 1.1 วิ
+    // (ซึ่งเป็นเรื่องปกติ เพราะปุ่มอยู่ตรงนั้น) `answered` จะกลับเป็น null → cleanup ของ effect
+    // ไปยกเลิก timer ที่จะเคลียร์ตรา → ตราค้างข้ามการ์ด
+    setStamp(null);
   }, [event]);
   useEffect(() => {
     if (qrMode || !picked || !timerOn || !usesQuizUI || answered !== null || timeLeft <= 0) return;
@@ -124,13 +193,36 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
       setAnswered(-1);
     }
   }, [timeLeft, timerOn, picked, qrMode]);
-  // ── ฟีดแบ็กทันทีตอนเฉลย: เล่นเสียงถูก/ผิดทันทีที่กดตอบ (เดิมเงียบจนไม่รู้ผล) ──
+  // ── ฟีดแบ็กทันทีตอนเฉลย: เสียง + ตราประทับเด้งกลางจอ ──
   useEffect(() => {
     if (!usesQuizUI || answered === null) return;
     const correct = answered >= 0 && !!quiz?.choices[answered]?.correct;
     if (correct) sfx.correct();
     else sfx.wrong();
+    stampSeq.current += 1;
+    setStamp({ id: stampSeq.current, kind: correct ? 'correct' : 'wrong' });
+    const t = setTimeout(() => setStamp(null), 1100);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answered]);
+
+  // แบนเนอร์ผลลัพธ์ + ปุ่มเดินเกมต่อถูกวาง "ต่อท้ายปุ่มคำตอบ" ในกล่องที่ maxHeight 88vh + overflow:auto
+  // → บนแท็บเล็ตแนวนอนจอเตี้ย (วัดจริงที่ 1024x640) ปุ่ม "รับเหรียญ →" ตกใต้ขอบกล่อง 164px
+  // และ scrollTop ค้างที่ 0 = เด็กตอบแล้วเห็นแต่แบนเนอร์ ไม่เห็นปุ่ม เกมเหมือนค้าง
+  // (ปุ่มนี้เป็นทางเดียวที่เรียก answerQuiz) → เลื่อนผลลัพธ์เข้ามาในสายตาให้เอง
+  const resultRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (answered === null) return;
+    const el = resultRef.current;
+    if (!el) return;
+    // รอ 1 เฟรมให้ layout ของแบนเนอร์ (ที่เพิ่งโผล่) นิ่งก่อนค่อยวัดตำแหน่ง
+    const id = requestAnimationFrame(() => {
+      el.scrollIntoView({
+        behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'end',
+      });
+    });
+    return () => cancelAnimationFrame(id);
   }, [answered]);
 
   if (!event) return null;
@@ -154,6 +246,21 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   };
   return (
     <>
+      {/* ── ตราประทับผลลัพธ์ — เด้งกลางจอทันทีที่กดตอบ ──
+          จงใจเป็น position:fixed ทับทั้งจอ (ไม่ได้อยู่ในกล่องการ์ดที่เลื่อนได้)
+          เพราะฟีดแบ็กต้องเห็นแน่นอนไม่ว่าเด็กจะเลื่อนการ์ดค้างไว้ตรงไหน · pointerEvents:none
+          เพื่อไม่บังการกดปุ่ม แล้วจางหายเองใน 1.1 วิ */}
+      {stamp && (
+        // key = id ที่เพิ่มทุกครั้งที่ตอบ → บังคับ remount ให้อนิเมชันเล่นใหม่เสมอ
+        // แม้ตอบถูกติดกันหลายใบ (ชนิดเดิม) ก็ยังเด้งทุกครั้ง
+        <div key={stamp.id} style={stampWrap} aria-hidden="true">
+          <div style={stamp.kind === 'correct' ? stampCorrect : stampWrong}>
+            {stamp.kind === 'correct' ? '✓' : '✕'}
+          </div>
+          <style>{QUIZ_FX}</style>
+        </div>
+      )}
+
       {/* บทเรียน AR ช่องทอง (เต็มจอ) — ทับการ์ดปกติ */}
       {arGoldOpen && isGold && king && quiz && (
         <ARGoldChallenge
@@ -187,6 +294,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             bannerFrom="#E8B84B"
             bannerTo="#B8860B"
             orientation={orientation}
+            skipBackFlip
           >
           {goldArChallenge ? (
             <QrChallengePanel
@@ -235,6 +343,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             bannerFrom={isSubject ? '#26A69A' : '#1E88E5'}
             bannerTo={isSubject ? '#00695C' : '#0D47A1'}
             orientation={orientation}
+            skipBackFlip
           >
           {qrMode && qrChallenge ? (
             <QrChallengePanel
@@ -369,7 +478,9 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
                 const correct = answered >= 0 && !!quiz.choices[answered].correct;
                 const correctText = quiz.choices.find((c) => c.correct)?.text ?? '';
                 return (
-                  <div style={{ marginTop: 16 }}>
+                  // scrollMarginBottom = ระยะหายใจใต้ปุ่มตอน scrollIntoView(block:'end')
+                  // ไม่งั้นปุ่มไปแปะขอบล่างพอดีเป๊ะ (เสี่ยงโดนตัดเศษพิกเซล + ดูอึดอัด)
+                  <div ref={resultRef} style={{ marginTop: 16, scrollMarginBottom: 14 }}>
                     {/* แบนเนอร์ผลลัพธ์ — บอกทันทีว่าถูกหรือผิด + ฉลองเมื่อถูก */}
                     <div
                       style={{
@@ -465,6 +576,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             artFront={getCardFront('knowledge')}
             artRatio="722 / 1019"
             contentInset={{ top: 20, right: 12, bottom: 9, left: 12 }}
+            skipBackFlip
           >
           <div>
             <p

@@ -3,6 +3,7 @@ import { useGame } from '@/core/store';
 import { KINGS } from '@/core/content';
 import { getKingPawnImage } from '@/core/kingAssets';
 import { sfx } from '@/core/sfx';
+import { enterFullscreen } from '@/core/viewportLock';
 import { SettingsPanel } from '@/screens/Settings/Settings';
 import { MuseumShowcase } from '@/components/MuseumShowcase';
 
@@ -142,6 +143,9 @@ export function Home() {
       return;
     }
     sfx.unlock();
+    // เข้าเต็มจอ + ล็อกแนวนอนตรงนี้ เพราะเบราว์เซอร์ยอมให้ขอเต็มจอเฉพาะใน user gesture
+    // (เรียกทีหลังตอน setupGame จะโดนปฏิเสธ) — ล้มเหลวก็เล่นต่อได้ปกติ
+    void enterFullscreen();
     setShowStart(true);
   };
 
@@ -157,7 +161,9 @@ export function Home() {
   return (
     <div
       style={{
-        minHeight: '100dvh',
+        // ต้องเป็น height (ไม่ใช่ minHeight) เพื่อให้ overflowY:auto สกรอลล์ในกล่องนี้เอง —
+        // body ถูกล็อกเป็น position:fixed กันซูม/ยางยืด แล้ว จึงสกรอลล์ระดับหน้าไม่ได้อีก
+        height: '100dvh',
         width: '100%',
         overflowY: 'auto',
         position: 'relative',

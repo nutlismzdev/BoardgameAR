@@ -1,14 +1,31 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useGame } from '@/core/store';
 import type { Settings } from '@/core/store';
 import { AdminPanel } from '@/screens/Admin/AdminPanel';
 import { color, radius, elevation } from '@/theme/tokens';
+import {
+  enterFullscreen,
+  exitFullscreen,
+  isFullscreen,
+  isStandalone,
+  fullscreenSupported,
+} from '@/core/viewportLock';
 
 // โหมดครู (Teacher Mode) — ตั้งค่าเกมก่อนเริ่ม
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const settings = useGame((s) => s.settings);
   const update = useGame((s) => s.updateSettings);
   const [adminOpen, setAdminOpen] = useState(false);
+
+  // เต็มจอเป็นสถานะของเครื่อง ไม่ใช่ settings ที่ persist — อ่านจากเบราว์เซอร์ตรง ๆ
+  // (ผู้ใช้กด Esc / ปัดออกเองได้ ต้องตามให้ทัน) · ติดตั้งเป็น PWA แล้วเต็มจออยู่แล้ว ไม่ต้องโชว์
+  const [fullscreen, setFullscreen] = useState(isFullscreen);
+  useEffect(() => {
+    const sync = () => setFullscreen(isFullscreen());
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
+  const showFullscreenToggle = fullscreenSupported() && !isStandalone();
 
   return (
     <>
@@ -55,6 +72,13 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         </Row>
 
         {/* toggles */}
+        {showFullscreenToggle && (
+          <Toggle
+            label="🖥️ เต็มจอ + ล็อกแนวนอน (กันจอซูมเพี้ยน)"
+            on={fullscreen}
+            onToggle={() => void (fullscreen ? exitFullscreen() : enterFullscreen())}
+          />
+        )}
         <Toggle
           label="⏱️ ตัวจับเวลาคำถาม"
           on={settings.timerEnabled}

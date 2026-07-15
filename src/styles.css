@@ -11,16 +11,48 @@ body,
   height: 100%;
 }
 
+/* ล็อกผืนจอ: กันหน้าเลื่อน/ยางยืด (rubber-band) แล้ว layout หลุดกรอบ
+   เกมเป็น position:fixed อยู่แล้ว การ scroll ระดับหน้าจึงไม่มีประโยชน์ มีแต่ทำให้เพี้ยน
+
+   **ผูกกับคลาส `.vp-locked` ที่ `lockViewport()` ใส่ให้ ไม่ใช่ html/body ตรง ๆ**
+   เพราะ styles.css ถูก import โดยหน้ามือถือ (`ar-mobile/main.tsx` → ar.html) ด้วย
+   ซึ่ง **ไม่ได้เรียก `lockViewport()`** และยังใช้ `minHeight:100dvh` แบบสกรอลล์ระดับหน้าอยู่
+   ถ้าล็อก body ทั้งหมดที่นี่ เนื้อหาส่วนเกินบนจอมือถือจะโดนตัดหายเข้าถึงไม่ได้
+   → CSS กับ JS ต้องเปิด/ปิดพร้อมกันเสมอ */
+html.vp-locked,
+html.vp-locked body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  /* กันซูมด้วย pinch + double-tap แต่ยังปล่อยให้แตะ/ลาก/สกรอลล์ในกล่องลูกได้
+     (ต้องเป็น pan-x pan-y ไม่ใช่ none — ไม่งั้น drag-to-slot ใน AR และลิสต์ที่เลื่อนได้จะตาย) */
+  touch-action: pan-x pan-y;
+}
+
 body {
   font-family: 'Kanit', 'Sarabun', sans-serif;
   font-size: 18px;
   color: #2a2118;
   background: #fbf3e4;
-  overscroll-behavior: none;
   -webkit-user-select: none;
   user-select: none;
+  /* iOS: กันตัวอักษรถูกขยายเองตอนหมุนจอ */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 button {
   font-family: inherit;
+  touch-action: manipulation;
+}
+
+/* iOS Safari ซูมเข้าอัตโนมัติเมื่อโฟกัสช่องกรอกที่ font-size < 16px แล้วซูมค้างไว้
+   (เช่น ช่องกรอกชื่อผู้เล่นหน้า Home) — บังคับขั้นต่ำ 16px กันไว้ */
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: max(16px, 1em);
 }

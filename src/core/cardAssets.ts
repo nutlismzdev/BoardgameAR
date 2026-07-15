@@ -50,13 +50,19 @@ function preloadImage(url: string): Promise<void> {
   return pending;
 }
 
-export function preloadCardArt(kind: CardArtKind): Promise<void> {
-  return Promise.all([preloadImage(BACK[kind]), preloadImage(FRONT[kind])]).then(() => undefined);
+// หลังการ์ด = ภาพเดียวที่ด่านจั่ว (CardPicker) โชว์ → gate ตรงนี้พอ
+export function preloadCardBack(kind: CardArtKind): Promise<void> {
+  return preloadImage(BACK[kind]);
 }
 
-// โหลดหลังการ์ดก่อนเพราะเป็นภาพแรกที่ผู้เล่นเห็น แล้วจึงโหลดหน้าการ์ดในช่วง idle ถัดไป
+// รูป "หน้าการ์ด" ตอนนี้ใช้จริงแค่การ์ดความรู้ (CardFrame โหมด art วางข้อความทับ) —
+// question/subject/goldking ใช้โหมด themed (กรอบทอง CSS) จึงไม่ต้องโหลดหน้าการ์ดของ 3 ชนิดนั้น
+// (ประหยัด ~5.3 MB ต่อการเปิดเกม · ถ้าวันหลังเปลี่ยนช่องฟ้า/สาระไปใช้โหมด art ต้องเติมกลับที่นี่)
+const FRONT_IN_USE: CardArtKind[] = ['knowledge'];
+
+// โหลดหลังการ์ดก่อนเพราะเป็นภาพแรกที่ผู้เล่นเห็น แล้วจึงโหลดหน้าการ์ดที่ใช้จริงในช่วง idle ถัดไป
 export async function preloadAllCardArt(): Promise<void> {
   const kinds = Object.keys(BACK) as CardArtKind[];
   await Promise.all(kinds.map((kind) => preloadImage(BACK[kind])));
-  await Promise.all(kinds.map((kind) => preloadImage(FRONT[kind])));
+  await Promise.all(FRONT_IN_USE.map((kind) => preloadImage(FRONT[kind])));
 }

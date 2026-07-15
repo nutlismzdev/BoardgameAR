@@ -23,6 +23,9 @@ interface Props {
   artFront?: string | null; // โหมด art: รูปหน้าการ์ดจริง
   artRatio?: string; // สัดส่วนรูปโหมด art (default การ์ดคำถาม/สาระ/AR)
   contentInset?: { top: number; right: number; bottom: number; left: number }; // % ที่วางเนื้อหาทับรูป
+  // มาจากด่านจั่วการ์ด (CardPicker) ที่โชว์หลังการ์ด + พลิกหนีมาแล้ว → ข้ามพิธีพลิกซ้ำ
+  // เหลือแค่ "พลิกเข้า" รับไม้ต่อ ไม่งั้นเห็นหลังการ์ดสองรอบ (หลัง→หลัง→เนื้อหา)
+  skipBackFlip?: boolean;
 }
 
 type Phase = 'back' | 'flipping' | 'front';
@@ -39,11 +42,13 @@ export function CardFrame({
   artFront,
   artRatio = '1060 / 1484',
   contentInset = { top: 19, right: 10, bottom: 7, left: 10 },
+  skipBackFlip = false,
 }: Props) {
   const back = getCardBack(kind);
-  const canFlip = !!back && !prefersReducedMotion();
+  const canFlip = !!back && !prefersReducedMotion() && !skipBackFlip;
   const [phase, setPhase] = useState<Phase>(canFlip ? 'back' : 'front');
-  const didFlip = useRef(canFlip); // ให้หน้าการ์ดแอนิเมชัน "พลิกเข้า" เฉพาะเมื่อมาจากหลังการ์ด
+  // พลิกเข้าเมื่อมาจากหลังการ์ดของตัวเอง หรือรับไม้ต่อจากใบที่ picker พลิกหนีมา
+  const didFlip = useRef(canFlip || (skipBackFlip && !prefersReducedMotion()));
   const [backReady, setBackReady] = useState(false); // รูปหลังการ์ดโหลด/decode เสร็จหรือยัง
 
   // preload รูปหลังการ์ด (ไฟล์ใหญ่) ให้พร้อมก่อนเริ่มพลิก — กันการ์ดว่าง/ลอยตอนโหลดไม่ทัน
