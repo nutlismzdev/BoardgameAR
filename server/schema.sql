@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS gold_quiz (
 CREATE TABLE IF NOT EXISTS subject_quiz (
   id VARCHAR(80) PRIMARY KEY,
   king_id VARCHAR(80) NOT NULL,
-  subject ENUM('social','math','science','art','health_pe','foreign_language') NOT NULL,
+  subject ENUM('thai','math','science','social','health_pe','art','occupation','foreign_language') NOT NULL,
   difficulty ENUM('easy','medium','hard') NOT NULL,
   reward INT NOT NULL DEFAULT 0,
   time_limit_sec INT NOT NULL DEFAULT 20,

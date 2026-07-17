@@ -173,7 +173,9 @@ function table_for_type(string $type): string
     };
 }
 
-const VALID_SUBJECTS = ['social', 'math', 'science', 'art', 'health_pe', 'foreign_language'];
+const VALID_SUBJECTS = ['thai', 'math', 'science', 'social', 'health_pe', 'art', 'occupation', 'foreign_language'];
+// นิยาม ENUM คอลัมน์ subject — ใช้ร่วมทั้งตอนสร้างตารางและ migrate ตารางเดิม
+const SUBJECT_ENUM = "ENUM('thai','math','science','social','health_pe','art','occupation','foreign_language')";
 
 function normalize_id(?string $id): string
 {
@@ -226,7 +228,7 @@ function ensure_subject_table(): void
         "CREATE TABLE IF NOT EXISTS subject_quiz (
             id VARCHAR(80) PRIMARY KEY,
             king_id VARCHAR(80) NOT NULL,
-            subject ENUM('social','math','science','art','health_pe','foreign_language') NOT NULL,
+            subject " . SUBJECT_ENUM . " NOT NULL,
             difficulty ENUM('easy','medium','hard') NOT NULL,
             reward INT NOT NULL DEFAULT 0,
             time_limit_sec INT NOT NULL DEFAULT 20,
@@ -236,6 +238,22 @@ function ensure_subject_table(): void
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
     );
+    ensure_subject_enum();
+    $done = true;
+}
+
+// ขยาย ENUM คอลัมน์ subject ให้ครบ 8 กลุ่มสาระ สำหรับ DB เดิมที่สร้างด้วย 6 วิชา
+function ensure_subject_enum(): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $stmt = get_db()->query("SHOW COLUMNS FROM subject_quiz LIKE 'subject'");
+    $col = $stmt->fetch();
+    if ($col && strtolower((string) $col['Type']) !== strtolower(SUBJECT_ENUM)) {
+        get_db()->exec("ALTER TABLE subject_quiz MODIFY COLUMN subject " . SUBJECT_ENUM . " NOT NULL");
+    }
     $done = true;
 }
 

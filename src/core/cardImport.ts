@@ -135,11 +135,27 @@ function resolveKingId(raw: string): string | null {
   return king?.id ?? null;
 }
 
+// คำพ้อง/ชื่อย่อของวิชา → รหัส (เช่น ภาษาอังกฤษ = ภาษาต่างประเทศ, สังคม = สังคมศึกษา)
+const SUBJECT_ALIASES: Record<string, SubjectArea> = {
+  ภาษาอังกฤษ: 'foreign_language',
+  อังกฤษ: 'foreign_language',
+  english: 'foreign_language',
+  สังคม: 'social',
+  สุขศึกษา: 'health_pe',
+  พลศึกษา: 'health_pe',
+  การงาน: 'occupation',
+  การงานอาชีพและเทคโนโลยี: 'occupation',
+};
+
 function resolveSubject(raw: string): SubjectArea | null {
-  const key = loose(raw);
+  // ตัดคำนำหน้าอย่าง "บูรณาการ:" / "บูรณาการเพิ่มเติม:" ทิ้ง เอาเฉพาะชื่อวิชาหลัง ":"
+  const afterColon = String(raw ?? '').split(':').pop() ?? '';
+  const key = loose(afterColon);
   if (!key) return null;
   const found = SUBJECTS.find((s) => loose(s.id) === key || loose(s.label) === key) ?? SUBJECTS.find((s) => loose(s.label).includes(key));
-  return found?.id ?? null;
+  if (found) return found.id;
+  const aliasKey = Object.keys(SUBJECT_ALIASES).find((name) => loose(name) === key);
+  return aliasKey ? SUBJECT_ALIASES[aliasKey] : null;
 }
 
 function resolveDifficulty(raw: string): Difficulty | null {

@@ -22,13 +22,15 @@ const CACHE_KEY = 'bg7_content';
 export const OVERVIEW_KING_ID = 'king_overview';
 export const OVERVIEW_KING_LABEL = 'ภาพรวม 7 มหาราช';
 
-// ── กลุ่มสาระการเรียนรู้ (6 วิชา) — ป้าย/ไอคอนใช้ร่วมทั้งการ์ดในเกมและหลังบ้าน ──
+// ── กลุ่มสาระการเรียนรู้ (8 วิชาตามหลักสูตรแกนกลาง) — ป้าย/ไอคอนใช้ร่วมทั้งการ์ดในเกมและหลังบ้าน ──
 export const SUBJECTS: { id: SubjectArea; label: string; icon: string }[] = [
-  { id: 'social', label: 'สังคมศึกษา', icon: '🌏' },
+  { id: 'thai', label: 'ภาษาไทย', icon: '📖' },
   { id: 'math', label: 'คณิตศาสตร์', icon: '🔢' },
   { id: 'science', label: 'วิทยาศาสตร์', icon: '🔬' },
-  { id: 'art', label: 'ศิลปะ', icon: '🎨' },
+  { id: 'social', label: 'สังคมศึกษา', icon: '🌏' },
   { id: 'health_pe', label: 'สุขศึกษาและพลศึกษา', icon: '🤸' },
+  { id: 'art', label: 'ศิลปะ', icon: '🎨' },
+  { id: 'occupation', label: 'การงานอาชีพ', icon: '🛠️' },
   { id: 'foreign_language', label: 'ภาษาต่างประเทศ', icon: '🗣️' },
 ];
 export const SUBJECT_LABEL: Record<SubjectArea, string> = Object.fromEntries(

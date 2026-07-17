@@ -53,7 +53,7 @@ Stack: React 18 + TypeScript + Zustand (state) + Vite. ไม่มี test runn
 | 0, 10, 23, 37 | penalty | ⛓️ แดงเข้ม `#8E2020` | ทำโทษ: 0=หยุดพัก 1 ตา · 10=ถอย 2 ช่อง · 23=หยุดพัก 1 ตา · 37=ถอย 3 ช่อง (ดู `tile.penalty`) |
 | 5, 14, 20, 27, 35, 43 | question | ❓ ฟ้า `#1565C0` | ควิซทั่วไป ก/ข/ค/ง (ได้เหรียญปกติ) |
 | 3, 9, 17, 24, 29, 39 | knowledge | 💡 ชมพู `#E91E63` | อ่านเกร็ด → สะสมการ์ด (10/คน) **ไม่มีคำถามทบทวนแล้ว** + ปุ่มสุ่มใหม่ · ไม่มี AR |
-| 2, 15, 21, 28, 34, 42 | subject | 📚 teal `#00897B` | ช่อง **กลุ่มสาระการเรียนรู้** — สุ่มคำถาม 6 วิชา (สังคม/คณิต/วิทย์/ศิลปะ/สุขศึกษาฯ/ภาษาต่างประเทศ) ของพระองค์ที่ผูกช่อง ใช้ UI ควิซเดียวกับช่องฟ้า (ได้เหรียญปกติ/ตอบผิดเสียหัวใจ) · **6 ช่อง** ผูก ราม/นเรศวร/ตากสิน/นารายณ์/ร.4/ร.5 (ร.1 มีในคลังแต่ไม่มีช่องผูก) |
+| 2, 15, 21, 28, 34, 42 | subject | 📚 teal `#00897B` | ช่อง **กลุ่มสาระการเรียนรู้** — สุ่มคำถาม 8 กลุ่มสาระ (ภาษาไทย/คณิต/วิทย์/สังคม/สุขศึกษาฯ/ศิลปะ/การงานอาชีพ/ภาษาต่างประเทศ) ของพระองค์ที่ผูกช่อง ใช้ UI ควิซเดียวกับช่องฟ้า (ได้เหรียญปกติ/ตอบผิดเสียหัวใจ) · **6 ช่อง** ผูก ราม/นเรศวร/ตากสิน/นารายณ์/ร.4/ร.5 (ร.1 มีในคลังแต่ไม่มีช่องผูก) |
 | 8,16,26,33,40,45 (นอก) + 50,57,65,73 (ใน) | goldking | 👑 ทองเรืองแสง `#C9A227` | บทเรียน AR (คลิป 15 วิ + ลากคำตอบ) ชิงเหรียญกษัตริย์ — **10 ช่อง** ให้เก็บครบ 7 ได้ |
 | 32 | bonus | 💚 เขียว `#2E9E44` | การ์ดโบนัส (เหรียญ+ไอเทม) **+ เป็นจุดทางแยก** |
 
@@ -61,7 +61,7 @@ Stack: React 18 + TypeScript + Zustand (state) + Vite. ไม่มี test runn
 - ช่องที่เหลือ = `blank` (ช่องเดินเปล่า โชว์เลข index)
 - **ช่อง 6, 12, 36 = `blank` แต่เป็นจุดทางแยก** (อย่าใส่ช่องพิเศษทับจุดแยก — คำถาม/ไอคอนจะโดน ForkOverlay บัง)
 - **`TileType` = `question` / `knowledge` / `subject` / `goldking` / `bonus` / `penalty` / `shop` / `blank`** — type `start`/`mission`/`chance`/`coin`/`king`/`special` ถูกลบออกจาก type แล้ว (ช่อง 0 = penalty ไม่มี +100 ผ่าน START)
-- **ช่อง subject:** ผูก `kingId` ต่อช่อง (เหมือนช่องฟ้า) แล้ว `getSubjectQuizForKing` สุ่มคละวิชาในคลังของพระองค์นั้น · `SubjectArea` 6 ค่า + meta (`SUBJECTS`/`subjectLabel`) อยู่ใน `content.ts` · การ์ด = `SubjectQuizCard` (QuizCard + `subject`)
+- **ช่อง subject:** ผูก `kingId` ต่อช่อง (เหมือนช่องฟ้า) แล้ว `getSubjectQuizForKing` สุ่มคละวิชาในคลังของพระองค์นั้น · `SubjectArea` 8 ค่า (ครบหลักสูตรแกนกลาง) + meta (`SUBJECTS`/`subjectLabel`) อยู่ใน `content.ts` · การ์ด = `SubjectQuizCard` (QuizCard + `subject`)
 
 ### ทางแยก 4 จุด (fork) — เอนจิน generic ตาม `next.length > 1`
 | จุดแยก | next | เส้นใน (label) | บรรจบ |
@@ -139,7 +139,7 @@ finishTurn(): เช็กชนะ (kingCoins≥7) → ส่งเทิร์
 - CRUD เนื้อหา: `server/content.php?type=quiz|knowledge|gold|subject`
   - public `GET` ใช้ sync เกม
   - `POST`/`PUT`/`DELETE` ต้องใช้ `Authorization: Bearer <token>`
-- DB schema: `quiz`, `knowledge`, `gold_quiz`, `subject_quiz`, `app_config`; `gold_quiz` มี `video_url` สำหรับวิดีโอ AR ทอง · `subject_quiz` มีคอลัมน์ `subject` (ENUM 6 วิชา) — `content.php` auto-migrate ตารางนี้ให้ DB เดิม (`ensure_subject_table`)
+- DB schema: `quiz`, `knowledge`, `gold_quiz`, `subject_quiz`, `app_config`; `gold_quiz` มี `video_url` สำหรับวิดีโอ AR ทอง · `subject_quiz` มีคอลัมน์ `subject` (ENUM 8 กลุ่มสาระ) — `content.php` auto-migrate ตารางนี้ให้ DB เดิม (`ensure_subject_table` + `ensure_subject_enum` ขยาย ENUM 6→8 ให้ DB ที่สร้างไว้ก่อน)
 - Upload วิดีโอ AR ทอง: `POST server/upload.php` multipart field `video`, รองรับ MP4/WebM/MOV ≤ 200 MB, save ไป `server/uploads/`, คืน URL แบบ `uploads/<file>`
 - **📥 นำเข้าการ์ดจาก Excel:** ปุ่ม "นำเข้าจาก Excel" ใน AdminPanel → `ImportPanel.tsx` (ดาวน์โหลดเทมเพลต → เลือกไฟล์ → พรีวิว/ตรวจรายแถว → เลือกโหมด → นำเข้า)
   - **อ่านไฟล์ฝั่งเบราว์เซอร์ทั้งหมด** (`core/cardImport.ts` ใช้ SheetJS) แล้วส่ง JSON ขึ้น `server/import.php` → โฮสต์ไม่ต้องลง composer/PhpSpreadsheet
