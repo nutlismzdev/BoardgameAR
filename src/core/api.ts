@@ -10,6 +10,12 @@ export type ContentByType<T extends ContentType> = T extends 'knowledge'
 const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '');
 const TOKEN_KEY = 'bg7_admin_token';
 
+export interface ImportSummary {
+  inserted: number;
+  updated: number;
+  total: number;
+}
+
 interface ApiResponse<T> {
   ok: boolean;
   data?: T;
@@ -17,6 +23,7 @@ interface ApiResponse<T> {
   token?: string;
   expiresAt?: number;
   error?: string;
+  summary?: ImportSummary;
 }
 
 function token(): string | null {
@@ -104,6 +111,21 @@ export async function createCard<T extends ContentType>(
     body: JSON.stringify(payload),
   });
   return res.data ?? [];
+}
+
+// นำเข้าการ์ดหลายใบพร้อมกันจากไฟล์ Excel
+// mode: 'upsert' = รหัสซ้ำเขียนทับ · 'replace' = ล้างการ์ดชนิดนี้ทั้งหมดก่อนแล้วใส่ชุดใหม่
+export async function importCards<T extends ContentType>(
+  type: T,
+  rows: ContentByType<T>[],
+  mode: 'upsert' | 'replace'
+): Promise<ImportSummary> {
+  const res = await request<ContentByType<T>[]>('import.php', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ type, mode, rows }),
+  });
+  return res.summary ?? { inserted: 0, updated: 0, total: rows.length };
 }
 
 export async function uploadGoldVideo(file: File): Promise<string> {

@@ -16,6 +16,12 @@ import type {
 export const KINGS = kingsData.kings as King[];
 const CACHE_KEY = 'bg7_content';
 
+// คลัง "ภาพรวม 7 มหาราช" — คำถามที่ไม่ผูกพระองค์ใดพระองค์หนึ่ง เก็บใน king_id นี้
+// ไม่ใส่ใน KINGS (ไม่ใช่พระองค์จริง ไม่มีหมาก/เหรียญ/ช่องบนกระดาน) ใช้เป็น "คลังสำรอง"
+// pickQuiz จะหยิบมาถามเฉพาะเมื่อพระองค์ของช่องนั้นยังไม่มีคำถามของตัวเอง
+export const OVERVIEW_KING_ID = 'king_overview';
+export const OVERVIEW_KING_LABEL = 'ภาพรวม 7 มหาราช';
+
 // ── กลุ่มสาระการเรียนรู้ (6 วิชา) — ป้าย/ไอคอนใช้ร่วมทั้งการ์ดในเกมและหลังบ้าน ──
 export const SUBJECTS: { id: SubjectArea; label: string; icon: string }[] = [
   { id: 'social', label: 'สังคมศึกษา', icon: '🌏' },
@@ -112,6 +118,8 @@ function pickQuiz(
   excludeIds: string[]
 ): QuizCard {
   let pool = source.filter((q) => q.kingId === kingId);
+  // พระองค์นี้ยังไม่มีคำถามของตัวเอง → ใช้คลัง "ภาพรวม 7 มหาราช" แทน (สำรองอย่างเดียว)
+  if (!pool.length) pool = source.filter((q) => q.kingId === OVERVIEW_KING_ID);
   if (difficulty !== 'all') {
     const byDiff = pool.filter((q) => q.difficulty === difficulty);
     if (byDiff.length) pool = byDiff;

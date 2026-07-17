@@ -141,6 +141,17 @@ finishTurn(): เช็กชนะ (kingCoins≥7) → ส่งเทิร์
   - `POST`/`PUT`/`DELETE` ต้องใช้ `Authorization: Bearer <token>`
 - DB schema: `quiz`, `knowledge`, `gold_quiz`, `subject_quiz`, `app_config`; `gold_quiz` มี `video_url` สำหรับวิดีโอ AR ทอง · `subject_quiz` มีคอลัมน์ `subject` (ENUM 6 วิชา) — `content.php` auto-migrate ตารางนี้ให้ DB เดิม (`ensure_subject_table`)
 - Upload วิดีโอ AR ทอง: `POST server/upload.php` multipart field `video`, รองรับ MP4/WebM/MOV ≤ 200 MB, save ไป `server/uploads/`, คืน URL แบบ `uploads/<file>`
+- **📥 นำเข้าการ์ดจาก Excel:** ปุ่ม "นำเข้าจาก Excel" ใน AdminPanel → `ImportPanel.tsx` (ดาวน์โหลดเทมเพลต → เลือกไฟล์ → พรีวิว/ตรวจรายแถว → เลือกโหมด → นำเข้า)
+  - **อ่านไฟล์ฝั่งเบราว์เซอร์ทั้งหมด** (`core/cardImport.ts` ใช้ SheetJS) แล้วส่ง JSON ขึ้น `server/import.php` → โฮสต์ไม่ต้องลง composer/PhpSpreadsheet
+  - **`xlsx` ต้องลงจาก `https://cdn.sheetjs.com/...tgz` ไม่ใช่ npm** — SheetJS เลิกอัปเดตบน npm แล้ว (ค้าง 0.18.5 + มี advisory) · `import('xlsx')` เป็น dynamic import เสมอ (chunk ~500KB โหลดเฉพาะตอนเปิดหน้านำเข้า ไม่ถ่วงเกม)
+  - **เทมเพลตสร้างจากโค้ด** (`downloadTemplate()`) ไม่ใช่ไฟล์ static → รายชื่อพระองค์/วิชาในชีต "คู่มือ" มาจาก `KINGS`/`SUBJECTS` จึงไม่มีวันหลุดจากโค้ด · 5 ชีต: คู่มือ + คำถามฟ้า/ความรู้/กลุ่มสาระ/ARทอง (ชื่อชีต+หัวตารางคือสัญญากับ `parseWorkbook` — แก้ที่ `SHEET_NAME`/`COLUMNS` ที่เดียว)
+  - **SheetJS ฉบับฟรีเขียน dropdown (data validation) ลง xlsx ไม่ได้** → เทมเพลตใช้ตารางรหัสในชีต "คู่มือ" ให้คัดลอกแทน แล้วชดเชยด้วยตัวอ่านที่รับได้ทั้งชื่อไทย/รหัส (`resolveKingId`/`resolveSubject` เทียบแบบ `loose()`), ระดับไทย/อังกฤษ, เฉลย ก-ง/a-d/1-4
+  - **กับดัก: ตัดตัวเลือกว่างทิ้ง ต้องติดธง `correct` ก่อน filter** ไม่งั้นเฉลยเลื่อนไปผิดข้อเมื่อครูกรอกแค่ 2-3 ตัวเลือก
+  - ตรวจ 2 ชั้น: ฝั่งเว็บบอกผิด**รายแถวพร้อมเลขแถว Excel** (แถวเสียถูกข้าม แถวดีเข้าได้) · `import.php` ตรวจซ้ำและ **ปัดตกทั้งชุด** (endpoint รับ JSON ตรงได้ ห้ามเชื่อ client)
+  - **id ต้องเป็น `[a-zA-Z0-9_-]{3,80}` (ห้ามไทย)** ตาม `normalize_id` — เว้นว่างในไฟล์ได้ ระบบ gen ให้
+  - รูป/วิดีโอใน Excel รับเฉพาะ URL เต็ม (ไฟล์ที่อัปโหลดเองเป็น path `uploads/<file>` ที่ต้องผ่าน `upload.php` ก่อน) → ให้เว้นว่างแล้วไปแนบในหน้าแก้ไข
+  - **การ์ดความรู้: `question`/`choices` เป็น optional แล้ว** (`optional_choices` ใน lib.php + editor) เพราะเกมเลิกถามคำถามทบทวนแล้ว — เทมเพลตชีต "ความรู้" จึงมีแค่ พระองค์/ชื่อ/เนื้อหา
+  - helper ที่ `content.php` กับ `import.php` ใช้ร่วมกัน (`normalize_id`, `ensure_schema_for_type`, `db_to_card`, `list_cards`, `VALID_SUBJECTS`) **อยู่ใน `lib.php` ที่เดียว**
 - deploy จริงต้องให้ PHP เขียน `server/uploads/` ได้ และตั้ง `VITE_API_BASE`/CORS ให้ตรงโดเมน
 
 ## ระบบเสริม
@@ -190,7 +201,8 @@ src/
     store.ts        ← state + กติกาทั้งหมด (Zustand) · export TILES, LOOP, useGame, ITEM_META, ITEM_PRICE, HINT_PRICE
     types.ts        ← Tile, King, Player, Card, PenaltyConfig types
     content.ts      ← อ่าน JSON เนื้อหา (คัด/สุ่มการ์ด)
-    api.ts          ← client สำหรับ PHP API + upload video + resolve asset URL
+    api.ts          ← client สำหรับ PHP API + upload video/image + import + resolve asset URL
+    cardImport.ts   ← นำเข้า Excel: สร้างไฟล์เทมเพลต (.xlsx) + อ่าน/ตรวจไฟล์ที่ครูกรอก (SheetJS, dynamic import)
     kingAssets.ts   ← id พระองค์ → หมาก `/assets/chess/{order}.png` + เหรียญ `/assets/coins/{id}.png`
     diceLogic.ts    ← rollDie
     sfx.ts          ← เสียง (Web Audio) + เพลงพื้นหลัง (startBackgroundMusic ใน App.tsx)
@@ -212,9 +224,9 @@ src/
     GameBoard/   ← index (เลือก layout) + portrait + landscape (มี ForkOverlay + ShopModal)
     GameOver/    ← จัดอันดับด้วย kingCoins + แถวเหรียญ
     Settings/    ← Teacher Mode (ไม่มี maxRounds แล้ว)
-    Admin/       ← Teacher CMS UI (login + CRUD + upload video AR ทอง)
+    Admin/       ← Teacher CMS UI: AdminPanel (login + CRUD + upload) · ImportPanel (นำเข้า Excel) · adminStyles (สไตล์/Field/Status ใช้ร่วม)
   theme/tokens.ts   ← สี/ไอคอน/ป้ายของแต่ละ tile type
-server/                         ← PHP REST API + MySQL schema/seed + upload endpoint
+server/                         ← PHP REST API + MySQL schema/seed + upload/import endpoint
 server/uploads/                 ← วิดีโอ AR ทองที่อัปโหลด (ignore ไฟล์จริง)
 public/assets/board.png            ← ภาพกระดาน (เลข/ไอคอนคือ overlay ที่โค้ดใส่)
 public/assets/chess/1.png..7.png   ← หมากกษัตริย์ 7 พระองค์ (ลำดับตาม king.order)

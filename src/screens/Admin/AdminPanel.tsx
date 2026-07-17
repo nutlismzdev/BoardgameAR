@@ -12,9 +12,22 @@ import {
   uploadQuestionImage,
   type ContentType,
 } from '@/core/api';
-import { KINGS, SUBJECTS, subjectLabel, syncContent } from '@/core/content';
+import { KINGS, OVERVIEW_KING_ID, OVERVIEW_KING_LABEL, SUBJECTS, subjectLabel, syncContent } from '@/core/content';
 import type { Difficulty, KnowledgeCard, QuizCard, QuizChoice, SubjectArea, SubjectQuizCard } from '@/core/types';
 import { color, elevation, radius, tileIcon } from '@/theme/tokens';
+import { ImportPanel } from './ImportPanel';
+import {
+  badge,
+  dangerButton,
+  Field,
+  input,
+  muted,
+  primaryButton,
+  secondaryButton,
+  Status,
+  textarea,
+  uploadButton,
+} from './adminStyles';
 
 type TabType = ContentType;
 type Card = QuizCard | KnowledgeCard | SubjectQuizCard;
@@ -52,6 +65,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
 
   const cards = cardsByType[active];
   const activeTab = tabs.find((tab) => tab.type === active) ?? tabs[0];
@@ -253,10 +267,14 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                         {king.name}
                       </option>
                     ))}
+                    <option value={OVERVIEW_KING_ID}>{OVERVIEW_KING_LABEL}</option>
                   </select>
                 </Field>
                 <button onClick={startCreate} style={primaryButton}>
                   เพิ่มการ์ดใหม่
+                </button>
+                <button onClick={() => setImportOpen(true)} style={secondaryButton}>
+                  📥 นำเข้าจาก Excel
                 </button>
               </div>
 
@@ -324,6 +342,19 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
             </main>
           </div>
         )}
+
+        {importOpen && (
+          <ImportPanel
+            onClose={() => setImportOpen(false)}
+            onImported={async (types) => {
+              for (const type of types) {
+                await load(type);
+              }
+              await syncContent();
+              setNotice('นำเข้าการ์ดจาก Excel แล้ว');
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -368,25 +399,47 @@ function CardEditor({
 
   function validateAndSave() {
     const cleanChoices = choices.map((choice) => ({ text: choice.text.trim(), correct: choice.correct }));
-    if (!value.id.trim() || !value.kingId || !value.question.trim()) {
-      setLocalError('กรอกพระองค์และคำถามให้ครบ');
+    if (!value.id.trim() || !value.kingId) {
+      setLocalError('กรอกพระองค์ให้ครบ');
       return;
     }
-    if (cleanChoices.some((choice) => !choice.text) || !cleanChoices.some((choice) => choice.correct)) {
-      setLocalError('ตัวเลือกต้องไม่ว่าง และต้องมีคำตอบถูกอย่างน้อย 1 ข้อ');
-      return;
-    }
+
     if (isKnowledge) {
       const card = value as KnowledgeCard;
       if (!card.title.trim() || !card.body.trim()) {
         setLocalError('กรอกชื่อการ์ดและเนื้อหาความรู้ให้ครบ');
         return;
       }
-      onSave({ ...card, id: card.id.trim(), title: card.title.trim(), body: card.body.trim(), question: card.question.trim(), choices: cleanChoices });
+      // การ์ดความรู้ไม่มีคำถามทบทวนในเกมแล้ว — เว้นว่างได้ทั้งคำถามและตัวเลือก
+      // แต่ถ้าเริ่มกรอกแล้วต้องกรอกให้ครบ ไม่งั้นได้การ์ดที่มีตัวเลือกแต่ไม่มีคำตอบถูก
+      const filled = cleanChoices.filter((choice) => choice.text);
+      const partial = card.question.trim() || filled.length;
+      if (partial && (!card.question.trim() || filled.length < 2 || !filled.some((choice) => choice.correct))) {
+        setLocalError('ถ้ากรอกคำถามทบทวน ต้องมีตัวเลือกอย่างน้อย 2 ข้อ และมีคำตอบถูก 1 ข้อ (หรือเว้นว่างทั้งหมด)');
+        return;
+      }
+      onSave({
+        ...card,
+        id: card.id.trim(),
+        title: card.title.trim(),
+        body: card.body.trim(),
+        question: card.question.trim(),
+        choices: partial ? filled : [],
+      });
+      return;
+    }
+
+    if (!value.question.trim()) {
+      setLocalError('กรอกคำถามให้ครบ');
+      return;
+    }
+    if (cleanChoices.some((choice) => !choice.text) || !cleanChoices.some((choice) => choice.correct)) {
+      setLocalError('ตัวเลือกต้องไม่ว่าง และต้องมีคำตอบถูกอย่างน้อย 1 ข้อ');
       return;
     }
     const card = value as QuizCard;
-    if (!card.explanation.trim()) {
+    // การ์ด AR ทอง: คำอธิบายเฉลยไม่บังคับ (เฉลยจริงอยู่ในคลิป/การลากคำตอบ)
+    if (!isGold && !card.explanation.trim()) {
       setLocalError('กรอกคำอธิบายเฉลย');
       return;
     }
@@ -412,6 +465,7 @@ function CardEditor({
                 {king.name}
               </option>
             ))}
+            <option value={OVERVIEW_KING_ID}>{OVERVIEW_KING_LABEL}</option>
           </select>
         </Field>
         {isSubject && (
@@ -481,7 +535,7 @@ function CardEditor({
         </>
       )}
 
-      <Field label="คำถาม">
+      <Field label={isKnowledge ? 'คำถามทบทวน (ไม่บังคับ — เกมไม่ได้ถามการ์ดความรู้แล้ว)' : 'คำถาม'}>
         <textarea value={value.question} onChange={(e) => patch({ question: e.target.value } as Partial<Card>)} style={textarea} />
       </Field>
 
@@ -511,7 +565,7 @@ function CardEditor({
       </div>
 
       {!isKnowledge && (
-        <Field label="คำอธิบายเฉลย">
+        <Field label={isGold ? 'คำอธิบายเฉลย (ไม่บังคับ)' : 'คำอธิบายเฉลย'}>
           <textarea
             value={(value as QuizCard).explanation}
             onChange={(e) => patch({ explanation: e.target.value } as Partial<Card>)}
@@ -636,34 +690,22 @@ function CardPreview({ card, type }: { card: Card; type: TabType }) {
       </div>
       {'title' in card && <h3 style={{ margin: '14px 0 8px', fontSize: 24 }}>{card.title}</h3>}
       {'body' in card && <p style={bodyText}>{card.body}</p>}
-      <h4 style={questionText}>{card.question}</h4>
-      <div style={choicePreviewGrid}>
-        {card.choices.map((choice, index) => (
-          <div key={index} style={choice.correct ? correctChoicePreview : choicePreview}>
-            <strong>{String.fromCharCode(65 + index)}.</strong> {choice.text}
-          </div>
-        ))}
-      </div>
+      {card.question && <h4 style={questionText}>{card.question}</h4>}
+      {card.choices.length > 0 && (
+        <div style={choicePreviewGrid}>
+          {card.choices.map((choice, index) => (
+            <div key={index} style={choice.correct ? correctChoicePreview : choicePreview}>
+              <strong>{String.fromCharCode(65 + index)}.</strong> {choice.text}
+            </div>
+          ))}
+        </div>
+      )}
       {'explanation' in card && <p style={explanationBox}>{card.explanation}</p>}
       {type === 'gold' && 'videoUrl' in card && card.videoUrl && (
         <video src={resolveVideoUrl(card.videoUrl)} controls style={previewVideo} />
       )}
     </article>
   );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label style={field}>
-      <span>{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function Status({ tone, text }: { tone: 'error' | 'success' | 'neutral'; text: string }) {
-  const styles = tone === 'error' ? statusError : tone === 'success' ? statusSuccess : statusNeutral;
-  return <p style={styles}>{text}</p>;
 }
 
 function newCard(type: TabType): Card {
@@ -710,6 +752,7 @@ function cardTitle(card: Card): string {
 }
 
 function kingName(kingId: string): string {
+  if (kingId === OVERVIEW_KING_ID) return OVERVIEW_KING_LABEL;
   return KINGS.find((king) => king.id === kingId)?.name ?? kingId;
 }
 
@@ -842,47 +885,6 @@ const loginPanel: React.CSSProperties = {
   background: '#FBF7EF',
 };
 
-const field: React.CSSProperties = { display: 'grid', gap: 7, fontSize: 15, fontWeight: 800, color: color.text };
-const input: React.CSSProperties = {
-  fontFamily: 'inherit',
-  width: '100%',
-  boxSizing: 'border-box',
-  fontSize: 17,
-  border: '1.5px solid #B8A98E',
-  borderRadius: radius.sm,
-  padding: '10px 12px',
-  minHeight: 44,
-  color: color.text,
-  background: '#fff',
-};
-const textarea: React.CSSProperties = { ...input, minHeight: 104, resize: 'vertical', lineHeight: 1.55 };
-
-const primaryButton: React.CSSProperties = {
-  fontFamily: 'inherit',
-  fontSize: 17,
-  fontWeight: 800,
-  border: 'none',
-  borderRadius: radius.sm,
-  background: color.primary,
-  color: '#fff',
-  padding: '11px 16px',
-  minHeight: 46,
-  cursor: 'pointer',
-};
-const secondaryButton: React.CSSProperties = {
-  fontFamily: 'inherit',
-  fontSize: 16,
-  fontWeight: 800,
-  border: '1.5px solid #B8A98E',
-  borderRadius: radius.sm,
-  background: '#fff',
-  color: color.text,
-  padding: '9px 14px',
-  minHeight: 42,
-  cursor: 'pointer',
-};
-const dangerButton: React.CSSProperties = { ...secondaryButton, borderColor: color.danger, color: color.danger };
-
 const editor: React.CSSProperties = { display: 'grid', gap: 14 };
 const formGrid: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 };
 const choicePanel: React.CSSProperties = { display: 'grid', gap: 10, padding: 14, background: '#FBF7EF', borderRadius: radius.sm };
@@ -923,13 +925,6 @@ const videoEmpty: React.CSSProperties = {
   borderRadius: radius.sm,
 };
 
-const uploadButton: React.CSSProperties = {
-  ...primaryButton,
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-};
-
 const preview: React.CSSProperties = { display: 'grid', gap: 12, maxWidth: 760 };
 const previewMeta: React.CSSProperties = { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' };
 const bodyText: React.CSSProperties = { fontSize: 18, lineHeight: 1.7, color: color.text, margin: 0 };
@@ -940,19 +935,5 @@ const correctChoicePreview: React.CSSProperties = { ...choicePreview, background
 const explanationBox: React.CSSProperties = { padding: 14, background: '#E3F2FD', color: color.info, borderRadius: radius.sm, lineHeight: 1.6 };
 const previewVideo: React.CSSProperties = { width: '100%', maxHeight: 360, borderRadius: radius.md, background: '#000' };
 
-const badge: React.CSSProperties = {
-  justifySelf: 'start',
-  display: 'inline-flex',
-  fontSize: 13,
-  fontWeight: 800,
-  color: color.primary,
-  background: '#FFF1C6',
-  borderRadius: radius.sm,
-  padding: '3px 8px',
-};
-const muted: React.CSSProperties = { color: color.textMuted, fontSize: 14 };
 const emptyState: React.CSSProperties = { padding: 18, color: color.textMuted, textAlign: 'center' };
 const emptyDetail: React.CSSProperties = { padding: 32, color: color.textMuted, background: '#FBF7EF', borderRadius: radius.md };
-const statusError: React.CSSProperties = { margin: 0, padding: 12, borderRadius: radius.sm, color: color.danger, background: '#FFEBEE', fontWeight: 800 };
-const statusSuccess: React.CSSProperties = { margin: 0, padding: 12, borderRadius: radius.sm, color: color.success, background: '#E8F5E9', fontWeight: 800 };
-const statusNeutral: React.CSSProperties = { margin: 0, padding: 12, borderRadius: radius.sm, color: color.info, background: '#E3F2FD', fontWeight: 800 };

@@ -32,6 +32,11 @@ php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"
 - `PUT content.php?type=...` ใช้ `Authorization: Bearer <token>`
 - `DELETE content.php?type=...&id=...` ใช้ `Authorization: Bearer <token>`
 - `POST upload.php` multipart field `video` ใช้ `Authorization: Bearer <token>` สำหรับวิดีโอ AR ทอง
+- `POST import.php` ใช้ `Authorization: Bearer <token>` — นำเข้าการ์ดหลายใบพร้อมกัน (จากไฟล์ Excel ที่ฝั่งเว็บอ่านมาแล้ว)
+  body: `{ "type": "quiz|knowledge|gold|subject", "mode": "upsert|replace", "rows": [ <การ์ด>, ... ] }`
+  - `upsert` = id ซ้ำเขียนทับ, id ใหม่เพิ่มเข้า · `replace` = ล้างการ์ดชนิดนั้นทั้งตารางก่อนแล้วใส่ชุดใหม่
+  - ตรวจทุกแถวให้ผ่านก่อนค่อยแตะ DB แล้วเขียนในทรานแซกชันเดียว (พังกลางทาง = rollback ทั้งชุด)
+  - จำกัด 1000 แถว/ครั้ง · คืน `summary: { inserted, updated, total }`
 
 วิดีโอ AR ทองรองรับ MP4, WebM, MOV ขนาดไม่เกิน 200 MB และบันทึกใน `server/uploads/`.
 บนโฮสต์จริงต้องตั้ง permission ให้ PHP เขียนโฟลเดอร์นี้ได้.
