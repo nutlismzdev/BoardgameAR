@@ -15,4 +15,21 @@ export const AR = {
   scanTimeoutMs: 6000,
   // ความยาวคลิปบทเรียน (วิ) ก่อนเข้าคำถาม (เท่าโหมดเดิม)
   lessonSeconds: 15,
+
+  // ── สเตจบทเรียนบนการ์ด: โมเดล 3D หรือ คลิป 15 วิ ──
+  // 'model' = วางโมเดล .glb ยืนบนการ์ด (เล่นแอนิเมชันวน lessonSeconds วิ แล้วเข้าคำถาม)
+  // 'video' = ของเดิม เล่นคลิปบทเรียนทับการ์ด
+  // ⚠️ สวิตช์กลับไปใช้คลิป = แก้บรรทัดนี้เป็น 'video' บรรทัดเดียว (โค้ดวิดีโอยังอยู่ครบ ไม่ถูกลบ)
+  lessonStageMode: 'model' as 'model' | 'video',
+  // โมเดลบทเรียน (แปลงจาก FBX → GLB + meshopt + webp ด้วย fbx2gltf/gltf-transform: 11.2MB → 0.8MB)
+  lessonModelUrl: '/ar/models/catwalk.glb',
+  // ความสูงโมเดลบนการ์ด เทียบ "ความกว้างการ์ด = 1" (โค้ดย่อให้เองจาก modelNativeHeight)
+  modelHeightOnCard: 1.1,
+  // ความสูงจริงของโมเดลในไฟล์ (หน่วยของ glTF) — ต้องเป็น "ค่าคงที่วัดมาก่อน" ห้ามคำนวณตอนรัน:
+  // Box3.setFromObject โกหกกับ skinned mesh (มันคูณ scale ของ node เมช = 100 กับ geometry bbox ±1 → ได้ ~190)
+  // แต่ตอนเรนเดอร์ three ใช้ bone matrices ซึ่ง bindMatrix หัก scale นั้นทิ้ง → ขนาดจริงตามกระดูก = 1.9
+  // 🔁 เปลี่ยนโมเดล = วัดใหม่ด้วย `gltf-transform inspect <file.glb>` แล้วอ่าน bboxMax.y - bboxMin.y ของ SCENES
+  modelNativeHeight: 1.9,
+  // หมุนรอบแกนตั้งของการ์ด (เรเดียน) — ปรับให้โมเดลหันหน้าเข้าหาผู้เล่นตอนทดสอบเครื่องจริง
+  modelSpinY: 0,
 } as const;

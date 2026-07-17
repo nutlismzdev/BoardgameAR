@@ -187,6 +187,12 @@ finishTurn(): เช็กชนะ (kingCoins≥7) → ส่งเทิร์
   - `sw.js` = navigate → network-first · asset same-origin → stale-while-revalidate (ภาพกระดาน/การ์ดไม่มี hash ในชื่อ) · **ไม่แตะ `/api` และ origin ข้ามโดเมน** · ลงทะเบียนเฉพาะ PROD · เปลี่ยน `VERSION` เมื่อต้องล้างแคชเก่า
   - ไอคอน `public/icons/` สร้างจากภาพเหรียญบนพื้นแดงชาด `#8B0000` (192/512/maskable-512/apple-touch)
 - **AR:** เฉพาะ**ช่องทอง** (`ARGoldChallenge.tsx`). `settings.arEnabled` = เปิด/ปิดกล้อง (ปิดแล้วเล่นบนพื้นหลังเข้ม ยังชนะได้). วิดีโอจริงมาจาก `QuizCard.videoUrl`/CMS ถ้ามี. **`ARLauncher.tsx` (poster maker) ถูกลบแล้ว**
+- **🧍 สเตจบทเรียนบนการ์ด = โมเดล 3D หรือ คลิป 15 วิ** (`AR.lessonStageMode` ใน `arConfig.ts`) — `'model'` วาง `.glb` ยืนบนการ์ด เล่นแอนิเมชันวนจนครบ `lessonSeconds` แล้วเข้าคำถาม · **สลับกลับเป็นคลิปได้ด้วยการแก้ค่าเดียวเป็น `'video'`** (โค้ดวิดีโอ/`setLessonVideo` ยังอยู่ครบ ไม่ถูกลบ) · โมเดลโหลดไม่ขึ้น → `onFallback()` = ถอยไปโหมดคลิปปกติเอง
+  - **pipeline แปลงโมเดล (CLI ไม่ต้องเปิด Blender):** `fbx2gltf` (binary ใน `node_modules/fbx2gltf/bin/Windows_NT/`) แปลง FBX→GLB แล้ว `gltf-transform optimize --compress meshopt --texture-compress webp --texture-size 1024` → **11.2 MB → 0.8 MB** · **เลือก meshopt ไม่ใช่ draco** (draco เล็กกว่า 200KB แต่ต้องโหลด decoder wasm แยกตอนรัน ส่วน meshopt decoder bundle มากับ three แล้ว)
+  - **กับดัก: `Box3.setFromObject` โกหกเรื่องขนาดของ skinned mesh** — node ของเมชมี `scale=100` + geometry bbox ±1 → วัดได้ ~190 แต่ตอนเรนเดอร์ three ใช้ bone matrices ที่ `bindMatrix` หัก scale นั้นทิ้ง ขนาดจริงตามกระดูก = 1.9 · เคยทำให้ `scale` เพี้ยนเป็น 0.0058 **โมเดลย่อจนเป็นจุดมองไม่เห็น ทั้งที่ไม่มี error ใด ๆ** (จับได้ตอนถ่ายภาพจริงมาดู) → ความสูงจริงต้องเป็นค่าคงที่ `AR.modelNativeHeight` ที่วัดมาก่อนด้วย `gltf-transform inspect` เท่านั้น
+  - **ต้อง `SkeletonUtils.clone` ห้ามใช้ `Object3D.clone()`** — เรามี anchor หน้า/หลัง 2 ตัว ถ้า clone ธรรมดาจะแชร์ skeleton กัน ตัวที่ 2 จะขยับตามตัวแรกผิด ๆ
+  - scene ของ MindAR **ไม่มีไฟมาให้** (ของเดิมใช้ `MeshBasicMaterial` เลยไม่ต้องใช้) — โมเดล glTF เป็น `MeshStandardMaterial` ถ้าไม่ใส่ Hemisphere+Directional จะ**ดำสนิท** · ไฟถูกถอดออกใน `disposeContent`
+  - โมเดลถูกครอบด้วย holder ที่ `rotation.x = +90°` เพื่อให้ "ขึ้นข้างบน" ของโมเดล (Y-up) กลายเป็น "ออกจากหน้าการ์ด" = ยืนตั้งบนการ์ดที่วางบนโต๊ะ (ตรงกับคำแนะนำ "วางการ์ดบนพื้นเรียบ") · หมุนให้หันหน้าถูกทางด้วย `AR.modelSpinY`
 - **หมากกษัตริย์:** PNG `public/assets/chess/1.png..7.png` (ลำดับตาม `king.order`) ผ่าน `getKingPawnImage`
 - **เหรียญกษัตริย์ (ภาพ):** PNG `public/assets/coins/{king.id}.png` ผ่าน `getKingCoinImage` (source ไทยอยู่ root `Coin/`) — โชว์ผ่าน `KingCoinRow.tsx` (ช่องเก็บเหรียญ ได้แล้ว=ทองเรือง/ยังไม่ได้=จางเส้นประ) ที่ **HUD (มุมขวาบน) · GameOver · พิพิธภัณฑ์ · การ์ด AR · KingDetailModal**
 - **HUD (landscape):** แถวเหรียญ 7 พระองค์ (`KingCoinRow`, ขนาด responsive) + "👑 x/7" มุมขวาบน · **ถอดตัวนับเทิร์นออกแล้ว** (เหลือ ⚙️/🏠)
@@ -228,6 +234,7 @@ src/
   theme/tokens.ts   ← สี/ไอคอน/ป้ายของแต่ละ tile type
 server/                         ← PHP REST API + MySQL schema/seed + upload/import endpoint
 server/uploads/                 ← วิดีโอ AR ทองที่อัปโหลด (ignore ไฟล์จริง)
+public/ar/models/catwalk.glb       ← โมเดลบทเรียนบนการ์ดทอง (GLB + meshopt + webp แปลงจาก FBX ที่ root)
 public/assets/board.png            ← ภาพกระดาน (เลข/ไอคอนคือ overlay ที่โค้ดใส่)
 public/assets/chess/1.png..7.png   ← หมากกษัตริย์ 7 พระองค์ (ลำดับตาม king.order)
 public/assets/coins/{king.id}.png  ← เหรียญกษัตริย์ 7 พระองค์

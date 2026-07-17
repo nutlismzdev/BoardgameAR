@@ -36,7 +36,9 @@ export function ARCardStage({
   const [status, setStatus] = useState<Status>('loading');
   const [secondsLeft, setSecondsLeft] = useState<number>(AR.lessonSeconds);
   const [mindVideoReady, setMindVideoReady] = useState(false);
-  const hasLessonVideo = Boolean(lessonUrl);
+  // โหมดโมเดล 3D (AR.lessonStageMode='model') กินสิทธิ์ก่อนวิดีโอ — สลับกลับเป็นคลิปได้ที่ arConfig.ts
+  const useLessonModel = AR.lessonStageMode === 'model' && Boolean(AR.lessonModelUrl);
+  const hasLessonVideo = !useLessonModel && Boolean(lessonUrl);
 
   const setStageStatus = (next: Status) => {
     statusRef.current = next;
@@ -78,7 +80,18 @@ export function ARCardStage({
           return;
         }
         trackerRef.current = tracker;
-        if (hasLessonVideo && lessonVideo) {
+        if (useLessonModel) {
+          // โมเดลโหลดไม่ขึ้น (ไฟล์หาย/เน็ตหลุด/GPU ไม่ไหว) → ถอยไปโหมดคลิปปกติ (ทางเดียวกับ AR ไม่ไหว)
+          // เด็กยังได้บทเรียนครบ ไม่ค้างอยู่กับการ์ดเปล่า
+          try {
+            await tracker.setLessonModel(AR.lessonModelUrl);
+          } catch {
+            tracker.stop();
+            trackerRef.current = null;
+            finishOnce(onFallback);
+            return;
+          }
+        } else if (hasLessonVideo && lessonVideo) {
           tracker.setLessonVideo(lessonVideo);
         } else {
           tracker.setPlaceholderPanel(kingName);
@@ -189,7 +202,9 @@ export function ARCardStage({
       {status === 'playing' && (
         <div style={playingBar}>
           <span style={{ fontSize: 16, fontWeight: 800 }}>
-            {hasLessonVideo ? '🎬 กำลังเล่นวิดีโอบทเรียน' : `🃏 พบการ์ด AR · เหลือ ${secondsLeft} วิ`}
+            {hasLessonVideo
+              ? '🎬 กำลังเล่นวิดีโอบทเรียน'
+              : `${useLessonModel ? '🧍 โมเดลบนการ์ด' : '🃏 พบการ์ด AR'} · เหลือ ${secondsLeft} วิ`}
           </span>
           <button onClick={proceedToQuestion} style={skipBtn}>
             ข้ามไปตอบคำถาม →

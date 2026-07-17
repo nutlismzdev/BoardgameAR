@@ -14,6 +14,8 @@ export interface ImageTracker {
   stop(): void;
   /** วางระนาบวิดีโอบทเรียนทับการ์ด (เล่นเมื่อ target ถูกพบ) */
   setLessonVideo(video: HTMLVideoElement): void;
+  /** วางโมเดล 3D (.glb) ยืนบนการ์ด + เล่นแอนิเมชันวน — ใช้แทนวิดีโอเมื่อ AR.lessonStageMode = 'model' */
+  setLessonModel(url: string): Promise<void>;
   /** วางป้าย placeholder ทับการ์ด เมื่อยังไม่มีวิดีโอบทเรียน */
   setPlaceholderPanel(title: string): void;
   /** หยุด render + การประมวลผล tracking (ลดโหลด GPU) แต่คงกล้องไว้ให้ MediaPipe ตอนสเตจคำถาม */
@@ -48,12 +50,15 @@ export async function createImageTracker(container: HTMLElement): Promise<ImageT
     a.onTargetLost = () => lostCb?.();
   });
 
-  // ระนาบปัจจุบัน (วิดีโอ/placeholder) วางซ้ำบนทุก anchor เพื่อให้ส่องด้านไหนก็เห็นภาพเดียวกัน
-  let disposePlane: (() => void) | null = null;
+  // เนื้อหาปัจจุบัน (ระนาบวิดีโอ/placeholder หรือโมเดล 3D) วางซ้ำบนทุก anchor เพื่อให้ส่องด้านไหนก็เห็นเหมือนกัน
+  let disposeContent: (() => void) | null = null;
+  // AnimationMixer ของโมเดลบทเรียน (โหมด 'model') — อัปเดตทุกเฟรมใน renderLoop
+  let mixers: THREE.AnimationMixer[] = [];
+  const clock = new THREE.Clock();
 
   // สร้างระนาบขนาดตามการ์ดแล้ววางลงทุก anchor (แชร์ texture/geometry/material ชุดเดียว)
   const mountPlane = (texture: THREE.Texture) => {
-    disposePlane?.();
+    disposeContent?.();
     const geometry = new THREE.PlaneGeometry(AR.videoPlaneScale, AR.videoPlaneScale * AR.cardAspectHeight);
     const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false, side: THREE.DoubleSide });
     const meshes = anchors.map((a) => {
@@ -61,15 +66,21 @@ export async function createImageTracker(container: HTMLElement): Promise<ImageT
       a.group.add(m);
       return m;
     });
-    disposePlane = () => {
+    disposeContent = () => {
       meshes.forEach((m) => m.parent?.remove(m));
       geometry.dispose();
       material.dispose();
       texture.dispose();
+      mixers = [];
     };
   };
 
-  const renderLoop = () => renderer.render(scene, camera);
+  const renderLoop = () => {
+    // เดินแอนิเมชันโมเดลบทเรียน (โหมดวิดีโอไม่มี mixer → ลูปว่าง ไม่เสียแรง)
+    const delta = clock.getDelta();
+    mixers.forEach((m) => m.update(delta));
+    renderer.render(scene, camera);
+  };
 
   return {
     getVideo: () => (mindar.video as HTMLVideoElement) ?? null,
@@ -97,7 +108,7 @@ export async function createImageTracker(container: HTMLElement): Promise<ImageT
       } catch {
         /* no-op */
       }
-      disposePlane?.();
+      disposeContent?.();
     },
 
     setLessonVideo(video: HTMLVideoElement) {
@@ -106,6 +117,61 @@ export async function createImageTracker(container: HTMLElement): Promise<ImageT
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (texture as any).encoding = (THREE as any).sRGBEncoding;
       mountPlane(texture);
+    },
+
+    async setLessonModel(url: string) {
+      // โหลด loader/decoder แบบ dynamic (chunk แยก — โหมดวิดีโอไม่ต้องโหลด)
+      // SkeletonUtils.clone จำเป็นเพราะโมเดลเป็น skinned mesh: Object3D.clone() ธรรมดาจะแชร์ skeleton
+      // ทำให้ตัวที่ 2 ขยับตามตัวแรกผิด ๆ (เรามี anchor หน้า/หลัง = ต้องมีคนละโครง)
+      const [{ GLTFLoader }, { MeshoptDecoder }, SkeletonUtils] = await Promise.all([
+        import('three/examples/jsm/loaders/GLTFLoader.js'),
+        import('three/examples/jsm/libs/meshopt_decoder.module.js'),
+        import('three/examples/jsm/utils/SkeletonUtils.js'),
+      ]);
+      const loader = new GLTFLoader();
+      loader.setMeshoptDecoder(MeshoptDecoder); // ไฟล์ .glb บีบด้วย EXT_meshopt_compression
+      const gltf = await loader.loadAsync(url);
+
+      disposeContent?.();
+      mixers = [];
+
+      // scene ของ MindAR ไม่มีไฟมาให้ (ของเดิมใช้ MeshBasicMaterial จึงไม่ต้องใช้)
+      // โมเดล glTF เป็น MeshStandardMaterial → ไม่มีไฟจะดำสนิท
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x4a4a3a, 2.2);
+      const dir = new THREE.DirectionalLight(0xffffff, 1.6);
+      dir.position.set(0.6, 1.2, 1);
+      scene.add(hemi, dir);
+
+      // ย่อจากความสูงจริงที่วัดมาก่อน (ห้ามใช้ Box3 กับ skinned mesh — ดูคอมเมนต์ modelNativeHeight)
+      // origin ของโมเดล Mixamo อยู่ที่เท้าและกึ่งกลางตัวอยู่แล้ว → วางที่ (0,0,0) ได้เลย ไม่ต้องชดเชย center
+      const scale = AR.modelHeightOnCard / AR.modelNativeHeight;
+
+      const holders = anchors.map((a) => {
+        const model = SkeletonUtils.clone(gltf.scene);
+        model.scale.setScalar(scale);
+        model.rotation.y = AR.modelSpinY;
+
+        // anchor ของ MindAR วางระนาบการ์ดเป็น XY (z ชี้ออกจากการ์ด) — โมเดล Y-up จึงต้องหมุน X +90°
+        // เพื่อให้ "ขึ้นข้างบน" ของโมเดลกลายเป็น "ออกจากการ์ด" = ยืนตั้งขึ้นมาแทนที่จะนอนคว่ำ
+        const holder = new THREE.Group();
+        holder.rotation.x = Math.PI / 2;
+        holder.add(model);
+        a.group.add(holder);
+
+        const mixer = new THREE.AnimationMixer(model);
+        gltf.animations.forEach((clip) => mixer.clipAction(clip).play()); // วนยาวจนหมดเวลาบทเรียน
+        mixers.push(mixer);
+        return holder;
+      });
+
+      disposeContent = () => {
+        holders.forEach((h) => h.parent?.remove(h));
+        scene.remove(hemi, dir);
+        hemi.dispose();
+        dir.dispose();
+        mixers.forEach((m) => m.stopAllAction());
+        mixers = [];
+      };
     },
 
     setPlaceholderPanel(title: string) {
