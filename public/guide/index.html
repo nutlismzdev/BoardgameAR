@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>คู่มือเล่นบอร์ดเกม 7 มหาราช</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  :root {
+    --paper: #FBF7EF; --paper-2: #F3EADB; --ink: #2A1E16; --ink-soft: #6A5A4C; --line: #E2D4BF;
+    --red: #8B0000; --red-deep: #6E0000; --gold: #B8860B; --gold-bright: #C9A227;
+    --t-gold: #C9A227; --t-blue: #1565C0; --t-teal: #00897B; --t-pink: #E91E63;
+    --t-green: #2E9E44; --t-red: #8E2020; --t-brown: #6D4C41;
+    --shadow: 0 8px 24px -14px rgba(60,30,10,.30);
+    --font-body: "Sarabun", "Noto Sans Thai", "Leelawadee UI", "Tahoma", system-ui, sans-serif;
+    --font-display: "Chakra Petch", "Sarabun", "Noto Sans Thai", "Tahoma", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper); color: var(--ink); font-family: var(--font-body); font-weight: 400;
+    font-size: 16px; line-height: 1.7; -webkit-font-smoothing: antialiased;
+  }
+  .sheet { max-width: 210mm; margin: 0 auto; padding: 20mm 18mm 16mm; }
+  p { margin: 0 0 .6em; }
+  strong { color: var(--red); font-weight: 600; }
+  b { font-weight: 600; }
+
+  /* ---------- ปก ---------- */
+  .hero {
+    position: relative; overflow: hidden; border: 2px solid var(--gold); border-radius: 18px;
+    background: radial-gradient(120% 90% at 50% -10%, rgba(201,162,39,.18), transparent 62%),
+      linear-gradient(180deg, var(--red) 0%, var(--red-deep) 100%);
+    color: #FCEFC9; padding: 28px 26px 24px; text-align: center; box-shadow: var(--shadow);
+    print-color-adjust: exact; -webkit-print-color-adjust: exact;
+  }
+  .hero .crown { font-size: 40px; line-height: 1; }
+  .hero .eyebrow { font-family: var(--font-display); font-size: 13px; color: #E9C766; font-weight: 600; letter-spacing: .02em; margin: 8px 0 4px; }
+  .hero h1 { font-family: var(--font-display); font-size: 46px; line-height: 1.18; margin: 0; font-weight: 700; text-wrap: balance; }
+  .hero .sub { font-size: 16px; color: #F6E3B0; max-width: 48ch; margin: 8px auto 0; }
+  .hero .meta { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+  .hero .chip { background: rgba(252,239,201,.14); border: 1px solid rgba(252,239,201,.45);
+    color: #FCEFC9; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+
+  /* ---------- รูปภาพ ---------- */
+  figure { margin: 16px 0 0; break-inside: avoid; }
+  .shot { position: relative; border: 1px solid var(--line); border-radius: 14px;
+    overflow: hidden; background: #100a05; box-shadow: var(--shadow); min-height: 90px; }
+  .shot img { display: block; width: 100%; height: auto; max-height: 440px; object-fit: contain; margin: 0 auto; }
+  .shot.tall img { max-height: 560px; }
+  .ph { position: absolute; inset: 0; display: none; flex-direction: column; gap: 6px;
+    align-items: center; justify-content: center; text-align: center; color: var(--ink-soft);
+    background: repeating-linear-gradient(45deg, transparent, transparent 12px, rgba(138,0,0,.03) 12px, rgba(138,0,0,.03) 24px), var(--paper-2);
+    border: 2px dashed var(--line); border-radius: 14px; padding: 12px; }
+  .ph .big { font-size: 30px; }
+  .ph code { background: rgba(138,0,0,.07); color: var(--red); padding: 2px 8px; border-radius: 6px; font-size: 13px; }
+  figcaption { text-align: center; color: var(--ink-soft); font-size: 13.5px; margin-top: 8px; }
+  .two-shots { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+  .two-shots figure { margin: 0; }
+  .three-shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: start; }
+  .three-shots figure { margin: 0; }
+  .three-shots figcaption { font-weight: 700; color: var(--ink); }
+  .three-shots figcaption b { color: var(--red); }
+
+  /* ---------- หัวข้อ ---------- */
+  section { margin-top: 30px; }
+  .sec-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; break-after: avoid; }
+  .sec-num { flex: none; width: 34px; height: 34px; border-radius: 9px; background: var(--red);
+    color: #FCEFC9; font-weight: 800; font-size: 17px; display: grid; place-items: center;
+    print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .sec-head h2 { font-family: var(--font-display); font-size: 25px; margin: 0; font-weight: 700; color: var(--ink); line-height: 1.28; }
+  .sec-head .h2-sub { font-family: var(--font-display); color: var(--ink-soft); font-size: 14px; font-weight: 600; }
+  .muted { color: var(--ink-soft); }
+
+  .card { background: var(--paper-2); border: 1px solid var(--line); border-radius: 14px;
+    padding: 15px 17px; box-shadow: var(--shadow); break-inside: avoid; }
+  .grid { display: grid; gap: 12px; }
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+
+  .coin-types { display: grid; gap: 10px; }
+  .ct { display: grid; grid-template-columns: 42px 1fr; gap: 12px; align-items: start;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 11px; padding: 11px 13px; break-inside: avoid; }
+  .ct-ic { font-size: 26px; text-align: center; line-height: 1.5; }
+  .ct-title { display: block; color: var(--gold); font-size: 16px; font-weight: 600; }
+  .ct-desc { color: var(--ink); font-size: 14.5px; margin-top: 1px; }
+
+  ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: s; }
+  ol.steps li { display: grid; grid-template-columns: 30px 1fr; gap: 13px; align-items: start;
+    background: var(--paper-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; break-inside: avoid; }
+  ol.steps li::before { counter-increment: s; content: counter(s); width: 30px; height: 30px; border-radius: 8px;
+    background: var(--gold-bright); color: #3a2a05; font-weight: 800; display: grid; place-items: center; font-size: 15px;
+    print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  ol.steps b { color: var(--red); }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tile { display: grid; grid-template-columns: 46px 1fr; gap: 12px; align-items: center;
+    background: var(--paper-2); border: 1px solid var(--line); border-left: 6px solid var(--tc, var(--line));
+    border-radius: 12px; padding: 11px 13px; break-inside: avoid; }
+  .tile .ic { width: 46px; height: 46px; border-radius: 11px; display: grid; place-items: center; font-size: 24px;
+    background: color-mix(in srgb, var(--tc) 15%, var(--paper)); border: 1px solid color-mix(in srgb, var(--tc) 40%, transparent); }
+  .tile .nm { font-weight: 800; color: var(--ink); font-size: 15.5px; line-height: 1.35; }
+  .tile .nm span { display: block; font-weight: 600; font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+  .tile.gold { --tc: var(--t-gold); } .tile.blue { --tc: var(--t-blue); }
+  .tile.teal { --tc: var(--t-teal); } .tile.pink { --tc: var(--t-pink); }
+  .tile.green{ --tc: var(--t-green);} .tile.red  { --tc: var(--t-red); }
+  .tile.brown{ --tc: var(--t-brown);} .tile.blank{ --tc: #9C8B76; }
+
+  .callout { border-left: 6px solid var(--gold-bright); background: color-mix(in srgb, var(--gold-bright) 10%, var(--paper));
+    border-radius: 0 12px 12px 0; padding: 12px 16px; break-inside: avoid; }
+  .callout.win { border-left-color: var(--red); background: color-mix(in srgb, var(--red) 8%, var(--paper)); }
+  .callout.info { border-left-color: var(--t-blue); background: color-mix(in srgb, var(--t-blue) 8%, var(--paper)); }
+  .callout b { color: var(--red); }
+  .callout.info b { color: var(--t-blue); }
+
+  .rows { display: grid; gap: 8px; }
+  .row { display: grid; grid-template-columns: 42px 1fr auto; gap: 12px; align-items: center;
+    padding: 10px 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--paper-2); break-inside: avoid; }
+  .row .em { font-size: 24px; text-align: center; }
+  .row .price { font-weight: 800; color: var(--red); background: color-mix(in srgb, var(--gold-bright) 18%, var(--paper));
+    padding: 3px 11px; border-radius: 999px; font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .row .desc b { color: var(--ink); }
+
+  .pawns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+  .pawns img { height: 70px; width: auto; }
+
+  .kings { display: grid; gap: 10px; }
+  .king { display: grid; grid-template-columns: 52px 1fr; gap: 14px; align-items: start;
+    background: var(--paper-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 15px; break-inside: avoid; }
+  .king .coin-wrap { position: relative; width: 52px; }
+  .king .coin-wrap img { width: 52px; height: 52px; object-fit: contain; }
+  .king .coin-wrap .no { position: absolute; top: -6px; left: -6px; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--red); color: #FCEFC9; font-size: 12px; font-weight: 800; display: grid; place-items: center;
+    font-variant-numeric: tabular-nums; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .king .nm { font-weight: 800; font-size: 16px; color: var(--ink); line-height: 1.35; }
+  .king .era { font-size: 12px; font-weight: 700; color: var(--red); background: color-mix(in srgb, var(--red) 9%, var(--paper));
+    padding: 1px 9px; border-radius: 999px; display: inline-block; margin-left: 6px; }
+  .king .fact { color: var(--ink-soft); font-size: 14px; margin-top: 3px; }
+
+  .tips { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; }
+  .tips li { position: relative; padding-left: 30px; font-size: 15.5px; }
+  .tips li::before { content: "★"; position: absolute; left: 4px; top: 1px; color: var(--gold-bright); font-size: 17px; }
+
+  .foot { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--ink-soft);
+    font-size: 12.5px; text-align: center; break-inside: avoid; }
+  .print-hint { max-width: 210mm; margin: 10px auto 0; padding: 0 18mm; color: var(--ink-soft); font-size: 13px; }
+  .print-hint b { color: var(--red); }
+
+  @media (max-width: 640px) {
+    .grid-2, .tiles, .two-shots, .three-shots { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 34px; }
+  }
+
+  @page { size: A4; margin: 12mm; }
+  @media print {
+    body { background: #fff; font-size: 11.5pt; }
+    .sheet { max-width: none; margin: 0; padding: 0; }
+    .print-hint { display: none; }
+    .card, .tile, .row, .king, ol.steps li, .shot, .callout { box-shadow: none; }
+    .shot img { max-height: 300px; }
+    .shot.tall img { max-height: 360px; }
+    .break-before { break-before: page; }
+    * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+
+
+<div class="sheet">
+
+
+  <div class="hero">
+    <div class="crown">👑</div>
+    <div class="eyebrow">บอร์ดเกมประวัติศาสตร์ไทย · อุทยานราชภักดิ์</div>
+    <h1>7 มหาราช</h1>
+    <p class="sub">เดินหมาก ตอบคำถาม สะสมเหรียญกษัตริย์ให้ครบทั้ง 7 พระองค์ แล้วคว้าชัยชนะ!</p>
+    <div class="meta">
+      <span class="chip">👥 ผู้เล่น 1–4 คน</span>
+      <span class="chip">⏱️ ผลัดกันเล่น</span>
+      <span class="chip">📱 เล่นบนแท็บเล็ต (แนวนอน)</span>
+      
+    </div>
+  </div>
+
+  <figure>
+    <div class="shot tall"><img src="guide-images/board-overview.png" alt="หน้าจอเกมบนแท็บเล็ต"><div class="ph"><span class="big">📷</span><code>docs/guide-images/board-overview.png</code></div></div>
+    <figcaption>ภาพหน้าจอของบอร์ดเกมส์ 7 มหาราช</figcaption>
+  </figure>
+
+  <!-- 1. เป้าหมาย -->
+  <section>
+    <div class="sec-head"><div class="sec-num">1</div><h2>เป้าหมายของเกม</h2></div>
+    <div class="callout win"><p style="margin:0"><b>ใครเก็บ “เหรียญกษัตริย์” ครบ 7 พระองค์ก่อน คนนั้นชนะ! 🏆</b></p></div>
+    <p style="margin-top:12px">เหรียญกษัตริย์มี 7 เหรียญ (พระองค์ละ 1 เหรียญ) จะได้มา<strong>เฉพาะจากช่องทอง&nbsp;👑</strong> เท่านั้น และต้อง<strong>ตอบคำถาม AR ให้ถูก</strong>ด้วย</p>
+    <div class="card">
+      <p style="margin:0 0 10px"><strong>เหรียญมี 2 แบบ อย่าสับสน!</strong></p>
+      <div class="coin-types">
+        <div class="ct"><div class="ct-ic">🪙</div><div><b class="ct-title">เหรียญกษัตริย์</b><div class="ct-desc">ใช้<strong>วัดการชนะ</strong> — เก็บครบ 7 พระองค์ = จบเกม</div></div></div>
+        <div class="ct"><div class="ct-ic">💰</div><div><b class="ct-title">เหรียญราชภักดิ์</b><div class="ct-desc">เงินธรรมดา เอาไว้<strong>ซื้อไอเทม</strong>ในร้านค้า</div></div></div>
+      </div>
+    </div>
+    <figure>
+      <div class="shot"><img src="guide-images/coin-win.png" alt="ได้เหรียญกษัตริย์"><div class="ph"><span class="big">📷</span><code>docs/guide-images/coin-win.png</code></div></div>
+      <figcaption>ตอบ AR ช่องทองถูก = ได้เหรียญกษัตริย์ 1 พระองค์ (ในภาพเก็บได้ 2/7 แล้ว)</figcaption>
+    </figure>
+  </section>
+
+  <!-- 2. เตรียมเล่น -->
+  <section>
+    <div class="sec-head"><div class="sec-num">2</div><h2>เตรียมตัวก่อนเริ่ม</h2></div>
+    <ol class="steps">
+      <li><div>เปิดเกมบนแท็บเล็ต แล้ว<b>หมุนจอเป็นแนวนอน</b> (เกมเล่นได้เฉพาะแนวนอน)</div></li>
+      <li><div>ที่หน้าแรก เลือก<b>จำนวนผู้เล่น 1–4 คน</b></div></li>
+      <li><div>แต่ละคนเลือก<b>หมากกษัตริย์</b>ของตัวเอง (ตัวหมากบนกระดาน)</div></li>
+      <li><div>ทุกคนเริ่มด้วย <b>❤️❤️❤️ หัวใจ 3 ดวง</b> และเหรียญ 0 · กดเริ่มเล่นได้เลย!</div></li>
+    </ol>
+    <figure>
+      <div class="shot"><img src="guide-images/setup-choose.png" alt="หน้าเลือกกษัตริย์และจำนวนผู้เล่น"><div class="ph"><span class="big">📷</span><code>docs/guide-images/setup-choose.png</code></div></div>
+      <figcaption>หน้าแรก — เลือกจำนวนผู้เล่น (ขวา) และแตะเลือกหมากกษัตริย์ประจำตัว</figcaption>
+    </figure>
+    <div class="card" style="margin-top:12px">
+      <p style="margin:0" class="muted">หมากกษัตริย์ 7 แบบให้เลือก:</p>
+      <div class="pawns">
+        <img src="/assets/chess/king_1.png" alt="หมาก 1">
+        <img src="/assets/chess/king_2.png" alt="หมาก 2">
+        <img src="/assets/chess/king_3.png" alt="หมาก 3">
+        <img src="/assets/chess/king_4.png" alt="หมาก 4">
+        <img src="/assets/chess/king_5.png" alt="หมาก 5">
+        <img src="/assets/chess/king_6.png" alt="หมาก 6">
+        <img src="/assets/chess/king_7.png" alt="หมาก 7">
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. วิธีเล่น -->
+  <section>
+    <div class="sec-head"><div class="sec-num">3</div><h2>เล่นอย่างไรในแต่ละตา</h2><span class="h2-sub">ผลัดกันทีละคน</span></div>
+    <ol class="steps">
+      <li><div><b>ทอยลูกเต๋า</b> 🎲 ได้เลข 1–6 </div></li>
+      <li><div><b>เดินหมาก</b>ไปข้างหน้าตามจำนวนแต้มที่ทอยได้</div></li>
+      <li><div>ถ้าเจอ<b>ทางแยก</b> 🔀 ให้เลือกเส้นทาง — <b>เส้นหลัก 🛣️</b> (ใกล้) หรือ <b>ทางลับวงใน 🗺️</b> (อ้อมไกลกว่าแต่รางวัลเยอะ ไม่มีช่องทำโทษ)</div></li>
+      <li><div>เมื่อหยุดบนช่อง ให้<b>ทำตามชนิดของช่อง</b>นั้น (ดูตารางช่องด้านล่าง)</div></li>
+      <li><div>จบตาแล้ว<b>ส่งให้คนถัดไป</b> (ใครโดนสั่ง “พักฟื้น” จะถูกข้ามตานั้น)</div></li>
+    </ol>
+    <figure>
+      <div class="shot"><img src="guide-images/fork-choose.png" alt="หน้าจอเลือกเส้นทางที่ทางแยก"><div class="ph"><span class="big">📷</span><code>docs/guide-images/fork-choose.png</code></div></div>
+      <figcaption>เมื่อถึงทางแยก — เลือก “เส้นหลัก” (ปลอดภัย ถึงไว) หรือ “ทางลับวงใน” (เสี่ยงลุ้น เจอช่องพิเศษ)</figcaption>
+    </figure>
+  </section>
+
+  <!-- 4. ช่อง -->
+  <section>
+    <div class="sec-head"><div class="sec-num">4</div><h2>ช่องบนกระดาน</h2><span class="h2-sub">ดูสี + ไอคอน แล้วรู้ทันที</span></div>
+    <div class="tiles">
+      <div class="tile gold"><div class="ic">👑</div><div class="nm">ช่องทอง<span>บทเรียน AR ลากคำตอบ · ถูก = ได้เหรียญกษัตริย์ + 🪙120</span></div></div>
+      <div class="tile blue"><div class="ic">❓</div><div class="nm">ช่องคำถาม<span>ควิซ ก/ข/ค/ง · ถูก = ได้เหรียญ · ผิด = เสียหัวใจ</span></div></div>
+      <div class="tile teal"><div class="ic">📚</div><div class="nm">ช่องกลุ่มสาระ<span>คำถาม 8 กลุ่มสาระการเรียนรู้ · กติกาเหมือนช่องฟ้า</span></div></div>
+      <div class="tile pink"><div class="ic">💡</div><div class="nm">ช่องความรู้<span>อ่านเกร็ด แล้วเก็บการ์ดสะสม · ใบใหม่ได้ 🪙30</span></div></div>
+      <div class="tile green"><div class="ic">💚</div><div class="nm">ช่องโบนัส<span>ได้ 🪙80 + ไอเทมสุ่ม 1 ชิ้น</span></div></div>
+      <div class="tile red"><div class="ic">⛓️</div><div class="nm">ช่องทำโทษ<span>หยุดพัก 1 ตา หรือถอยหลัง 2–3 ช่อง</span></div></div>
+      <div class="tile brown"><div class="ic">🛒</div><div class="nm">ช่องร้านค้า<span>ซื้อไอเทมด้วยเหรียญ (ต้องหยุดพอดีถึงเข้าได้)</span></div></div>
+      <div class="tile blank"><div class="ic">•</div><div class="nm">ช่องเดินเปล่า<span>ไม่มีอะไรพิเศษ เดินผ่านได้เลย</span></div></div>
+    </div>
+    <div class="two-shots" style="margin-top:16px">
+      <figure>
+        <div class="shot"><img src="guide-images/card-pick.png" alt="จั่วการ์ด"><div class="ph"><span class="big">📷</span><code>card-pick.png</code></div></div>
+        <figcaption>ช่องคำถาม/สาระ/ความรู้ — จั่วเลือกการ์ด 1 ใบก่อน</figcaption>
+      </figure>
+      <figure>
+        <div class="shot"><img src="guide-images/knowledge-card.png" alt="การ์ดความรู้"><div class="ph"><span class="big">📷</span><code>knowledge-card.png</code></div></div>
+        <figcaption>ช่องความรู้ 💡 — อ่านเกร็ด แล้วกดเก็บรับเหรียญ</figcaption>
+      </figure>
+    </div>
+    <div class="callout info" style="margin-top:14px">
+      <p style="margin:0 0 4px"><b>📱 ตอบคำถามบนมือถือ (QR)</b></p>
+      <p style="margin:0">ช่องคำถาม/สาระจะโชว์ <b>QR โค้ด</b>บนแท็บเล็ตแทนคำถาม — ผู้เล่นสแกนด้วยมือถือตัวเอง แล้วตอบบนเครื่องส่วนตัว (เพื่อนคนอื่นจะไม่เห็นคำตอบ)</p>
+    </div>
+    <p class="muted" style="margin-top:14px"><strong>โหมด QR ทำงาน 3 ขั้นตอน:</strong></p>
+    <div class="three-shots">
+      <figure>
+        <div class="shot"><img src="guide-images/qr-answer.png" alt="แท็บเล็ตโชว์ QR"><div class="ph"><span class="big">📷</span><code>qr-answer.png</code></div></div>
+        <figcaption><b>1.</b> แท็บเล็ตโชว์ QR โค้ดให้สแกน</figcaption>
+      </figure>
+      <figure>
+        <div class="shot"><img src="guide-images/qr-mobile-question.jpg" alt="ตอบคำถามบนมือถือ"><div class="ph"><span class="big">📷</span><code>qr-mobile-question.jpg</code></div></div>
+        <figcaption><b>2.</b> สแกนแล้วตอบบนมือถือตัวเอง</figcaption>
+      </figure>
+      <figure>
+        <div class="shot"><img src="guide-images/qr-mobile-result.jpg" alt="ผลลัพธ์บนมือถือ"><div class="ph"><span class="big">📷</span><code>qr-mobile-result.jpg</code></div></div>
+        <figcaption><b>3.</b> เห็นผลทันที + สแกนใบต่อไป</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 5. หัวใจ -->
+  <section>
+    <div class="sec-head"><div class="sec-num">5</div><h2>ระบบหัวใจ</h2><span class="h2-sub">ตอบผิดแล้วเป็นอย่างไร</span></div>
+    <div class="grid grid-2">
+      <div class="card"><p style="margin:0 0 6px"><b style="font-size:22px">❤️ ❤️ ❤️</b></p><p style="margin:0">เริ่มเกมมี <strong>หัวใจ 3 ดวง</strong> · ตอบคำถามช่องฟ้า/สาระผิด หรือทำ AR ช่องทองไม่สำเร็จ → <strong>เสีย 1 ดวง</strong></p></div>
+      <div class="card"><p style="margin:0 0 6px"><b style="font-size:22px">💔 → 😴 → ❤️</b></p><p style="margin:0">หัวใจหมด (0 ดวง) → ต้อง<strong>พักฟื้น ข้าม 1 ตา</strong> · พอกลับมาจะมี <strong>หัวใจ 1 ดวง</strong> ใหม่</p></div>
+    </div>
+    <div class="callout" style="margin-top:12px"><p style="margin:0"><b>อยากได้หัวใจคืนเร็ว?</b> ซื้อ <b>💖 ยารักษา</b> ในร้านค้า หรือรับจากช่องโบนัส แล้วใช้เพิ่มหัวใจ 1 ดวงได้ทันที</p></div>
+    <figure>
+      <div class="shot"><img src="guide-images/penalty.png" alt="ช่องทำโทษ โดนสั่งพัก"><div class="ph"><span class="big">📷</span><code>docs/guide-images/penalty.png</code></div></div>
+      <figcaption>ตัวอย่างช่องทำโทษ — “โดนสั่งพัก!” ต้องหยุด 1 ตา</figcaption>
+    </figure>
+  </section>
+
+  <!-- 6. ไอเทม -->
+  <section>
+    <div class="sec-head"><div class="sec-num">6</div><h2>ไอเทม &amp; ร้านค้า</h2><span class="h2-sub">ใช้เหรียญราชภักดิ์ซื้อ</span></div>
+    <p class="muted" style="margin-top:-2px">ได้ไอเทมจาก<strong>ช่องโบนัส</strong> หรือ<strong>ซื้อในร้านค้า</strong> (ช่อง 🛒 เท่านั้น) · เก็บไว้ใช้ตอนตอบคำถาม</p>
+    <div class="rows">
+      <div class="row"><div class="em">✂️</div><div class="desc"><b>50 : 50</b> — ตัดตัวเลือกที่ผิดออก 2 ข้อ ให้เดาง่ายขึ้น</div><div class="price">🪙 80</div></div>
+      <div class="row"><div class="em">⏭️</div><div class="desc"><b>ข้ามคำถาม</b> — ผ่านคำถามข้อนี้ไปโดยไม่เสียหัวใจ</div><div class="price">🪙 120</div></div>
+      <div class="row"><div class="em">✨</div><div class="desc"><b>×2 เหรียญ</b> — คำถามข้อถัดไปถ้าตอบถูก ได้เหรียญสองเท่า</div><div class="price">🪙 150</div></div>
+      <div class="row"><div class="em">💖</div><div class="desc"><b>ยารักษา</b> — เพิ่มหัวใจให้ตัวเอง 1 ดวง</div><div class="price">🪙 100</div></div>
+      <div class="row"><div class="em">💡</div><div class="desc"><b>คำใบ้ AR</b> — ในช่องทอง จ่ายเพื่อตัดคำตอบผิด 2 ข้อ</div><div class="price">🪙 60</div></div>
+    </div>
+    <div class="two-shots" style="margin-top:16px">
+      <figure>
+        <div class="shot"><img src="guide-images/shop.png" alt="ร้านค้าไอเทม"><div class="ph"><span class="big">📷</span><code>shop.png</code></div></div>
+        <figcaption>ร้านค้าไอเทม — เปิดเมื่อหยุดที่ช่อง 🛒</figcaption>
+      </figure>
+      <figure>
+        <div class="shot"><img src="guide-images/bonus-card.png" alt="การ์ดโบนัส"><div class="ph"><span class="big">📷</span><code>bonus-card.png</code></div></div>
+        <figcaption>ช่องโบนัส 💚 — ได้เหรียญ + ไอเทมฟรี</figcaption>
+      </figure>
+    </div>
+    <div class="callout" style="margin-top:14px"><p style="margin:0"><b>โบนัสตอบถูกติดกัน!</b> ยิ่งตอบถูกหลายข้อรวดเดียว ยิ่งได้เหรียญเพิ่มขึ้นเรื่อย ๆ</p></div>
+  </section>
+
+  <!-- 7. 7 มหาราช -->
+  <section>
+    <div class="sec-head"><div class="sec-num">7</div><h2>เหรียญ 7 มหาราช</h2><span class="h2-sub">ลำดับที่ต้องเก็บ (ตามยุคสมัย)</span></div>
+    <div class="kings">
+      <div class="king"><div class="coin-wrap"><img src="/assets/coins/king_ramkhamhaeng.png" alt=""><span class="no">1</span></div><div><span class="nm">พ่อขุนรามคำแหงมหาราช</span><span class="era">สุโขทัย</span><div class="fact">ทรงประดิษฐ์อักษรไทย (ลายสือไท) และส่งเสริมการค้าเสรี</div></div></div>
+      <div class="king"><div class="coin-wrap"><img src="/assets/coins/king_naresuan.png" alt=""><span class="no">2</span></div><div><span class="nm">สมเด็จพระนเรศวรมหาราช</span><span class="era">อยุธยา</span><div class="fact">ทรงประกาศอิสรภาพจากพม่า และชนะศึกยุทธหัตถี</div></div></div>
+      <div class="king"><div class="coin-wrap"><img src="/assets/coins/king_narai.png" alt=""><span class="no">3</span></div><div><span class="nm">สมเด็จพระนารายณ์มหาราช</span><span class="era">อยุธยา</span><div class="fact">ยุคทองของการทูตและวรรณคดี เจริญสัมพันธไมตรีกับฝรั่งเศส</div></div></div>
+      <div class="king"><div class="coin-wrap"><img src="/assets/coins/king_taksin.png" alt=""><span class="no">4</span></div><div><span class="nm">สมเด็จพระเจ้าตากสินมหาราช</span><span class="era">ธนบุรี</span><div class="fact">ทรงกอบกู้เอกราชหลังเสียกรุงครั้งที่ 2 และตั้งกรุงธนบุรี</div></div></div>
+      <div class="king"><div class="coin-wrap"><img src="/assets/coins/king_rama1.png" alt=""><span class="no">5</span></div><div><span class="nm">พระพุทธยอดฟ้าจุฬาโลกมหาราช (ร.๑)</span><span class="era">รัตนโกสินทร์</span><div class="fact">ปฐมกษัตริย์ราชวงศ์จักรี ทรงสถาปนากรุงเทพมหานคร</div></div></div>
+      <div class="king"><div class="coin-wrap"><img src="/assets/coins/king_rama4.png" alt=""><span class="no">6</span></div><div><span class="nm">พระจอมเกล้าเจ้าอยู่หัว (ร.๔)</span><span class="era">รัตนโกสินทร์</span><div class="fact">พระบิดาแห่งวิทยาศาสตร์ไทย ผู้ทรงคำนวณสุริยุปราคาที่หว้ากอ</div></div></div>
+      <div class="king"><div class="coin-wrap"><img src="/assets/coins/king_rama5.png" alt=""><span class="no">7</span></div><div><span class="nm">พระจุลจอมเกล้าเจ้าอยู่หัว (ร.๕)</span><span class="era">รัตนโกสินทร์</span><div class="fact">พระปิยมหาราช ผู้ทรงเลิกทาสและปฏิรูปประเทศให้ทันสมัย</div></div></div>
+    </div>
+    <div class="two-shots" style="margin-top:16px">
+      <figure>
+        <div class="shot"><img src="guide-images/ar-gold.png" alt="ช่องทอง AR ชิงเหรียญกษัตริย์"><div class="ph"><span class="big">📷</span><code>ar-gold.png</code></div></div>
+        <figcaption>ช่องทอง 👑 บนแท็บเล็ต — สแกน QR ด้วยมือถือเพื่อเริ่ม</figcaption>
+      </figure>
+      <figure>
+        <div class="shot"><img src="guide-images/museum.png" alt="พิพิธภัณฑ์เหรียญ 7 มหาราช"><div class="ph"><span class="big">📷</span><code>museum.png</code></div></div>
+        <figcaption>พิพิธภัณฑ์ — ดูว่าเก็บเหรียญครบกี่พระองค์แล้ว</figcaption>
+      </figure>
+    </div>
+
+    <p class="muted" style="margin-top:18px"><strong>เล่นช่องทองบนมือถือ 3 ขั้นตอน:</strong></p>
+    <div class="three-shots">
+      <figure>
+        <div class="shot"><img src="guide-images/ar-mobile-1-start.jpg" alt="เริ่มภารกิจการ์ดทอง"><div class="ph"><span class="big">📷</span><code>ar-mobile-1-start.jpg</code></div></div>
+        <figcaption><b>1.</b> เปิดกล้อง ส่องการ์ดทอง แล้วดูวิดีโอ</figcaption>
+      </figure>
+      <figure>
+        <div class="shot"><img src="guide-images/ar-mobile-2-answer.jpg" alt="ลากคำตอบใน AR"><div class="ph"><span class="big">📷</span><code>ar-mobile-2-answer.jpg</code></div></div>
+        <figcaption><b>2.</b> ยกมือหน้ากล้อง จีบนิ้วลากคำตอบไปวาง</figcaption>
+      </figure>
+      <figure>
+        <div class="shot"><img src="guide-images/ar-mobile-3-result.jpg" alt="ผลลัพธ์ AR"><div class="ph"><span class="big">📷</span><code>ar-mobile-3-result.jpg</code></div></div>
+        <figcaption><b>3.</b> ตอบถูก = ได้เหรียญ · ตอบผิด = เสียหัวใจ</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 8. เคล็ดลับ -->
+  <section>
+    <div class="sec-head"><div class="sec-num">8</div><h2>เคล็ดลับเก่ง ๆ</h2></div>
+    <ul class="tips">
+      <li>อยากชนะ ต้องเก็บเหรียญกษัตริย์ — พยายามไป<strong>ช่องทอง 👑</strong> ให้บ่อย ๆ</li>
+      <li>ตอบให้<strong>ถูกติดกันหลาย ๆ ข้อ</strong> จะได้เหรียญเยอะขึ้น</li>
+      <li>คำถามยากไป? ใช้ไอเทม <strong>✂️ 50:50</strong> หรือ <strong>💡 คำใบ้</strong> ช่วยได้</li>
+      <li>หัวใจเหลือน้อย ให้รีบเก็บ <strong>💖 ยารักษา</strong> ไว้ก่อน</li>
+      <li>อยากได้รางวัลเยอะ ลองเดิน<strong>ทางลับวงใน 🗺️</strong> ดู (ไกลหน่อยแต่คุ้ม)</li>
+      <li>ตั้งใจอ่าน<strong>การ์ดความรู้ 💡</strong> — ได้ทั้งเหรียญและความรู้ไปด้วย</li>
+    </ul>
+    <figure>
+      <div class="shot"><img src="guide-images/gameover.png" alt="หน้าจบเกม ผู้ชนะเก็บครบ 7 มหาราช"><div class="ph"><span class="big">📷</span><code>docs/guide-images/gameover.png</code></div></div>
+      <figcaption>จบการเดินทาง — ผู้เล่นที่เก็บเหรียญครบ 7/7 คือผู้ชนะ! 🏆</figcaption>
+    </figure>
+  </section>
+
+  
+
+</div>
+
+<script>
+  // ถ้าไฟล์รูปช่องไหนหาย → โชว์กรอบ placeholder แทน (กันภาพแตก)
+  document.querySelectorAll('.shot img').forEach(function (img) {
+    img.addEventListener('error', function () {
+      img.style.display = 'none';
+      var ph = img.parentElement.querySelector('.ph');
+      if (ph) ph.style.display = 'flex';
+    });
+  });
+</script>
+</body>
+</html>

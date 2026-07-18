@@ -66,6 +66,7 @@ export function Home() {
   const setupGame = useGame((s) => s.setupGame);
   const [showSettings, setShowSettings] = useState(false);
   const [showMuseum, setShowMuseum] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   const [playerCount, setPlayerCount] = useState(1);
   const [activePlayer, setActivePlayer] = useState(0);
@@ -648,7 +649,30 @@ export function Home() {
               {allPicked ? `▶ เริ่มเล่น (${TH[playerCount]} คน)` : 'เลือกกษัตริย์ให้ครบก่อน'}
             </button>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <button
+                onClick={() => {
+                  sfx.step();
+                  setShowGuide(true);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  padding: 11,
+                  borderRadius: 12,
+                  border: '1.5px solid #C79A3A',
+                  background: '#FFFDF6',
+                  color: '#7A5B1E',
+                  fontFamily: "'Sarabun',sans-serif",
+                  fontWeight: 600,
+                  fontSize: 13.5,
+                  cursor: 'pointer',
+                }}
+              >
+                📖 คู่มือ
+              </button>
               <button
                 onClick={() => {
                   sfx.step();
@@ -835,6 +859,81 @@ export function Home() {
 
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
       {showMuseum && <MuseumShowcase onClose={() => setShowMuseum(false)} />}
+
+      {/* คู่มือเล่นเกม — เอกสาร HTML สำเร็จรูปใน public/guide/ โหลดผ่าน iframe
+          (iframe มี scroll ของตัวเอง จึงไม่ชน viewport lock ที่ล็อก body เป็น position:fixed) */}
+      {showGuide && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 40,
+            background: 'rgba(30,15,8,.6)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            padding: 'clamp(10px, 2.5vh, 24px)',
+            animation: 'home-fadeUp .25s both',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 900,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              background: '#FBF7EF',
+              border: '2px solid #C79A3A',
+              borderRadius: 18,
+              overflow: 'hidden',
+              boxShadow: '0 24px 60px rgba(30,15,8,.45)',
+            }}
+          >
+            {/* แถบหัว + ปุ่มปิด */}
+            <div
+              style={{
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                padding: '11px 16px',
+                background: 'linear-gradient(180deg,#A81E1E,#7E0F0F)',
+                color: '#FBEECB',
+              }}
+            >
+              <span style={{ fontFamily: "'Trirong',serif", fontWeight: 700, fontSize: 17 }}>📖 คู่มือเล่นเกม</span>
+              <button
+                onClick={() => {
+                  sfx.step();
+                  setShowGuide(false);
+                }}
+                aria-label="ปิดคู่มือ"
+                style={{
+                  border: '1.5px solid rgba(251,238,203,.5)',
+                  background: 'rgba(251,238,203,.14)',
+                  color: '#FBEECB',
+                  borderRadius: 10,
+                  padding: '6px 14px',
+                  fontFamily: "'Sarabun',sans-serif",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: 'pointer',
+                }}
+              >
+                ✕ ปิด
+              </button>
+            </div>
+            <iframe
+              src="/guide/index.html"
+              title="คู่มือเล่นเกม 7 มหาราช"
+              style={{ flex: 1, width: '100%', border: 'none', background: '#FBF7EF' }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
