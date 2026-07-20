@@ -32,6 +32,17 @@ export interface FxSignal {
 }
 let fxCounter = 0;
 
+// ── รุ่นของเกม (generation guard) ──
+// runMovement เดินหมากแบบ async (await ทีละก้าว ~180ms) แต่ผู้เล่นกดออกจากเกมได้ตลอดเวลา
+// (ปุ่ม 🏠 และปุ่ม back เบราว์เซอร์ ไม่มี guard เรื่อง phase) → backToHome ตั้ง players = []
+// ทำให้ loop ที่ยังค้างอยู่อ่าน players[idx] ได้ undefined แล้วโยน TypeError
+// ที่แย่กว่านั้น: ถ้าเริ่มเกมใหม่ทันภายในจังหวะนั้น loop เก่าจะไปเดินหมาก "เกมใหม่" ต่อเอง
+// → ทุกครั้งที่เริ่ม/ออกจากเกม เพิ่มเลขรุ่น แล้วให้ทุก loop ตรวจหลัง await ว่ายังเป็นรุ่นตัวเองอยู่ไหม
+let gameGen = 0;
+function isStale(gen: number, get: any, idx: number): boolean {
+  return gen !== gameGen || !get().players[idx];
+}
+
 export const MAX_HEARTS = 3;
 
 // ── บันทึกเกม (resume อัตโนมัติภายในเวลาที่กำหนด) ──
@@ -75,6 +86,21 @@ export interface Settings {
   calibrate: boolean; // โหมดปรับตำแหน่งช่องบนภาพกระดาน (สำหรับผู้ดูแล)
   showTileIcons: boolean; // แสดงไอคอนบอกว่าช่องนั้นเป็นเกมอะไร
   qrAnswerMode: boolean; // ช่องคำถาม/สาระ → โชว์ QR ให้สแกนตอบบนมือถือส่วนตัว (แทนตอบบน tablet)
+  targetCoins: number; // เก็บเหรียญกษัตริย์กี่เหรียญถึงชนะ (ครูปรับตามเวลาที่มีในคาบ)
+}
+
+// จำนวนเหรียญที่ต้องเก็บเพื่อชนะ — ปรับได้ใน Teacher Mode
+// ที่มาของค่าเริ่มต้น 3: ช่องทองวงนอกมี 6 ช่องใน 46 ช่อง + ต้อง "ลงพอดี" เท่านั้น
+// → คิดจากลูกเต๋าเฉลี่ย 3.5 ก้าว ได้ลงช่องทาง ~0.13 ครั้ง/เทิร์น = 1 ครั้งต่อ ~7.7 เทิร์น
+// ถ้าตั้ง 7 เหรียญ ผู้ชนะต้องเล่น ~54 เทิร์น (4 คน ≈ 216 เทิร์นรวม ≈ 1.8 ชม.) = เกินคาบเรียน
+// 3 เหรียญ ≈ 23 เทิร์นของผู้ชนะ ≈ 45 นาที ซึ่งจบในคาบได้จริง
+export const TARGET_COINS_MIN = 1;
+export const TARGET_COINS_MAX = 7;
+export const DEFAULT_TARGET_COINS = 3;
+// กันค่าเพี้ยนจากเซฟเก่า/ค่าที่แก้มือ — ใช้ทุกที่ที่อ่านเป้าหมาย
+export function clampTargetCoins(n: number | undefined): number {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return DEFAULT_TARGET_COINS;
+  return Math.min(TARGET_COINS_MAX, Math.max(TARGET_COINS_MIN, Math.round(n)));
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -86,6 +112,7 @@ const DEFAULT_SETTINGS: Settings = {
   calibrate: false,
   showTileIcons: true,
   qrAnswerMode: true, // ตอบบนมือถือส่วนตัวเป็นค่าเริ่มต้น — คำถามไม่โผล่บนจอกลาง ผู้เล่นอื่นไม่เห็นเฉลย
+  targetCoins: DEFAULT_TARGET_COINS,
 };
 
 interface GameState {
@@ -155,6 +182,7 @@ export const useGame = create<GameState>()(
   exitPrompt: false,
 
   setupGame: (count, kingTokenIds = KING_IDS, names) => {
+    gameGen++; // เกมใหม่: loop เดินหมากของเกมก่อนหน้า (ถ้ายังค้าง) ต้องหยุดทันที
     const players: Player[] = Array.from({ length: count }, (_, i) => ({
       id: i,
       name: names?.[i]?.trim() || NAMES[i], // ชื่อที่ผู้เล่นกรอกเอง (ว่าง = ใช้ชื่อเริ่มต้น)
@@ -198,6 +226,7 @@ export const useGame = create<GameState>()(
     if (phase !== 'idle') return;
 
     const value = rollDie();
+    const gen = gameGen; // ผูกการเดินครั้งนี้กับรุ่นเกมปัจจุบัน
     set({ phase: 'rolling', lastRoll: value });
     startBackgroundMusic();
     sfx.roll();
@@ -209,8 +238,9 @@ export const useGame = create<GameState>()(
     set({ phase: 'moving' });
     sfx.reveal();
     await wait(350);
+    if (gen !== gameGen) return; // ออกจากเกม/เริ่มใหม่ระหว่างอนิเมชันทอย
     const idx = get().currentPlayerIndex;
-    await runMovement(set, get, idx, value);
+    await runMovement(set, get, idx, value, gen);
   },
 
   // ผู้เล่นเลือกเส้นทางที่ทางแยก → ก้าวเข้าเส้นที่เลือก แล้วเดินแต้มที่เหลือต่อ
@@ -219,9 +249,10 @@ export const useGame = create<GameState>()(
     if (!pendingFork || !pendingFork.options.includes(dest)) return;
     const idx = currentPlayerIndex;
     const remaining = pendingFork.remaining;
+    const gen = gameGen;
     set({ phase: 'moving', pendingFork: null });
-    await stepTo(set, idx, dest);
-    await runMovement(set, get, idx, remaining - 1);
+    if (!(await stepTo(set, get, idx, dest, gen))) return;
+    await runMovement(set, get, idx, remaining - 1, gen);
   },
 
   resolveReward: (coins) => {
@@ -394,6 +425,7 @@ export const useGame = create<GameState>()(
   },
 
   backToHome: () => {
+    gameGen++; // ออกจากเกม: ตัด loop เดินหมากที่ยัง await ค้างอยู่ ไม่ให้ไปอ่าน players ที่ถูกล้างแล้ว
     stopBackgroundMusic();
     set({ players: [], phase: 'setup', currentPlayerIndex: 0, round: 1, lastRoll: null, pendingEvent: null });
   },
@@ -460,8 +492,10 @@ export const useGame = create<GameState>()(
 // ── เดินหมากตามกราฟ (รองรับทางแยก) ──
 
 // ก้าวไป 1 ช่อง (พร้อมเสียง + โบนัสผ่าน START)
-async function stepTo(set: any, idx: number, dest: number) {
+// คืน false ถ้าเกมถูกออก/เริ่มใหม่ระหว่างรอ — ผู้เรียกต้องหยุดทันที
+async function stepTo(set: any, get: any, idx: number, dest: number, gen: number): Promise<boolean> {
   await wait(180);
+  if (isStale(gen, get, idx)) return false;
   sfx.step();
   const passReward = dest === 0 ? TILES[0].passReward ?? 0 : 0;
   set((s: GameState) => ({
@@ -469,12 +503,14 @@ async function stepTo(set: any, idx: number, dest: number) {
       i === idx ? { ...p, position: dest, coins: p.coins + passReward } : p
     ),
   }));
+  return true;
 }
 
 // เดิน `steps` ก้าวจากตำแหน่งปัจจุบัน — ถ้าเจอทางแยกจะหยุดรอผู้เล่นเลือก (phase 'forking')
-async function runMovement(set: any, get: any, idx: number, steps: number) {
+async function runMovement(set: any, get: any, idx: number, steps: number, gen: number) {
   let remaining = steps;
   while (remaining > 0) {
+    if (isStale(gen, get, idx)) return;
     const cur = get().players[idx].position as number;
     const nexts = TILES[cur].next ?? [(cur + 1) % LOOP];
     if (nexts.length > 1) {
@@ -482,14 +518,15 @@ async function runMovement(set: any, get: any, idx: number, steps: number) {
       set({ phase: 'forking', pendingFork: { from: cur, options: nexts, remaining } });
       return;
     }
-    await stepTo(set, idx, nexts[0]);
+    if (!(await stepTo(set, get, idx, nexts[0], gen))) return;
     remaining--;
   }
-  await resolveLanding(set, get, idx);
+  await resolveLanding(set, get, idx, gen);
 }
 
 // หยุดที่ช่องปลายทาง → เปิดการ์ด/ให้เหรียญ ตามชนิดช่อง
-async function resolveLanding(set: any, get: any, idx: number) {
+async function resolveLanding(set: any, get: any, idx: number, gen: number) {
+  if (isStale(gen, get, idx)) return;
   const player = get().players[idx];
   const tile = TILES[player.position] as Tile;
 
@@ -499,6 +536,7 @@ async function resolveLanding(set: any, get: any, idx: number) {
     if (!nextKing) {
       set({ phase: 'resolving' });
       await wait(300);
+      if (isStale(gen, get, idx)) return;
       finishTurn(set, get);
       return;
     }
@@ -513,6 +551,7 @@ async function resolveLanding(set: any, get: any, idx: number) {
   set({ phase: 'resolving', pendingEvent: event });
   if (!event) {
     await wait(500);
+    if (isStale(gen, get, idx)) return;
     finishTurn(set, get);
   }
 }
@@ -522,8 +561,9 @@ function finishTurn(set: any, get: any) {
   const { currentPlayerIndex, players, round } = get();
   set({ pendingEvent: null });
 
-  // เงื่อนไขจบเกมทันที: มีผู้เล่นเก็บเหรียญกษัตริย์ครบ 7 พระองค์
-  if (players.some((p: Player) => p.kingCoins.length >= KING_IDS.length)) {
+  // เงื่อนไขจบเกมทันที: มีผู้เล่นเก็บเหรียญกษัตริย์ครบตามเป้าที่ครูตั้งไว้
+  const target = clampTargetCoins(get().settings.targetCoins);
+  if (players.some((p: Player) => p.kingCoins.length >= target)) {
     sfx.win();
     set({ phase: 'gameover', lastRoll: null });
     return;
@@ -532,6 +572,7 @@ function finishTurn(set: any, get: any) {
   // หาผู้เล่นคนถัดไปที่ไม่ได้ "หยุดพัก" — คนที่ติดโทษพักจะถูกข้าม (ลด skipNext ลง 1)
   let nextIndex = currentPlayerIndex;
   let nextRound = round;
+  let found = false;
   const rested: number[] = [];
   for (let hop = 0; hop < players.length; hop++) {
     nextIndex = (nextIndex + 1) % players.length;
@@ -540,10 +581,18 @@ function finishTurn(set: any, get: any) {
       rested.push(nextIndex); // คนนี้หยุดพัก ข้ามไป
       continue;
     }
+    found = true;
     break; // เจอผู้เล่นที่พร้อมเล่น
   }
 
-  // เกมจบเฉพาะเมื่อมีผู้เล่นเก็บเหรียญกษัตริย์ครบ 7 พระองค์ (เช็กด้านบน) — ไม่มีลิมิตรอบแล้ว
+  // ทุกคนติดพักฟื้นพร้อมกัน (หัวใจหมดกันหมด/ลงช่องทำโทษพร้อมกัน) → ไม่มีใคร "พร้อมเล่น" เลย
+  // ถ้าปล่อยไว้ loop จะวนกลับมาจบที่ nextIndex === currentPlayerIndex = **คนเดิมได้เล่นซ้ำ**
+  // ทั้งที่ตัวเองก็เพิ่งติดพัก ส่วนคนถัดไปโดนข้ามฟรี (เห็นชัดมากตอนเล่น 2 คน)
+  // ที่ถูกคือ: ถือว่าทุกคนพักไปพร้อมกัน 1 รอบ (rested มีครบทุกคนแล้ว จึงถูกลด skipNext ให้อยู่)
+  // แล้วส่งเทิร์นต่อตามลำดับปกติ
+  if (!found) nextIndex = (currentPlayerIndex + 1) % players.length;
+
+  // เกมจบเฉพาะเมื่อมีผู้เล่นถึงเป้าเหรียญกษัตริย์ (เช็กด้านบน) — ไม่มีลิมิตรอบแล้ว
 
   set((s: GameState) => ({
     players: s.players.map((p, i) => {

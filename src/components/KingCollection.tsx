@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useGame } from '@/core/store';
+import { useGame, clampTargetCoins } from '@/core/store';
 import { KINGS } from '@/core/content';
 import { getKingCoinImage } from '@/core/kingAssets';
 import { color, radius } from '@/theme/tokens';
@@ -10,6 +10,7 @@ import { CollectionMuseumModal } from './CollectionMuseumModal';
 // แตะพระองค์ที่ได้เหรียญแล้ว → เปิดการ์ดรายละเอียด (Pokédex)
 export function KingCollection() {
   const player = useGame((s) => s.players[s.currentPlayerIndex]);
+  const target = useGame((s) => clampTargetCoins(s.settings.targetCoins));
   const coins = player?.kingCoins ?? [];
   const knowledgeCount = player?.knowledgeCards.length ?? 0;
   const [detail, setDetail] = useState<string | null>(null);
@@ -35,14 +36,14 @@ export function KingCollection() {
       <div style={{ textAlign: 'center', marginBottom: 5, flex: '0 0 auto' }}>
         <div style={{ fontSize: 17, fontWeight: 800, color: color.primary, lineHeight: 1.1 }}>🪙 เหรียญกษัตริย์</div>
         <div style={{ fontSize: 13, color: color.textMuted, fontWeight: 700, lineHeight: 1.15 }}>
-          เก็บแล้ว {coins.length}/7 · 📖 ความรู้ {knowledgeCount}/10
+          เก็บแล้ว {coins.length}/{target} · 📖 ความรู้ {knowledgeCount}/10
         </div>
         {/* แถบความคืบหน้าเหรียญกษัตริย์ (เงื่อนไขชนะ) */}
         <div style={{ height: 5, background: '#00000012', borderRadius: 99, marginTop: 5 }}>
           <div
             style={{
               height: '100%',
-              width: `${(coins.length / 7) * 100}%`,
+              width: `${Math.min(100, (coins.length / target) * 100)}%`,
               background: `linear-gradient(90deg, ${color.secondary}, #E0B84A)`,
               borderRadius: 99,
               transition: 'width .4s',

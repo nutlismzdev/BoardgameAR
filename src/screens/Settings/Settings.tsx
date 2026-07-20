@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useGame } from '@/core/store';
+import { useGame, clampTargetCoins } from '@/core/store';
 import type { Settings } from '@/core/store';
 import { AdminPanel } from '@/screens/Admin/AdminPanel';
 import { color, radius, elevation } from '@/theme/tokens';
@@ -69,6 +69,25 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             value={settings.difficulty}
             onChange={(v) => update({ difficulty: v as Settings['difficulty'] })}
           />
+        </Row>
+
+        {/* เป้าหมายเหรียญกษัตริย์ = ตัวคุมความยาวเกมที่ตรงที่สุด
+            ช่องทองต้อง "ลงพอดี" เท่านั้น → ได้เหรียญราว 1 ครั้งต่อ 7-8 เทิร์น
+            3 เหรียญ ≈ 45 นาที (จบในคาบ) · 7 เหรียญ ≈ 1.8 ชม. (เกินคาบ) */}
+        <Row label="🏆 เก็บเหรียญกษัตริย์กี่เหรียญถึงชนะ">
+          <Segmented
+            options={[
+              { label: '3 (≈45 นาที)', value: 3 },
+              { label: '4', value: 4 },
+              { label: '5', value: 5 },
+              { label: '7 (ครบทุกพระองค์)', value: 7 },
+            ]}
+            value={clampTargetCoins(settings.targetCoins)}
+            onChange={(v) => update({ targetCoins: v })}
+          />
+          <p style={{ fontSize: 15, color: color.textMuted, margin: '8px 0 0', lineHeight: 1.5 }}>
+            ยิ่งตั้งสูง เกมยิ่งยาว — เลือกให้พอดีกับเวลาที่เหลือในคาบ
+          </p>
         </Row>
 
         {/* toggles */}

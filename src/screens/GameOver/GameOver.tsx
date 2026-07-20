@@ -1,4 +1,4 @@
-import { useGame } from '@/core/store';
+import { useGame, clampTargetCoins } from '@/core/store';
 import { KINGS } from '@/core/content';
 import { KingCoinRow } from '@/components/KingCoinRow';
 import { getKingPawnImage } from '@/core/kingAssets';
@@ -81,11 +81,15 @@ export function GameOver() {
   const players = useGame((s) => s.players);
   const setupGame = useGame((s) => s.setupGame);
   const backToHome = useGame((s) => s.backToHome);
+  const target = useGame((s) => clampTargetCoins(s.settings.targetCoins));
 
   const badgeFor = (p: Player, rank: number) => {
+    // "ผู้พิชิต ๗ มหาราช" ต้องสงวนไว้ให้คนที่เก็บครบ 7 จริง ๆ เท่านั้น
+    // ส่วนคนที่ชนะตามเป้าที่ครูตั้ง (เช่น 3) ได้ป้ายผู้ชนะปกติ
     if (p.kingCoins.length >= 7) return 'ผู้พิชิต ๗ มหาราช';
+    if (p.kingCoins.length >= target) return 'ผู้ชนะเกม';
     if (rank === 0) return 'ยอดนักประวัติศาสตร์';
-    if (p.kingCoins.length >= 4) return 'นักสะสมเหรียญกษัตริย์';
+    if (p.kingCoins.length >= Math.max(2, Math.ceil(target * 0.6))) return 'นักสะสมเหรียญกษัตริย์';
     if (p.coins >= 300) return 'เศรษฐีเหรียญ';
     return 'นักเรียนรู้';
   };
@@ -211,7 +215,7 @@ export function GameOver() {
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: 26, marginTop: 14 }}>
           <Stat value={`🪙 ${toThai(champ.coins)}`} label="เหรียญราชภักดิ์" />
-          <Stat value={`👑 ${TH[champ.kingCoins.length]}/๗`} label="เหรียญกษัตริย์" />
+          <Stat value={`👑 ${TH[champ.kingCoins.length]}/${TH[target]}`} label="เหรียญกษัตริย์" />
         </div>
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
           <KingCoinRow collected={champ.kingCoins} size={30} gap={6} />
@@ -251,7 +255,9 @@ export function GameOver() {
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <div style={{ fontFamily: "'Trirong',serif", fontSize: 18, fontWeight: 700, color: '#B8860B' }}>🪙 {toThai(p.coins)}</div>
-                  <div style={{ fontSize: 13, color: '#7A5B33' }}>👑 {TH[p.kingCoins.length]}/๗</div>
+                  <div style={{ fontSize: 13, color: '#7A5B33' }}>
+                    👑 {TH[p.kingCoins.length]}/{TH[target]}
+                  </div>
                 </div>
               </div>
             );
@@ -283,8 +289,11 @@ function SoloSummary({
   onReplay: () => void;
   onHome: () => void;
 }) {
+  const target = useGame((s) => clampTargetCoins(s.settings.targetCoins));
   const kings = player.kingCoins.length;
-  const stars = kings >= 7 || player.coins >= 400 ? 3 : kings >= 4 || player.coins >= 200 ? 2 : 1;
+  // ดาวอิงเป้าที่ครูตั้ง ไม่ใช่ 7 ตายตัว — ไม่งั้นเล่นโหมด 3 เหรียญแล้วชนะก็ยังได้ดาวเดียว
+  const stars =
+    kings >= target || player.coins >= 400 ? 3 : kings >= Math.ceil(target / 2) || player.coins >= 200 ? 2 : 1;
   const pc = PC[player.id] ?? '#C0912E';
 
   return (
@@ -348,7 +357,7 @@ function SoloSummary({
 
         <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 16 }}>
           <Stat value={`🪙 ${toThai(player.coins)}`} label="เหรียญราชภักดิ์" />
-          <Stat value={`👑 ${TH[kings]}/๗`} label="เหรียญกษัตริย์" />
+          <Stat value={`👑 ${TH[kings]}/${TH[target]}`} label="เหรียญกษัตริย์" />
         </div>
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}>
           <KingCoinRow collected={player.kingCoins} size={30} gap={6} />

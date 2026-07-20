@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useGame } from '@/core/store';
+import { useGame, clampTargetCoins } from '@/core/store';
 import type { FxKind } from '@/core/store';
 import { BoardImage } from '@/components/BoardImage';
 import { DiceButton } from '@/components/DiceButton';
@@ -32,6 +32,8 @@ export function GameBoardLandscape() {
   const chooseBranch = useGame((s) => s.chooseBranch);
   const pendingEvent = useGame((s) => s.pendingEvent);
   const closeEvent = useGame((s) => s.closeEvent);
+  // เป้าหมายเหรียญที่ครูตั้งไว้ — HUD ต้องบอกเป้าจริง ไม่ใช่ 7 ตายตัว ไม่งั้นเด็กไม่รู้ว่าใกล้ชนะแค่ไหน
+  const target = useGame((s) => clampTargetCoins(s.settings.targetCoins));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const playerRefs = useRef<(HTMLDivElement | null)[]>([]);
   const previousPlayerRef = useRef(currentIdx);
@@ -180,7 +182,7 @@ export function GameBoardLandscape() {
               whiteSpace: 'nowrap',
             }}
           >
-            👑 {player?.kingCoins.length ?? 0}/7
+            👑 {player?.kingCoins.length ?? 0}/{target}
           </span>
         </div>
 
@@ -266,7 +268,7 @@ export function GameBoardLandscape() {
                         🪙 {p.coins}
                       </span>
                       <span style={active ? activePlayerBadge : playerBadge} title="เหรียญกษัตริย์">
-                        👑 {p.kingCoins.length}/7
+                        👑 {p.kingCoins.length}/{target}
                       </span>
                     </div>
                   </div>
