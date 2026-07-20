@@ -1,6 +1,7 @@
 // ── ช่องกลางให้มือถือ↔tablet คุยกัน (โหมด QR อัตโนมัติ) ──
 // เบา standalone (ใช้ทั้งฝั่ง tablet และ answer bundle) — ไม่ import store/UI
-import type { QrChallenge } from './qrChallenge';
+import { QUIZ_ITEMS } from './qrChallenge';
+import type { QrChallenge, QuizItem } from './qrChallenge';
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '');
 
@@ -28,23 +29,38 @@ export async function fetchChallenge<T extends QrChallenge = QrChallenge>(id: st
 }
 
 // มือถือส่งผลการตอบขึ้น server (ผู้เล่นตรวจในเครื่องแล้ว)
-export async function postChallengeResult(id: string, correct: boolean): Promise<void> {
+// `items` = ไอเทมที่กดใช้ระหว่างตอบ — แท็บเล็ตเอาไปหักจำนวนจริงใน store
+export async function postChallengeResult(
+  id: string,
+  correct: boolean,
+  items: QuizItem[] = []
+): Promise<void> {
   if (!API_BASE) throw new Error('ยังไม่ได้ตั้งค่า VITE_API_BASE');
   const res = await fetch(`${API_BASE}/challenge.php`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, correct }),
+    body: JSON.stringify({ id, correct, items }),
   });
   if (!res.ok) throw new Error(`challenge post ${res.status}`);
 }
 
+export interface ChallengeResult {
+  answered: boolean;
+  correct: boolean;
+  items: QuizItem[]; // ไอเทมที่มือถือกดใช้ (แท็บเล็ตต้องหักตาม)
+}
+
 // tablet poll ว่ามีผลหรือยัง
-export async function fetchChallengeResult(id: string): Promise<{ answered: boolean; correct: boolean }> {
-  if (!API_BASE) return { answered: false, correct: false };
+export async function fetchChallengeResult(id: string): Promise<ChallengeResult> {
+  const empty: ChallengeResult = { answered: false, correct: false, items: [] };
+  if (!API_BASE) return empty;
   const res = await fetch(`${API_BASE}/challenge.php?id=${encodeURIComponent(id)}`);
   const json = (await res.json().catch(() => null)) as
-    | { ok?: boolean; answered?: boolean; correct?: boolean }
+    | { ok?: boolean; answered?: boolean; correct?: boolean; items?: unknown }
     | null;
-  if (!json || !json.ok) return { answered: false, correct: false };
-  return { answered: !!json.answered, correct: !!json.correct };
+  if (!json || !json.ok) return empty;
+  const items = Array.isArray(json.items)
+    ? json.items.filter((i): i is QuizItem => QUIZ_ITEMS.includes(i as QuizItem))
+    : [];
+  return { answered: !!json.answered, correct: !!json.correct, items };
 }

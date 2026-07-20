@@ -61,6 +61,8 @@ CREATE TABLE IF NOT EXISTS qr_challenge (
   payload LONGTEXT NULL,
   answered TINYINT(1) NOT NULL DEFAULT 0,
   correct TINYINT(1) NOT NULL DEFAULT 0,
+  -- ไอเทมที่ผู้เล่นกดใช้บนมือถือระหว่างตอบ (csv: fiftyFifty,skip) — แท็บเล็ตเอาไปหักจำนวน
+  used_items VARCHAR(64) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

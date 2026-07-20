@@ -14,7 +14,12 @@ export interface QrChallenge {
   t?: string; // ป้ายบริบท (พระนาม/วิชา)
   d?: 'easy' | 'medium' | 'hard'; // ระดับความยาก
   x?: string; // คำอธิบายเฉลย (optional)
+  it?: { f: number; s: number }; // ไอเทมที่ใช้ได้: f = 50:50, s = ข้ามคำถาม (จำนวนคงเหลือ)
 }
+
+// ไอเทมที่ "ใช้ในหน้าคำถาม" ได้ — ชนิดอื่น (×2/ยารักษา) กดที่แท็บเล็ตอยู่แล้ว ไม่ต้องส่งมามือถือ
+export type QuizItem = 'fiftyFifty' | 'skip';
+export const QUIZ_ITEMS: QuizItem[] = ['fiftyFifty', 'skip'];
 
 export interface GoldArChallenge extends QrChallenge {
   mode: 'gold-ar';
@@ -74,7 +79,15 @@ export function buildCompactChallengeUrl(id: string, base?: string, page = 'answ
 }
 
 // แปลง QuizCard (ช่องฟ้า/สาระ) → payload สำหรับ QR
-export function buildQuizChallenge(quiz: QuizCard, label?: string, id?: string, timeLimitSec?: number): QrChallenge {
+// `items` = จำนวนไอเทมคงเหลือของทีม ส่งไปให้มือถือรู้ว่ากดใช้อะไรได้บ้าง
+// (ตัวหักจำนวนจริงยังอยู่ที่ store บนแท็บเล็ต — มือถือแค่ "ขอใช้" แล้วรายงานกลับ)
+export function buildQuizChallenge(
+  quiz: QuizCard,
+  label?: string,
+  id?: string,
+  timeLimitSec?: number,
+  items?: { f: number; s: number }
+): QrChallenge {
   return {
     i: id,
     q: quiz.question,
@@ -85,6 +98,7 @@ export function buildQuizChallenge(quiz: QuizCard, label?: string, id?: string, 
     t: label,
     d: quiz.difficulty,
     x: quiz.explanation,
+    it: items && (items.f > 0 || items.s > 0) ? items : undefined,
   };
 }
 

@@ -1,7 +1,13 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { decodeChallenge } from '@/core/qrChallenge';
-import { challengeApiAvailable, fetchChallenge, postChallengeResult } from '@/core/challengeApi';
+import type { QuizItem } from '@/core/qrChallenge';
+import {
+  challengeApiAvailable,
+  fetchChallenge,
+  fetchChallengeResult,
+  postChallengeResult,
+} from '@/core/challengeApi';
 
 // lazy — jsqr หนัก ~130KB และหน้านี้ต้องเบา (มือถือเด็กโหลดใหม่ทุกคำถามผ่านไวไฟโรงเรียน)
 // กล้องสแกนใช้ "หลังตอบเสร็จ" เท่านั้น จึงไม่ควรถ่วงตอนโหลดคำถาม → โหลดตอนต้องใช้จริง
@@ -30,6 +36,14 @@ export function AnswerPage() {
   const [picked, setPicked] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const [sent, setSent] = useState<'idle' | 'sending' | 'ok' | 'fail'>('idle');
+  // ข้อนี้ถูกตัดสินที่จอกลางไปแล้ว (ครูกดผลเอง / ผู้เล่นอื่นตอบ / กดย้อนกลับมาที่ข้อเก่า)
+  const [closed, setClosed] = useState(false);
+  // ไอเทมที่กดใช้ในข้อนี้ — ส่งกลับให้แท็บเล็ตหักจำนวนจริงใน store (มือถือไม่ได้ถือคลังเอง)
+  const [usedItems, setUsedItems] = useState<QuizItem[]>([]);
+  // ตัวเลือกที่ถูก 50:50 ตัดทิ้ง (คำนวณบนมือถือได้เพราะ payload มี index เฉลยอยู่แล้ว)
+  const [hidden, setHidden] = useState<number[]>([]);
+  const [skipped, setSkipped] = useState(false);
+  const itemsLeft = challenge?.it;
   // ส่งผลอัตโนมัติได้ไหม (มี challenge id + backend) — ถ้าไม่ ใช้โหมดกดผลเองบน tablet
   const auto = !!challenge?.i && challengeApiAvailable();
   const timerOn = (challenge?.s ?? 0) > 0;
@@ -52,9 +66,36 @@ export function AnswerPage() {
     };
   }, [challengeId, inlineChallenge]);
 
-  // เริ่มนับเมื่อกล้องเปิดหน้าคำถามสำเร็จ ใช้ deadline จริงเพื่อไม่ให้เวลาเพี้ยนเมื่อ browser อยู่เบื้องหลัง
+  // ── เฝ้าดูว่าข้อนี้ยัง "เปิดรับคำตอบ" อยู่ไหม ──
+  // มือถือเดิมมีแต่ขาส่งออก ไม่เคยฟังกลับ → ถ้าจอกลางตัดสินข้อนี้ไปแล้ว (ครูกดผลเอง
+  // เพราะรอนาน / เด็กกดย้อนกลับมาที่ข้อเก่า) หน้าจอนี้ยังโชว์ปุ่มตอบค้างไว้เหมือนเดิม
+  // เด็กกดตอบได้ทั้งที่เกมผ่านไปแล้ว แล้วผลก็ถูกทิ้ง (server เก็บผลแรกไว้) = งงกันทั้งห้อง
+  // server รู้อยู่แล้วผ่าน `answered` แค่ไม่เคยมีใครถาม → ถามทุก 2 วิ แล้วล็อกจอเมื่อจบ
+  // เช็กรอบแรกทันทีที่เปิดหน้า จึงกันเคส "กด back กลับมาข้อที่ตอบไปแล้ว" ไปในตัว
   useEffect(() => {
-    if (!challenge || !timerOn || picked !== null) return;
+    if (!auto || !challenge?.i || picked !== null || closed) return;
+    const id = challenge.i;
+    let alive = true;
+    const check = async () => {
+      try {
+        const r = await fetchChallengeResult(id);
+        if (alive && r.answered) setClosed(true);
+      } catch {
+        /* เน็ตสะดุด — ลองใหม่รอบถัดไป ไม่ล็อกจอเพราะเดาไม่ได้ว่าจบหรือยัง */
+      }
+    };
+    void check();
+    const iv = window.setInterval(check, 2000);
+    return () => {
+      alive = false;
+      window.clearInterval(iv);
+    };
+  }, [auto, challenge?.i, picked, closed]);
+
+  // เริ่มนับเมื่อกล้องเปิดหน้าคำถามสำเร็จ ใช้ deadline จริงเพื่อไม่ให้เวลาเพี้ยนเมื่อ browser อยู่เบื้องหลัง
+  // หยุดนับเมื่อข้อถูกปิดไปแล้ว ไม่งั้นหมดเวลาแล้วยิงผล "ตอบผิด" ใส่ข้อที่จบไปแล้ว
+  useEffect(() => {
+    if (!challenge || !timerOn || picked !== null || closed) return;
     const deadline = Date.now() + challenge.s! * 1000;
     const tick = () => {
       const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
@@ -64,16 +105,35 @@ export function AnswerPage() {
     tick();
     const interval = window.setInterval(tick, 250);
     return () => window.clearInterval(interval);
-  }, [challenge, picked, timerOn]);
+  }, [challenge, picked, timerOn, closed]);
 
   // ตอบแล้ว → ส่งผลขึ้น server อัตโนมัติ (ครั้งเดียว, ปุ่มถูก disable หลังตอบ)
+  // ส่ง usedItems ไปด้วยเพื่อให้แท็บเล็ตหักไอเทม · อ่านผ่าน ref ไม่ใส่ใน deps
+  // ไม่งั้น setUsedItems ตอนกดข้ามคำถามจะทำให้ effect ยิงซ้ำเป็นรอบสอง
+  const usedItemsRef = useRef(usedItems);
+  usedItemsRef.current = usedItems;
   useEffect(() => {
     if (picked === null || !auto || !challenge?.i) return;
     setSent('sending');
-    postChallengeResult(challenge.i, picked === challenge.a)
+    // ข้ามคำถาม = ไม่ใช่ทั้งถูกและผิด — ส่ง correct=false แล้วให้แท็บเล็ตอ่านจาก items ว่าเป็นการข้าม
+    postChallengeResult(challenge.i, picked === challenge.a, usedItemsRef.current)
       .then(() => setSent('ok'))
       .catch(() => setSent('fail'));
   }, [auto, challenge?.a, challenge?.i, picked]);
+
+  // กดใช้ไอเทม — บันทึกว่าใช้แล้ว (ส่งกลับตอนจบข้อ) แล้วทำผลของไอเทมบนเครื่องนี้เลย
+  const useFiftyFifty = () => {
+    if (!challenge || usedItems.includes('fiftyFifty')) return;
+    const wrong = challenge.c.map((_, i) => i).filter((i) => i !== challenge.a);
+    setHidden(wrong.sort(() => Math.random() - 0.5).slice(0, 2));
+    setUsedItems((prev) => [...prev, 'fiftyFifty']);
+  };
+  const useSkip = () => {
+    if (!challenge || usedItems.includes('skip')) return;
+    setSkipped(true);
+    setUsedItems((prev) => [...prev, 'skip']);
+    setPicked((prev) => (prev === null ? -1 : prev)); // -1 = ไม่ได้เลือกข้อไหน
+  };
 
   if (loading) {
     return (
@@ -108,15 +168,27 @@ export function AnswerPage() {
     return (
       <div style={shell}>
         <div style={card}>
-          <div style={{ ...resultBanner, background: correct ? '#2E7D32' : '#B02020' }}>
-            <span style={{ fontSize: 30 }}>{correct ? '🎉' : '💪'}</span>
+          <div
+            style={{ ...resultBanner, background: skipped ? '#6B4E1E' : correct ? '#2E7D32' : '#B02020' }}
+          >
+            <span style={{ fontSize: 30 }}>{skipped ? '⏭️' : correct ? '🎉' : '💪'}</span>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 20, fontWeight: 800 }}>
-                {correct ? 'ถูกต้อง! เก่งมาก' : picked === -1 ? 'หมดเวลาตอบ' : 'ยังไม่ถูกนะ'}
+                {skipped
+                  ? 'ข้ามคำถามแล้ว'
+                  : correct
+                  ? 'ถูกต้อง! เก่งมาก'
+                  : picked === -1
+                  ? 'หมดเวลาตอบ'
+                  : 'ยังไม่ถูกนะ'}
               </div>
-              {/* ตอบผิดต้องบอกเฉลยตรงนี้ — เดิมดูจากตัวเลือกที่ไฮไลต์เขียว แต่ตอนนี้ซ่อนไปแล้ว */}
+              {/* ตอบผิด/ข้าม ต้องบอกเฉลยตรงนี้ — เดิมดูจากตัวเลือกที่ไฮไลต์เขียว แต่ตอนนี้ซ่อนไปแล้ว */}
               <div style={{ fontSize: 14, opacity: 0.95 }}>
-                {correct ? `ได้เหรียญ 🪙 ${challenge.r}` : `คำตอบที่ถูกคือ: ${challenge.c[challenge.a]}`}
+                {skipped
+                  ? `ได้ครึ่งรางวัล · คำตอบที่ถูกคือ: ${challenge.c[challenge.a]}`
+                  : correct
+                  ? `ได้เหรียญ 🪙 ${challenge.r}`
+                  : `คำตอบที่ถูกคือ: ${challenge.c[challenge.a]}`}
               </div>
             </div>
           </div>
@@ -154,6 +226,30 @@ export function AnswerPage() {
     );
   }
 
+  // ── ข้อนี้จบไปแล้วที่จอกลาง → ล็อกจอ ไม่ให้กดตอบย้อนหลัง ──
+  // ต้องอยู่ "ก่อน" บล็อกคำถาม ไม่งั้นปุ่มตัวเลือกยังเรนเดอร์ออกมาให้กดได้
+  if (closed) {
+    return (
+      <div style={shell}>
+        <div style={card}>
+          <div style={{ ...resultBanner, background: '#6B5E4E' }}>
+            <span style={{ fontSize: 30 }}>⌛</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 20, fontWeight: 800 }}>ข้อนี้จบไปแล้ว</div>
+              <div style={{ fontSize: 14, opacity: 0.95 }}>จอกลางบันทึกผลของข้อนี้เรียบร้อยแล้ว</div>
+            </div>
+          </div>
+          <p style={{ fontSize: 15, color: '#6B5E4E', lineHeight: 1.5, margin: 0, textAlign: 'center' }}>
+            เล็งกล้องไปที่ QR ใบใหม่บนจอกลางเพื่อเล่นต่อ
+          </p>
+          <Suspense fallback={<div style={scannerLoading}>📷 กำลังเตรียมกล้อง…</div>}>
+            <QrRescanner onFound={goToChallenge} />
+          </Suspense>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={shell}>
       <div style={card}>
@@ -185,25 +281,51 @@ export function AnswerPage() {
         {/* บล็อกนี้เรนเดอร์เฉพาะ "ก่อนตอบ" (ตอบแล้ว return ไปทางอื่นตั้งแต่ด้านบน)
             จึงไม่ต้องมีสถานะไฮไลต์เฉลย/disabled อีกแล้ว */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 4 }}>
-          {challenge.c.map((text, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => setPicked(i)}
-              style={{
-                ...choiceBtn,
-                background: '#FBF3E4',
-                color: '#2A2118',
-                border: '2px solid #C9A227',
-                cursor: 'pointer',
-              }}
-            >
-              <b style={{ marginRight: 8 }}>{String.fromCharCode(65 + i)}.</b>
-              {text}
-            </button>
-          ))}
+          {challenge.c.map((text, i) =>
+            // 50:50 ตัดตัวเลือกผิดออก 2 ข้อ — เว้นที่ว่างไว้ให้ layout ไม่กระโดด
+            hidden.includes(i) ? (
+              <div key={i} style={{ minHeight: 58, opacity: 0.2 }} />
+            ) : (
+              <button
+                key={i}
+                type="button"
+                // ตาแรกชนะ — แตะรัว 2 ปุ่มก่อน React รีเรนเดอร์ เดิมจะนับปุ่มหลังทับปุ่มแรก
+                onClick={() => setPicked((prev) => (prev === null ? i : prev))}
+                style={{
+                  ...choiceBtn,
+                  background: '#FBF3E4',
+                  color: '#2A2118',
+                  border: '2px solid #C9A227',
+                  cursor: 'pointer',
+                }}
+              >
+                <b style={{ marginRight: 8 }}>{String.fromCharCode(65 + i)}.</b>
+                {text}
+              </button>
+            )
+          )}
         </div>
 
+        {/* ── ไอเทมช่วยเล่น ──
+            โหมด QR คำถามอยู่บนมือถือ แต่ปุ่มไอเทมเคยอยู่แต่ใน UI ควิซบนแท็บเล็ต
+            → 50:50/ข้ามคำถาม ซื้อจากร้านได้แต่ไม่มีทางกดใช้ (กับดักดูดเหรียญ)
+            คลังไอเทมยังอยู่ที่ store บนแท็บเล็ต มือถือแค่ "ขอใช้" แล้วรายงานกลับตอนส่งผล
+            gate ด้วย `auto`: ไม่มี backend = ไม่มีช่องรายงานกลับ ถ้ายังโชว์ปุ่มจะกดใช้ฟรีไม่จำกัด
+            (ครูกดผลเองบนแท็บเล็ตส่ง items ว่างเสมอ) */}
+        {auto && itemsLeft && (itemsLeft.f > 0 || itemsLeft.s > 0) && (
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            {itemsLeft.f > 0 && !usedItems.includes('fiftyFifty') && (
+              <button type="button" onClick={useFiftyFifty} style={itemBtn}>
+                ✂️ 50:50 ({itemsLeft.f})
+              </button>
+            )}
+            {itemsLeft.s > 0 && (
+              <button type="button" onClick={useSkip} style={itemBtn}>
+                ⏭️ ข้ามคำถาม ({itemsLeft.s})
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -257,6 +379,19 @@ const choiceBtn: CSSProperties = {
   minHeight: 58,
   borderRadius: 14,
   transition: 'background .15s',
+};
+
+const itemBtn: CSSProperties = {
+  fontFamily: 'inherit',
+  fontSize: 16,
+  fontWeight: 800,
+  color: '#1565C0',
+  background: '#E3F2FD',
+  border: '2px solid #1565C0',
+  borderRadius: 999,
+  padding: '10px 18px',
+  minHeight: 46,
+  cursor: 'pointer',
 };
 
 const resultBanner: CSSProperties = {

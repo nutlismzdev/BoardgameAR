@@ -100,8 +100,17 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   const qrChallenge = useMemo(
     () =>
       qrMode && quiz
-        ? buildQuizChallenge(quiz, qrLabel, genChallengeId(), settings.timerEnabled ? quiz.timeLimitSec : undefined)
+        ? buildQuizChallenge(
+            quiz,
+            qrLabel,
+            genChallengeId(),
+            settings.timerEnabled ? quiz.timeLimitSec : undefined,
+            { f: items.fiftyFifty, s: items.skip }
+          )
         : null,
+    // items ตั้งใจไม่ใส่ใน deps — ถ้าใส่ QR จะถูกสร้างใหม่ (id ใหม่) ทุกครั้งที่คลังไอเทมเปลี่ยน
+    // ระหว่างการ์ดใบเดิมยังเปิดอยู่ → เด็กที่สแกนไปแล้วจะตอบใส่ id เก่าที่ไม่มีใคร poll
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [quiz, qrMode, qrLabel, settings.timerEnabled]
   );
   const goldArChallenge = useMemo(
@@ -299,7 +308,15 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
           {qrMode && qrChallenge ? (
             <QrChallengePanel
               challenge={qrChallenge}
-              onResult={(ok) => {
+              onResult={(ok, usedItems) => {
+                // หักไอเทมที่ผู้เล่นกดใช้บนมือถือ — คลังไอเทมอยู่ที่ store เสมอ มือถือแค่รายงานกลับ
+                usedItems.forEach((it) => useItem(it));
+                // ข้ามคำถาม = ไม่นับถูก/ผิด ได้ครึ่งรางวัล ไม่เสียหัวใจ (ให้ตรงกับปุ่มข้ามบนแท็บเล็ต)
+                if (usedItems.includes('skip')) {
+                  resolveReward(Math.round(quiz.reward / 2));
+                  closeEvent(); // ไม่มีตราประทับให้รอ (ไม่ถูกไม่ผิด) → ปิดเลย ไม่หน่วงเปล่า
+                  return;
+                }
                 // โหมด QR ไม่เคยเซ็ต `answered` (มือถือเป็นคนตอบ) → effect ตราประทับไม่ทำงาน
                 // ต้องเด้งเอง ไม่งั้นจอกลางไม่บอกอะไรเลย การ์ดปิดไปเฉย ๆ
                 showResult(ok);

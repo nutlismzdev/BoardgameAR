@@ -4,6 +4,9 @@
 // challenge id สุ่มใหม่ทุกข้อ และข้อมูลถูกล้างเมื่ออายุเกิน 1 ชั่วโมง
 require_once __DIR__ . '/lib.php';
 
+// ไอเทมที่ใช้ในหน้าคำถามได้ (ตรงกับ QUIZ_ITEMS ฝั่งเว็บ) — ชนิดอื่นกดที่แท็บเล็ตอยู่แล้ว
+const VALID_QUIZ_ITEMS = ['fiftyFifty', 'skip'];
+
 handle_cors();
 
 ensure_challenge_table();
@@ -47,11 +50,24 @@ if ($method === 'POST') {
         send_json(['ok' => false, 'error' => 'invalid correct result'], 400);
     }
     $correct = (int) ((bool) ($body['correct'] ?? false));
+    // ไอเทมที่กดใช้บนมือถือ — รับเฉพาะชนิดที่รู้จัก (ห้ามเชื่อ client) แล้วเก็บเป็น csv
+    $items = [];
+    if (isset($body['items']) && is_array($body['items'])) {
+        foreach ($body['items'] as $item) {
+            if (is_string($item) && in_array($item, VALID_QUIZ_ITEMS, true) && !in_array($item, $items, true)) {
+                $items[] = $item;
+            }
+        }
+    }
+    $usedItems = $items ? implode(',', $items) : null;
     $stmt = get_db()->prepare(
-        'INSERT INTO qr_challenge (id, answered, correct) VALUES (?, 1, ?)
-         ON DUPLICATE KEY UPDATE correct = IF(answered = 0, VALUES(correct), correct), answered = 1'
+        'INSERT INTO qr_challenge (id, answered, correct, used_items) VALUES (?, 1, ?, ?)
+         ON DUPLICATE KEY UPDATE
+            correct = IF(answered = 0, VALUES(correct), correct),
+            used_items = IF(answered = 0, VALUES(used_items), used_items),
+            answered = 1'
     );
-    $stmt->execute([$id, $correct]);
+    $stmt->execute([$id, $correct, $usedItems]);
     send_json(['ok' => true]);
 }
 
@@ -61,7 +77,7 @@ if ($id === '') {
     send_json(['ok' => false, 'error' => 'missing id'], 400);
 }
 $wantPayload = ($_GET['payload'] ?? '') === '1';
-$stmt = get_db()->prepare('SELECT payload, answered, correct FROM qr_challenge WHERE id = ?');
+$stmt = get_db()->prepare('SELECT payload, answered, correct, used_items FROM qr_challenge WHERE id = ?');
 $stmt->execute([$id]);
 $row = $stmt->fetch();
 if ($row === false) {
@@ -74,7 +90,13 @@ if ($wantPayload) {
     }
     send_json(['ok' => true, 'challenge' => $challenge]);
 }
-send_json(['ok' => true, 'answered' => (bool) $row['answered'], 'correct' => (bool) $row['correct']]);
+$used = trim((string) ($row['used_items'] ?? ''));
+send_json([
+    'ok' => true,
+    'answered' => (bool) $row['answered'],
+    'correct' => (bool) $row['correct'],
+    'items' => $used === '' ? [] : explode(',', $used),
+]);
 
 // สร้างตารางอัตโนมัติสำหรับ DB เดิม (ฟังก์ชัน top-level ถูก hoist — เรียกก่อนนิยามได้)
 function ensure_challenge_table(): void
@@ -98,6 +120,9 @@ function ensure_challenge_table(): void
     }
     if (!in_array('answered', $columns, true)) {
         get_db()->exec('ALTER TABLE qr_challenge ADD COLUMN answered TINYINT(1) NOT NULL DEFAULT 0 AFTER payload');
+    }
+    if (!in_array('used_items', $columns, true)) {
+        get_db()->exec('ALTER TABLE qr_challenge ADD COLUMN used_items VARCHAR(64) NULL AFTER correct');
     }
     $done = true;
 }

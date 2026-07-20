@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import QRCode from 'qrcode';
 import { buildChallengeUrl, buildCompactChallengeUrl } from '@/core/qrChallenge';
-import type { QrChallenge } from '@/core/qrChallenge';
+import type { QrChallenge, QuizItem } from '@/core/qrChallenge';
 import { challengeApiAvailable, fetchChallengeResult, registerChallenge } from '@/core/challengeApi';
 import { color, radius } from '@/theme/tokens';
 
@@ -15,7 +15,8 @@ export function QrChallengePanel({
   variant = 'quiz',
 }: {
   challenge: QrChallenge;
-  onResult: (correct: boolean) => void;
+  // `items` = ไอเทมที่ผู้เล่นกดใช้บนมือถือ (ว่างเสมอเมื่อครูกดผลเองบนแท็บเล็ต)
+  onResult: (correct: boolean, items: QuizItem[]) => void;
   onCancel?: () => void;
   variant?: 'quiz' | 'gold-ar';
 }) {
@@ -82,7 +83,7 @@ export function QrChallengePanel({
         const r = await fetchChallengeResult(id);
         if (!alive || resolvedRef.current || !r.answered) return;
         resolvedRef.current = true;
-        onResultRef.current(r.correct);
+        onResultRef.current(r.correct, r.items);
       } catch {
         /* เน็ตหลุดชั่วคราว — ลองใหม่รอบถัดไป */
       }
@@ -98,7 +99,7 @@ export function QrChallengePanel({
   const manual = (correct: boolean) => {
     if (resolvedRef.current) return;
     resolvedRef.current = true;
-    onResult(correct);
+    onResult(correct, []); // ครูกดเอง = ไม่มีไอเทมถูกใช้
   };
 
   return (
