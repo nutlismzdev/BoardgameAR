@@ -7,7 +7,7 @@
 //   - static asset same-origin  → stale-while-revalidate (ภาพกระดาน/การ์ดไม่มี hash ในชื่อ
 //     จึงต้องอัปเดตพื้นหลังเสมอ ไม่ใช้ cache-first)
 //   - อย่างอื่น (API/POST/ข้ามโดเมน) → ปล่อยผ่าน ไม่แตะ
-const VERSION = 'bg7-v1';
+const VERSION = 'bg7-v2'; // v2: เลิกแคชวิดีโอ (206 Partial Content ใส่ Cache.put ไม่ได้)
 const SHELL = `${VERSION}-shell`;
 const ASSETS = `${VERSION}-assets`;
 
@@ -39,12 +39,19 @@ self.addEventListener('message', (e) => {
   if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
+// วิดีโอต้อง "ปล่อยผ่าน" ห้ามให้ SW แตะ:
+// <video> ขอไฟล์ด้วย Range request → เซิร์ฟเวอร์ตอบ 206 Partial Content ซึ่ง res.ok เป็น true
+// แต่ Cache.put() **โยน TypeError กับ response 206 ตามสเปก** → แคชไม่เคยติด ได้แต่ error รัว ๆ
+// ใน SW ทุกครั้งที่เล่นวิดีโอ · อีกอย่างคลิปบทเรียนก้อนละ ~2.4MB ไม่ควรกินโควตา Cache Storage
+// ของแท็บเล็ตโรงเรียนอยู่แล้ว · เน็ตหลุด = <video> onError → ถอยไปโหมด AR การ์ดทองเอง
+const isVideo = (p) => p.startsWith('/video/') || /\.(mp4|webm|mov)$/i.test(p);
+
 const isStatic = (p) =>
   p.startsWith('/assets/') ||
   p.startsWith('/icons/') ||
   p.startsWith('/mediapipe/') ||
   p.startsWith('/ar/') ||
-  /\.(png|jpe?g|svg|webp|mp4|webm|woff2?|json|wasm)$/.test(p);
+  /\.(png|jpe?g|svg|webp|woff2?|json|wasm)$/.test(p);
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
@@ -67,6 +74,7 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
+  if (isVideo(url.pathname)) return; // ปล่อยให้เบราว์เซอร์คุย Range กับเซิร์ฟเวอร์ตรง ๆ
   if (!isStatic(url.pathname)) return;
 
   e.respondWith(

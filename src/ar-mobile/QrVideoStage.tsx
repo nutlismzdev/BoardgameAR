@@ -130,6 +130,9 @@ export function QrVideoStage({
         playsInline
         preload="auto"
         onEnded={onEnded}
+        // ไฟล์เสีย/404 → เดิมจะค้างที่จอ "เล็ง QR" ตลอดกาลโดยไม่บอกอะไร (กล้องติดแต่วิดีโอไม่มีวันเล่น)
+        // ส่งไปโหมด AR การ์ดทองแทน ผู้เล่นยังทำภารกิจต่อได้
+        onError={onFallback}
         style={{ ...lessonStyle, visibility: status === 'playing' ? 'visible' : 'hidden' }}
       />
 

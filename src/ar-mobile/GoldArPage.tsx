@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import type { CSSProperties } from 'react';
 import { challengeApiAvailable, fetchChallenge, postChallengeResult } from '@/core/challengeApi';
 import { decodeChallenge } from '@/core/qrChallenge';
+import { lessonVideoFor } from '@/core/videoPool';
 import type { GoldArChallenge } from '@/core/qrChallenge';
 
 const ARGoldChallenge = lazy(() =>
@@ -10,6 +11,20 @@ const ARGoldChallenge = lazy(() =>
 const QrVideoStage = lazy(() =>
   import('./QrVideoStage').then((module) => ({ default: module.QrVideoStage }))
 );
+// กล้องรอสแกนใบต่อไป — ตัวเดียวกับที่หน้า answer.html ใช้ (โค้ดเดียว กฎกรอง QR เดียว)
+// lazy เพราะ jsqr หนัก ~130KB และหน้าจอผลลัพธ์เป็นปลายทาง ไม่ควรถ่วงตอนโหลดภารกิจ
+const QrRescanner = lazy(() =>
+  import('@/answer/QrRescanner').then((module) => ({ default: module.QrRescanner }))
+);
+
+// ไปการ์ดใบใหม่ที่สแกนเจอ — ข้ามหน้าได้ (ar.html → answer.html) จึงตั้ง href ตรง ๆ
+// เปลี่ยนแค่ hash เบราว์เซอร์จะไม่ reload เอง (payload อยู่ใน hash) ต้องสั่ง reload เอง
+function goToChallenge(url: string) {
+  const next = new URL(url, window.location.href);
+  const onlyHashChanged = next.pathname === window.location.pathname && next.search === window.location.search;
+  window.location.href = next.href;
+  if (onlyHashChanged) window.location.reload();
+}
 
 type PageState =
   | 'loading'
@@ -83,7 +98,7 @@ export function GoldArPage() {
       <Suspense fallback={<StatusScreen title="กำลังเตรียมตัวติดตาม QR…" />}>
         <QrVideoStage
           challengeId={challenge.i}
-          lessonUrl={challenge.quiz.videoUrl || challenge.king.arVideo || ''}
+          lessonUrl={lessonVideoFor(challenge.quiz.id, challenge.quiz.videoUrl, challenge.king.arVideo)}
           kingName={challenge.king.name}
           onEnded={() => setState('question')}
           onFallback={() => setState('card-fallback')}
@@ -110,11 +125,18 @@ export function GoldArPage() {
 
   if (state === 'loading') return <StatusScreen title="กำลังโหลดภารกิจ…" />;
   if (state === 'invalid') {
-    return <StatusScreen title="ไม่พบภารกิจ AR" detail="กลับไปสแกน QR การ์ดทองจากจอกลางอีกครั้ง" />;
+    return <StatusScreen title="ไม่พบภารกิจ AR" detail="เล็งกล้องไปที่ QR บนจอกลางอีกครั้ง" rescan />;
   }
   if (state === 'sending') return <StatusScreen title="กำลังส่งผลไปจอกลาง…" />;
   if (state === 'sent') {
-    return <StatusScreen title="ส่งผลเรียบร้อย" detail="จอกลางจะดำเนินเกมต่อโดยอัตโนมัติ" success />;
+    return (
+      <StatusScreen
+        title="ส่งผลเรียบร้อย"
+        detail="จอกลางจะดำเนินเกมต่อโดยอัตโนมัติ · เล็งกล้องที่ QR ใบถัดไปได้เลย"
+        success
+        rescan
+      />
+    );
   }
   if (state === 'manual-complete') {
     return (
@@ -122,6 +144,7 @@ export function GoldArPage() {
         title={pendingResult ? 'ตอบถูก' : 'ตอบผิด'}
         detail="กลับไปเลือกผลเดียวกันที่จอกลางเพื่อดำเนินเกมต่อ"
         success={pendingResult === true}
+        rescan
       />
     );
   }
@@ -136,7 +159,7 @@ export function GoldArPage() {
     );
   }
   if (state === 'cancelled') {
-    return <StatusScreen title="ออกจากภารกิจแล้ว" detail="กดยกเลิกภารกิจที่จอกลางเพื่อเล่นต่อ" />;
+    return <StatusScreen title="ออกจากภารกิจแล้ว" detail="กดยกเลิกภารกิจที่จอกลางเพื่อเล่นต่อ" rescan />;
   }
 
   return (
@@ -164,12 +187,14 @@ function StatusScreen({
   success = false,
   actionLabel,
   onAction,
+  rescan = false,
 }: {
   title: string;
   detail?: string;
   success?: boolean;
   actionLabel?: string;
   onAction?: () => void;
+  rescan?: boolean; // เปิดกล้องรอใบต่อไป — ใช้กับจอที่เป็น "ปลายทาง" ของภารกิจ
 }) {
   return (
     <main style={statusShell}>
@@ -180,6 +205,13 @@ function StatusScreen({
         <button type="button" style={startButton} onClick={onAction}>
           {actionLabel}
         </button>
+      ) : null}
+      {rescan ? (
+        <div style={rescanSlot}>
+          <Suspense fallback={<p style={statusDetail}>📷 กำลังเตรียมกล้อง…</p>}>
+            <QrRescanner onFound={goToChallenge} />
+          </Suspense>
+        </div>
       ) : null}
     </main>
   );
@@ -280,6 +312,12 @@ const statusMark: CSSProperties = {
   color: '#E6C35C',
   fontSize: 34,
   fontWeight: 800,
+};
+
+// กล่องกล้องบนพื้นเข้มของหน้าผลลัพธ์ — จำกัดความกว้างให้เท่ากับข้อความ ไม่ให้กินทั้งจอ
+const rescanSlot: CSSProperties = {
+  width: 'min(360px, 100%)',
+  marginTop: 6,
 };
 
 const statusDetail: CSSProperties = {

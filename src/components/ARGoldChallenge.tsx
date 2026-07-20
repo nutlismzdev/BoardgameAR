@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { King, QuizCard } from '@/core/types';
 import { useGame, HINT_PRICE } from '@/core/store';
 import { resolveApiAssetUrl } from '@/core/api';
+import { lessonVideoFor } from '@/core/videoPool';
 import { getKingCoinImage } from '@/core/kingAssets';
 import { useHandTracking, type HandStatus, type HandFrame } from '@/core/useHandTracking';
 import { color, radius, elevation, difficultyMeta } from '@/theme/tokens';
@@ -37,7 +38,7 @@ export function ARGoldChallenge({
   const [secondsLeft, setSecondsLeft] = useState(VIDEO_SECONDS);
   // arPhase 'card' = โหมดส่องการ์ดจริง (MindAR, กล้องหลัง) · 'done' = เข้าสู่โหมดปกติ (กล้องหน้า)
   const [arPhase, setArPhase] = useState<'card' | 'done'>(useCamera && cardMode && !startAtQuestion ? 'card' : 'done');
-  const lessonUrl = resolveApiAssetUrl(quiz.videoUrl || king.arVideo || '');
+  const lessonUrl = resolveApiAssetUrl(lessonVideoFor(quiz.id, quiz.videoUrl, king.arVideo));
 
   // เปิดกล้องหน้าแบบ best-effort (โหมดปกติ/หลัง fallback) — ข้ามตอน arPhase 'card' (MindAR ใช้กล้องหลัง)
   // และข้ามหน้าจอผล (done/fail) เพราะไม่ต้องใช้กล้อง (กันเปิดกล้องหน้าเปล่า ๆ หลังตอบใน AR)
@@ -240,7 +241,7 @@ function VideoStage({
   onEnded: () => void;
 }) {
   const pct = ((VIDEO_SECONDS - secondsLeft) / VIDEO_SECONDS) * 100;
-  const lessonVideo = resolveApiAssetUrl(quiz.videoUrl || king.arVideo || '');
+  const lessonVideo = resolveApiAssetUrl(lessonVideoFor(quiz.id, quiz.videoUrl, king.arVideo));
   return (
     <div style={centerCard}>
       <div style={{ fontSize: 15, fontWeight: 800, color: color.info }}>🎬 คลิปวิดีโอ 15 วินาที</div>

@@ -6,7 +6,10 @@ import jsQR from 'jsqr';
 // ตอบเสร็จแล้วเปิดกล้องค้างไว้เลย ผู้เล่นคนต่อไปเล็งที่ QR บนจอกลางได้ทันที
 // ไม่ต้องออกไปเปิดแอปกล้องเองใหม่ทุกตา (จังหวะเกมสะดุด)
 //
-// **ความปลอดภัย: รับเฉพาะ QR ที่ชี้มาที่หน้าตอบของแอปนี้เอง (same-origin + path เดียวกัน)**
+// สแกนได้ทุกชนิดการ์ดต่อเนื่อง: ฟ้า/สาระ (answer.html) → ทอง (ar.html) → ฟ้าต่อ ได้เลย
+// ไม่ต้องออกไปเปิดแอปกล้องเองตอนสลับชนิด (ดู APP_PAGES ท้ายไฟล์)
+//
+// **ความปลอดภัย: รับเฉพาะ QR ที่ชี้มาหน้าการ์ดของแอปนี้เอง (same-origin + โฟลเดอร์เดียวกัน + หน้าใน allowlist)**
 // QR เป็นข้อมูลจากภายนอก ถ้าเด็กเล็งไปโดน QR อื่นในห้อง (โปสเตอร์/ขวดน้ำ) แล้วเราพาไปตาม
 // นั้นเลย = พาไปเว็บมั่วได้ จึงกรองก่อนเสมอ
 
@@ -148,12 +151,27 @@ export function QrRescanner({ onFound }: { onFound: (url: string) => void }) {
   );
 }
 
-/** รับเฉพาะ URL ที่ชี้มาหน้าตอบของแอปนี้เอง — กัน QR แปลกปลอมพาผู้เล่นออกนอกเกม */
+// หน้าการ์ดบนมือถือทั้งหมด — การ์ดฟ้า/สาระไป answer.html · การ์ดทองไป ar.html
+// เพิ่มหน้าใหม่เมื่อไหร่ต้องเติมที่นี่ ไม่งั้นสแกนแล้วจะโดนเมินเงียบ ๆ (ดีบักยาก)
+const APP_PAGES = ['answer.html', 'ar.html'];
+
+const dirOf = (path: string) => path.slice(0, path.lastIndexOf('/') + 1);
+const pageOf = (path: string) => path.slice(path.lastIndexOf('/') + 1);
+
+/**
+ * รับเฉพาะ URL ที่ชี้มาหน้าการ์ดของแอปนี้เอง — กัน QR แปลกปลอมพาผู้เล่นออกนอกเกม
+ *
+ * เดิมบังคับ `pathname` ต้องตรงกันเป๊ะ ซึ่งแน่นเกินไป: การ์ดทองอยู่คนละหน้า (ar.html)
+ * กับการ์ดฟ้า/สาระ (answer.html) → สแกนข้ามชนิดไม่ได้ ต้องออกไปเปิดแอปกล้องเองทุกครั้ง
+ * ที่สลับชนิดการ์ด ด่านความปลอดภัยจริงคือ **same-origin** ส่วนหน้าไหนใช้ allowlist พอ
+ * (ยังบังคับ "โฟลเดอร์เดียวกัน" ไว้ด้วย เผื่อ deploy ใต้ subpath จะได้ไม่หลุดข้ามแอป)
+ */
 function sameAppUrl(raw: string): string | null {
   try {
     const u = new URL(raw, window.location.href);
     if (u.origin !== window.location.origin) return null;
-    if (u.pathname !== window.location.pathname) return null;
+    if (dirOf(u.pathname) !== dirOf(window.location.pathname)) return null;
+    if (!APP_PAGES.includes(pageOf(u.pathname))) return null;
     if (!u.hash && !u.searchParams.get('id')) return null; // ไม่มี payload = ไม่ใช่การ์ด
     return u.href;
   } catch {
