@@ -4,6 +4,7 @@ import {
   deleteCard,
   fetchContent,
   hasAdminToken,
+  importCards,
   login,
   logout,
   resolveApiAssetUrl,
@@ -14,6 +15,7 @@ import {
 } from '@/core/api';
 import { KINGS, OVERVIEW_KING_ID, OVERVIEW_KING_LABEL, SUBJECTS, subjectLabel, syncContent } from '@/core/content';
 import type { Difficulty, KnowledgeCard, QuizCard, QuizChoice, SubjectArea, SubjectQuizCard } from '@/core/types';
+import { LESSON_VIDEO_POOL, shuffledVideoQueue } from '@/core/videoPool';
 import { color, elevation, radius, tileIcon } from '@/theme/tokens';
 import { ImportPanel } from './ImportPanel';
 import {
@@ -165,6 +167,32 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // แจกคลิปจาก public/video/ วนสลับให้การ์ด AR ทองที่ยังไม่มีวิดีโอ — ยิงขึ้น DB ครั้งเดียวผ่าน import.php
+  async function fillGoldVideos() {
+    const targets = (cardsByType.gold as QuizCard[]).filter((card) => !card.videoUrl?.trim());
+    if (!targets.length) {
+      setError('');
+      setNotice('การ์ด AR ทองมีวิดีโอครบทุกใบแล้ว');
+      return;
+    }
+    if (!confirm(`แจกคลิป ${LESSON_VIDEO_POOL.length} ไฟล์วนสลับให้การ์ด AR ทอง ${targets.length} ใบที่ยังไม่มีวิดีโอ ใช่ไหม?`)) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      const queue = shuffledVideoQueue(targets.length);
+      const rows = targets.map((card, i) => ({ ...card, videoUrl: queue[i] }));
+      const summary = await importCards('gold', rows, 'upsert');
+      await load('gold');
+      await syncContent();
+      setNotice(`แจกวิดีโอให้การ์ด AR ทอง ${summary.updated + summary.inserted} ใบแล้ว`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'แจกวิดีโอไม่สำเร็จ');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function startCreate() {
     setDraft(newCard(active));
     setDraftMode('create');
@@ -276,6 +304,11 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                 <button onClick={() => setImportOpen(true)} style={secondaryButton}>
                   📥 นำเข้าจาก Excel
                 </button>
+                {active === 'gold' && (
+                  <button onClick={() => void fillGoldVideos()} disabled={busy} style={secondaryButton}>
+                    🎬 แจกวิดีโอให้การ์ดที่ยังว่าง
+                  </button>
+                )}
               </div>
 
               <div style={listHeader}>
