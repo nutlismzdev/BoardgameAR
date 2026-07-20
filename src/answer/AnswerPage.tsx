@@ -4,6 +4,7 @@ import { decodeChallenge } from '@/core/qrChallenge';
 import type { QuizItem } from '@/core/qrChallenge';
 import {
   challengeApiAvailable,
+  ChallengeClosedError,
   fetchChallenge,
   fetchChallengeResult,
   postChallengeResult,
@@ -55,8 +56,11 @@ export function AnswerPage() {
       .then((nextChallenge) => {
         if (!cancelled) setChallenge(nextChallenge);
       })
-      .catch(() => {
-        if (!cancelled) setChallenge(null);
+      .catch((e) => {
+        if (cancelled) return;
+        // สแกน QR ของข้อที่จบไปแล้ว ≠ QR ผิด — ต้องบอกให้ตรงว่า "ข้อนี้จบแล้ว ไปใบใหม่"
+        if (e instanceof ChallengeClosedError) setClosed(true);
+        else setChallenge(null);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -143,6 +147,31 @@ export function AnswerPage() {
     );
   }
 
+  // ── ข้อนี้จบไปแล้วที่จอกลาง → ล็อกจอ ไม่ให้ตอบย้อนหลัง ──
+  // ต้องเช็ก "ก่อน" ทั้ง !challenge และบล็อกคำถาม เพราะเคสสแกน QR เก่าจะได้ challenge = null
+  // (server ตอบ 410) ถ้าเช็กทีหลังจะไปโดนจอ "QR ไม่ถูกต้อง" ซึ่งสื่อผิด — QR ถูกต้อง แค่หมดอายุ
+  if (closed) {
+    return (
+      <div style={shell}>
+        <div style={card}>
+          <div style={{ ...resultBanner, background: '#6B5E4E' }}>
+            <span style={{ fontSize: 30 }}>⌛</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 20, fontWeight: 800 }}>ข้อนี้จบไปแล้ว</div>
+              <div style={{ fontSize: 14, opacity: 0.95 }}>จอกลางบันทึกผลของข้อนี้เรียบร้อยแล้ว</div>
+            </div>
+          </div>
+          <p style={{ fontSize: 15, color: '#6B5E4E', lineHeight: 1.5, margin: 0, textAlign: 'center' }}>
+            เล็งกล้องไปที่ QR ใบใหม่บนจอกลางเพื่อเล่นต่อ
+          </p>
+          <Suspense fallback={<div style={scannerLoading}>📷 กำลังเตรียมกล้อง…</div>}>
+            <QrRescanner onFound={goToChallenge} />
+          </Suspense>
+        </div>
+      </div>
+    );
+  }
+
   if (!challenge) {
     return (
       <div style={shell}>
@@ -221,30 +250,6 @@ export function AnswerPage() {
               <QrRescanner onFound={goToChallenge} />
             </Suspense>
           )}
-        </div>
-      </div>
-    );
-  }
-
-  // ── ข้อนี้จบไปแล้วที่จอกลาง → ล็อกจอ ไม่ให้กดตอบย้อนหลัง ──
-  // ต้องอยู่ "ก่อน" บล็อกคำถาม ไม่งั้นปุ่มตัวเลือกยังเรนเดอร์ออกมาให้กดได้
-  if (closed) {
-    return (
-      <div style={shell}>
-        <div style={card}>
-          <div style={{ ...resultBanner, background: '#6B5E4E' }}>
-            <span style={{ fontSize: 30 }}>⌛</span>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 20, fontWeight: 800 }}>ข้อนี้จบไปแล้ว</div>
-              <div style={{ fontSize: 14, opacity: 0.95 }}>จอกลางบันทึกผลของข้อนี้เรียบร้อยแล้ว</div>
-            </div>
-          </div>
-          <p style={{ fontSize: 15, color: '#6B5E4E', lineHeight: 1.5, margin: 0, textAlign: 'center' }}>
-            เล็งกล้องไปที่ QR ใบใหม่บนจอกลางเพื่อเล่นต่อ
-          </p>
-          <Suspense fallback={<div style={scannerLoading}>📷 กำลังเตรียมกล้อง…</div>}>
-            <QrRescanner onFound={goToChallenge} />
-          </Suspense>
         </div>
       </div>
     );

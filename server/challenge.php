@@ -37,11 +37,23 @@ if ($method === 'POST') {
         if ($payload === false || strlen($payload) > 20000) {
             send_json(['ok' => false, 'error' => 'challenge too large'], 400);
         }
+        // ลงทะเบียนใหม่ = "ข้อนี้เปิดรับคำตอบอีกครั้ง" จึงล้างผลเก่าทิ้งเสมอ
+        // จำเป็นกับ React.StrictMode (dev) ที่ mount ซ้ำ: cleanup รอบแรกจะ close ข้อนี้ทิ้ง
+        // ถ้าไม่รีเซ็ต answered ตอน register รอบสอง ข้อจะค้างสถานะปิดตั้งแต่ยังไม่มีใครตอบ
         $stmt = get_db()->prepare(
-            'INSERT INTO qr_challenge (id, payload, answered, correct) VALUES (?, ?, 0, 0)
-             ON DUPLICATE KEY UPDATE payload = VALUES(payload), created_at = CURRENT_TIMESTAMP'
+            'INSERT INTO qr_challenge (id, payload, answered, correct, used_items) VALUES (?, ?, 0, 0, NULL)
+             ON DUPLICATE KEY UPDATE payload = VALUES(payload), answered = 0, correct = 0,
+                used_items = NULL, created_at = CURRENT_TIMESTAMP'
         );
         $stmt->execute([$id, $payload]);
+        send_json(['ok' => true]);
+    }
+
+    // แท็บเล็ตสั่งปิดข้อ (ครูกดผลเอง / การ์ดถูกปิด / จบเทิร์น) — ปิดโดยไม่แตะผลที่อาจมีอยู่แล้ว
+    // ถ้าไม่มีขั้นนี้ แถวจะค้าง answered = 0 ตลอด แล้วมือถือจะไม่มีทางรู้ว่าข้อจบไปแล้ว
+    if (!empty($body['close'])) {
+        $stmt = get_db()->prepare('UPDATE qr_challenge SET answered = 1 WHERE id = ?');
+        $stmt->execute([$id]);
         send_json(['ok' => true]);
     }
 
@@ -84,6 +96,12 @@ if ($row === false) {
     send_json($wantPayload ? ['ok' => false, 'error' => 'challenge not found'] : ['ok' => true, 'answered' => false], $wantPayload ? 404 : 200);
 }
 if ($wantPayload) {
+    // ข้อที่จบไปแล้วต้องไม่คืนโจทย์อีก — ไม่งั้นสแกน QR เก่า (ที่ยังค้างบนจอ/ในภาพถ่าย)
+    // แล้วได้คำถามสด ๆ กลับมาตอบใหม่ ทั้งที่เกมเดินผ่านข้อนั้นไปนานแล้ว
+    // 410 Gone = "เคยมีอยู่จริงแต่หมดอายุแล้ว" ต่างจาก 404 ที่แปลว่า QR ผิด → มือถือขึ้นคนละจอ
+    if ((int) $row['answered'] === 1) {
+        send_json(['ok' => false, 'error' => 'challenge closed'], 410);
+    }
     $challenge = json_decode((string) ($row['payload'] ?? ''), true);
     if (!is_array($challenge)) {
         send_json(['ok' => false, 'error' => 'challenge payload not found'], 404);

@@ -3,7 +3,12 @@ import type { CSSProperties } from 'react';
 import QRCode from 'qrcode';
 import { buildChallengeUrl, buildCompactChallengeUrl } from '@/core/qrChallenge';
 import type { QrChallenge, QuizItem } from '@/core/qrChallenge';
-import { challengeApiAvailable, fetchChallengeResult, registerChallenge } from '@/core/challengeApi';
+import {
+  challengeApiAvailable,
+  closeChallenge,
+  fetchChallengeResult,
+  registerChallenge,
+} from '@/core/challengeApi';
 import { color, radius } from '@/theme/tokens';
 
 // ── ฝั่ง tablet กลาง: คำถามไม่ปรากฏบนจอกลาง โชว์เป็น "ตราส่วนตัว" (QR) ให้สแกนไปตอบบนมือถือ ──
@@ -76,6 +81,7 @@ export function QrChallengePanel({
   useEffect(() => {
     if (!auto || !challenge.i) return;
     const id = challenge.i;
+    const shownAt = Date.now();
     let alive = true;
     const tick = async () => {
       if (!alive || resolvedRef.current) return;
@@ -93,12 +99,25 @@ export function QrChallengePanel({
     return () => {
       alive = false;
       clearInterval(iv);
+      // เลิกฟังผลแล้วต้องปิดข้อบน server ด้วย — ไม่งั้นแถวค้าง answered = 0
+      // แล้วมือถือจะยังสแกน QR เก่าใบนี้เปิดคำถามมาตอบได้ ทั้งที่เกมเดินผ่านไปแล้ว
+      // (ครอบคลุมทั้งจบเทิร์น/ปิดการ์ด/ออกจากเกม — ทุกทางออกทำให้ panel ถูก unmount)
+      //
+      // ⚠️ ข้ามการปิดถ้าเพิ่งแสดงไม่ถึง 1.2 วิ: React.StrictMode (dev) mount ซ้ำทันที
+      // ทำให้ cleanup รอบแรกยิง close **แข่งกับ** registerChallenge ของรอบสอง ถ้า close มาถึง
+      // ทีหลัง ข้อจะค้างสถานะปิดตั้งแต่ยังไม่มีใครสแกน (เกมค้างรอคำตอบที่ไม่มีวันมา)
+      // การ์ดจริงอยู่บนจอเป็นวินาทีเสมอ จึงใช้เวลาที่แสดงจริงแยกสองเคสนี้ออกจากกันได้
+      if (Date.now() - shownAt < 1200) return;
+      void closeChallenge(id);
     };
   }, [auto, challenge.i]);
 
   const manual = (correct: boolean) => {
     if (resolvedRef.current) return;
     resolvedRef.current = true;
+    // ปิดข้อบน server ทันที ไม่รอ unmount — ครูกดผลเองคือจังหวะที่ข้อ "จบ" จริง ๆ
+    // ถ้าปล่อยไว้ มือถือที่เปิดค้างอยู่จะยังกดตอบได้อีกหลายวินาที
+    if (challenge.i) void closeChallenge(challenge.i);
     onResult(correct, []); // ครูกดเอง = ไม่มีไอเทมถูกใช้
   };
 

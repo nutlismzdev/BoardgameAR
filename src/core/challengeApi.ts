@@ -20,12 +20,34 @@ export async function registerChallenge(challenge: QrChallenge): Promise<void> {
   if (!res.ok) throw new Error(`challenge register ${res.status}`);
 }
 
+/** ข้อนี้จบไปแล้ว (สแกน QR เก่า) — ต่างจาก QR ผิด/เน็ตพัง ซึ่งต้องขึ้นคนละข้อความ */
+export class ChallengeClosedError extends Error {
+  constructor() {
+    super('challenge closed');
+    this.name = 'ChallengeClosedError';
+  }
+}
+
 export async function fetchChallenge<T extends QrChallenge = QrChallenge>(id: string): Promise<T> {
   if (!API_BASE) throw new Error('ยังไม่ได้ตั้งค่า VITE_API_BASE');
   const res = await fetch(`${API_BASE}/challenge.php?id=${encodeURIComponent(id)}&payload=1`);
+  if (res.status === 410) throw new ChallengeClosedError();
   const json = (await res.json().catch(() => null)) as { ok?: boolean; challenge?: T } | null;
   if (!res.ok || !json?.ok || !json.challenge) throw new Error(`challenge fetch ${res.status}`);
   return json.challenge;
+}
+
+// แท็บเล็ตสั่งปิดข้อเมื่อเลิกฟังผล (ครูกดผลเอง / การ์ดปิด / จบเทิร์น)
+// ไม่มีขั้นนี้ = แถวค้าง answered 0 แล้วมือถือจะยังตอบ/สแกนข้อเก่าได้เรื่อย ๆ
+export async function closeChallenge(id: string): Promise<void> {
+  if (!API_BASE || !id) return;
+  await fetch(`${API_BASE}/challenge.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, close: true }),
+  }).catch(() => {
+    /* ปิดไม่สำเร็จไม่ควรขวางเกม — มือถือยังมี poll เป็นตาข่ายรอง */
+  });
 }
 
 // มือถือส่งผลการตอบขึ้น server (ผู้เล่นตรวจในเครื่องแล้ว)
