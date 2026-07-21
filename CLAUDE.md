@@ -121,7 +121,12 @@ finishTurn(): เช็กชนะ (kingCoins≥7) → ส่งเทิร์
   - **กฎเหล็ก: picker โชว์แต่ "หลังการ์ด" ห้ามพลิกเผย `getCardFront`** — รูป `*-front.png` เป็น **เทมเพลตเปล่า** (ช่องคำถาม/ช่องคำตอบว่าง) ที่ออกแบบไว้ให้วางเนื้อหาทับ พลิกมาดูตอนยังไม่มีข้อความจึงเห็นแค่ฟอร์มเปล่า · เดิม picker พลิกเผย front แล้ว `CardFrame` ยังโชว์หลังการ์ด**ซ้ำอีกรอบ**แล้วพลิกเอง → ลำดับย้อนแย้ง หลัง→หน้าเปล่า→หลัง→เนื้อหา (~2.4 วิ) · ตอนนี้แบ่งหน้าที่: picker พลิกหนี + `CardFrame skipBackFlip` พลิกเข้า = **พลิกครั้งเดียว ~0.7 วิ**
   - **`{question,subject,ar}-front.png` ไม่ถูกใช้แล้ว** (เหลือแค่ `knowledge-front.png` ที่ `CardFrame` โหมด `art` ใช้เป็นพื้นจริง) → `preloadAllCardArt` โหลดตาม `FRONT_IN_USE` เท่านั้น **ประหยัด ~5.3 MB/เกม** · ถ้าวันหลังเปลี่ยนช่องฟ้า/สาระไปใช้โหมด `art` (เอาอาร์ตที่มีช่องคำตอบ 1–4 มาใช้จริง) ต้องเติม kind กลับใน `FRONT_IN_USE`
   - `preloadCardBack` gate เฉพาะหลังการ์ด (เดิม `preloadCardArt` await front ด้วยทั้งที่ไม่ได้ใช้ → สปินเนอร์ "เตรียมสำรับ" รอนานเท่าตัว)
-- **goldking = AR เท่านั้น** (`ARGoldChallenge.tsx` เต็มจอ): กล้อง → คลิป 15 วิ (ใช้ `quiz.videoUrl` จาก CMS ถ้ามี, fallback `King.arVideo`/placeholder) → **ลากคำตอบไปวางช่อง** (drag-to-slot) → ถูก = `answerKingCoin(correct, kingId)` (+เหรียญ 120) → สเตจ done โชว์ **ภาพเหรียญพระองค์นั้นหมุนเด้ง**
+- **goldking = จั่ว → ส่องการ์ดด้วย AR ภายนอก → ตอบคำถาม** (ปรับใหม่ 2026-07-21 · **ถอดขั้นดูคลิปในเกมออกแล้ว**)
+  1. `CardPicker` จั่วใบ (ฟีลสุ่ม) → 2. **`GoldCardReveal.tsx` เต็มจอ** โชว์ **ภาพการ์ด AR ใบจริง** ของพระองค์ที่เกมเลือกไว้ + ปุ่ม **"เสร็จสิ้น"** → 3. `QrChallengePanel` (QR) → มือถือ → **จีบนิ้วลากคำตอบ** → `answerKingCoin(correct, kingId)` (+เหรียญ 120)
+  - **ขั้น "ดูเรื่องราว/เบาะแส" ย้ายออกไปนอกระบบทั้งหมด** — ผู้เล่นใช้**มือถืออีกเครื่อง**ที่เปิดเว็บ AR ภายนอก (MyWebAR) ส่องภาพการ์ดบนจอกลาง · **ไม่มีการเชื่อมข้อมูลกับเกมเลย** ไม่มี challenge id วิ่งข้ามไป-กลับ → `GoldCardReveal` เป็น **UI gate ล้วน ไม่แตะ store** เหมือน `CardPicker`
+  - **กฎเหล็ก: การ์ดทองต้องมี 1 ข้อ/พระองค์ และคำถามต้องตรงกับที่ "พิมพ์อยู่บนภาพการ์ด"** — เพราะเด็กอ่านคำถามจากใบจริงในมือ ถ้าคลังสุ่มได้ข้ออื่น เด็กจะเจอคนละคำถามกับที่ส่อง AR มา · พระองค์ถูกเลือกโดย `resolveLanding` (`KING_IDS.find` = คนถัดไปที่ยังไม่มีเหรียญ) **ไม่ใช่สุ่มจากใบที่จั่ว**
+  - `GoldCardReveal` **จงใจเต็มจอ ไม่อยู่ใน `CardFrame`** เพราะมือถืออีกเครื่องต้องจับภาพการ์ดให้ติด — ใน `CardFrame` (maxHeight 88vh + แบนเนอร์กิน) การ์ดจะเหลือสูงราว 300px = tracking หลุด · ไม่มีไฟล์ภาพ/โหลดไม่ขึ้น → ถอยไปโชว์คำถามเป็นข้อความ (เกมห้ามค้างเพราะรูปหาย)
+  - **`cardMode` (MindAR `gold-card.mind`) ถูกปิดตายแล้ว** (`cardMode={false}` ทั้ง 2 จุดเรียก) เพราะ AR ภายนอกเป็นคนส่องการ์ด → chunk `mindar-image-three` (2 MB) + `three` (630 KB) **ยัง build อยู่แต่ไม่ถูกโหลดตอนรัน** (`arPhase` เริ่มที่ `'done'` เสมอ) · ถ้าจะเอา MindAR กลับ ต้องเปิด `cardMode` ที่ `CardModal.tsx` + `GoldArPage.tsx`
   - **คำใบ้ด้วยเหรียญ:** ปุ่ม "💡 ใช้คำใบ้ · จ่าย 🪙 60" (`buyHint`/`HINT_PRICE`) ตัดคำตอบผิด 2 ข้อ (ครั้งเดียว/คำถาม)
   - ผิด/ออกก่อนตอบใน AR → `answerKingCoin(false, kingId)` → เสียหัวใจผ่าน `damageCurrentPlayer`
   - `tile.kingId` เป็น null แต่ store คำนวณ "พระองค์ถัดไป" ใส่ event ตอน resolveLanding
@@ -134,7 +139,10 @@ finishTurn(): เช็กชนะ (kingCoins≥7) → ส่งเทิร์
 - **knowledge (ชมพู)** = การ์ดสะสม (ไม่มี AR, ไม่มีคำถามทบทวน) — อ่านเกร็ด → กด "เก็บ" ได้ 🪙 30 (เฉพาะใบใหม่) + ปุ่ม "🎲 สุ่มใหม่". `Player.knowledgeCards` ≤10 ใบ/คน สุ่มไม่ซ้ำ (`getRandomKnowledge`). `collectKnowledge(cardId, coins)`
 - **penalty (แดง)** = การ์ด "ช่องทำโทษ" → กดรับ → `applyPenalty(...)` (ถอย/หยุดพัก)
 - **bonus (เขียว)** = เหรียญ 80 + ไอเทมสุ่ม (`fiftyFifty`/`skip`/`double`/`heartPotion`) แล้วก้าวต่อได้เลือกทางแยก
-- `content.ts`: `getQuizForKing` / `getGoldQuizForKing` / `getSubjectQuizForKing` / `getRandomKnowledge` (+ `KNOWLEDGE_CAP=10`) — `cards.json` เป็น seed ของ `quiz` + `knowledge` + `subject` (42 ใบ = 7×6); `gold` seed = copy quiz แต่ CMS/API แยกเป็น `gold_quiz`
+- `content.ts`: `getQuizForKing` / `getGoldQuizForKing` / `getSubjectQuizForKing` / `getRandomKnowledge` (+ `KNOWLEDGE_CAP=10`) — `cards.json` เป็น seed ของ `quiz` + `knowledge` + `subject` (42 ใบ = 7×6) + **`gold` (7 ใบ = 1/พระองค์)**; CMS/API แยกเป็น `gold_quiz`
+  - **`gold` seed ต้องมาจาก `cards.json.gold` เท่านั้น — ห้ามกลับไป `[...QUIZ]` (copy การ์ดฟ้า)** เพราะคำถามทองต้องตรงกับที่พิมพ์บนภาพการ์ดจริง (ดูหัวข้อ goldking) · id = `gold_king01`..`gold_king07` เรียงตาม `KING_IDS`
+  - `pickQuiz` ปลอดภัยกับคลัง 1 ใบ: ตัวกรอง difficulty/`excludeIds` เป็นแบบ "ถ้ากรองแล้วว่างให้คงของเดิม" → คืนการ์ดของพระองค์นั้นเสมอ (deterministic ตามที่ต้องการ)
+  - **ภาพการ์ด AR จริงอยู่ที่ `public/assets/ar-cards/{king.id}.png`** ผ่าน `getKingArCardImage()` — เพิ่มพระองค์/เปลี่ยนอาร์ตแค่วางไฟล์ชื่อตาม `king.id` ไม่ต้องแก้โค้ด
 - 7 พระองค์อยู่ใน `kings.json` (`KING_IDS` เรียงตามลำดับเวลา = ลำดับที่ต้องเก็บเหรียญ 1→7)
 
 ## Teacher CMS + PHP API
@@ -207,7 +215,8 @@ finishTurn(): เช็กชนะ (kingCoins≥7) → ส่งเทิร์
   - `enterFullscreen()` ต้องเรียกจาก **user gesture** เท่านั้น → เรียกในปุ่ม "เริ่มเล่น" (`Home.tsx`) + toggle ใน Settings (ซ่อนถ้า `isStandalone()`/iOS ที่ไม่รองรับ) · iOS ไม่รองรับ `requestFullscreen` ต้องใช้ "เพิ่มไปยังหน้าจอโฮม"
   - `sw.js` = navigate → network-first · asset same-origin → stale-while-revalidate (ภาพกระดาน/การ์ดไม่มี hash ในชื่อ) · **ไม่แตะ `/api` และ origin ข้ามโดเมน** · ลงทะเบียนเฉพาะ PROD · เปลี่ยน `VERSION` เมื่อต้องล้างแคชเก่า
   - ไอคอน `public/icons/` สร้างจากภาพเหรียญบนพื้นแดงชาด `#8B0000` (192/512/maskable-512/apple-touch)
-- **🎬 คลิปบทเรียน AR — ลำดับความสำคัญอยู่ที่ `lessonVideoFor()` (`videoPool.ts`) ที่เดียว:** CMS (`quiz.videoUrl`) > `King.arVideo` > **คลิปสำรองในเครื่องจาก `LESSON_VIDEO_POOL`** (เลือกคงที่ด้วย hash ของ `card.id` → ใบเดิมได้คลิปเดิมเสมอ + เบราว์เซอร์แคชได้)
+- **🎬 คลิปบทเรียน AR — ⚠️ ไม่อยู่ในโฟลว์เกมแล้ว (2026-07-21)** ขั้นดูวิดีโอถูกถอดออกจากช่องทองทั้งฝั่งแท็บเล็ตและ `ar.html` (แทนด้วยการส่องการ์ดผ่าน AR ภายนอก) · `videoPool.ts` + `ar-mobile/QrVideoStage.tsx` **ยังอยู่บนดิสก์แต่ไม่มีใคร import** (vite tree-shake ออกจาก bundle แล้ว) เก็บไว้เผื่อย้อนกลับ — เนื้อหาด้านล่างคือของเดิม:
+  - **ลำดับความสำคัญอยู่ที่ `lessonVideoFor()` (`videoPool.ts`) ที่เดียว:** CMS (`quiz.videoUrl`) > `King.arVideo` > **คลิปสำรองในเครื่องจาก `LESSON_VIDEO_POOL`** (เลือกคงที่ด้วย hash ของ `card.id` → ใบเดิมได้คลิปเดิมเสมอ + เบราว์เซอร์แคชได้)
   - **ทำไมต้องมีชั้นสำรอง (บั๊กจริงที่เคยเกิด):** `King.arVideo` ใน `kings.json` เป็น `''` **ทั้ง 7 พระองค์** และ seed ของ `GOLD` คือ `[...QUIZ]` (สำเนาการ์ดฟ้าที่ไม่มีฟิลด์ `videoUrl`) → ถ้า API ล่ม/ยังไม่ได้ผูกวิดีโอ ค่าจะเป็น `''` แล้ว `QrVideoStage` จะ `onEnded()` ทันที = **ข้ามวิดีโอไปคำถามแบบเงียบ ๆ ไม่มี error** (กล้องไม่เปิดด้วยซ้ำ)
   - `QrVideoStage` มี `onError={onFallback}` บน `<video>` — ไฟล์ 404/เสีย จะถอยไปโหมด AR การ์ดทอง ไม่ค้างที่จอ "เล็ง QR" ตลอดกาล
   - **`sw.js` ต้องไม่แคชวิดีโอ** (`isVideo` ปล่อยผ่านก่อน `isStatic`) — `<video>` ขอด้วย Range → ได้ **206 Partial Content** ซึ่ง `res.ok === true` แต่ `Cache.put()` **โยน TypeError กับ 206 ตามสเปก** → แคชไม่มีวันติด ได้แต่ error รัวใน SW · ถ้าเพิ่มนามสกุลวิดีโอใหม่ ต้องเติมใน `isVideo` ไม่ใช่ `isStatic`

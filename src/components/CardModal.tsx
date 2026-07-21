@@ -12,6 +12,7 @@ import {
 import { color, radius, difficultyMeta } from '@/theme/tokens';
 import { ARGoldChallenge } from './ARGoldChallenge';
 import { CardPicker } from './CardPicker';
+import { GoldCardReveal } from './GoldCardReveal';
 import { CardFrame } from './CardFrame';
 import { QuestionImage } from './QuestionImage';
 import { QrChallengePanel } from './QrChallengePanel';
@@ -71,6 +72,10 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   // (เลี่ยง boolean ที่ต้องรีเซ็ตเองซึ่งค้างได้ ทำให้การ์ดใบต่อ ๆ ไปข้ามด่านจั่ว)
   const [pickedEvent, setPickedEvent] = useState<TileEvent | null>(null);
   const picked = !!event && pickedEvent === event;
+  // ช่องทอง: ผ่านสเตจ "ส่องการ์ดด้วยมือถือ AR" แล้วหรือยัง — เก็บเป็น event เหมือน pickedEvent
+  // (เทียบ reference ตรง ๆ จึงรีเซ็ตเองเมื่อการ์ดใบใหม่มา ไม่ต้องพึ่ง effect ที่ค้างได้)
+  const [revealedEvent, setRevealedEvent] = useState<TileEvent | null>(null);
+  const goldRevealed = !!event && revealedEvent === event;
 
   const kind = event?.kind;
   const kingId = event?.tile.kingId ?? null;
@@ -227,7 +232,10 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
           king={king}
           quiz={quiz}
           useCamera={settings.arEnabled}
-          cardMode={settings.arCardMode}
+          // ขั้น "ดูเรื่องราว/เบาะแส" ย้ายไปอยู่ที่การ์ด AR ภายนอก (MyWebAR) ก่อนหน้านี้แล้ว
+          // ในเกมจึงเข้าคำถาม + จีบนิ้วตรง ๆ ไม่ต้องเล่นคลิปซ้ำ และไม่ต้องส่องการ์ดเองด้วย MindAR
+          cardMode={false}
+          startAtQuestion
           onDone={(correct) => {
             setArGoldOpen(false);
             answerKingCoin(correct, kingId!);
@@ -242,6 +250,17 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
       )}
     {needsDraw && !picked ? (
       <CardPicker kind={kind as 'question' | 'subject' | 'knowledge' | 'goldking'} onPicked={() => setPickedEvent(event)} />
+    ) : isGold && king && quiz && !goldRevealed ? (
+      // จั่วได้ใบไหนก็ตาม เนื้อหาที่พลิกออกมาคือ "การ์ดของพระองค์ที่เกมเลือกไว้แล้ว"
+      // (store.ts เลือกพระองค์ถัดไปที่ยังไม่มีเหรียญตั้งแต่ resolveLanding — picker เป็นฟีลเลือกเอง)
+      // → คำถามบนภาพการ์ดจึงตรงกับคำถามที่จะถามผ่าน QR เสมอ
+      <GoldCardReveal
+        king={king}
+        quiz={quiz}
+        orientation={orientation}
+        onDone={() => setRevealedEvent(event)}
+        onCancel={closeEvent}
+      />
     ) : (
     <div style={shell}>
         {/* ── ช่องทอง (AR เท่านั้น) — เข้าสู่บทเรียน AR เพื่อรับเหรียญกษัตริย์ ── */}
@@ -284,10 +303,9 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             </p>
             <ol style={{ fontSize: 18, lineHeight: 1.7, color: color.text, paddingLeft: 22, margin: '0 0 18px' }}>
               <li>ส่องกล้อง AR</li>
-              <li>ดูคลิปวิดีโอ 15 วินาที</li>
-              <li>ลากคำตอบที่ถูกไปวางในช่อง → รับเหรียญ!</li>
+              <li>จีบนิ้วลากคำตอบที่ถูกไปวางในช่อง → รับเหรียญ!</li>
             </ol>
-            <PrimaryButton onClick={() => setArGoldOpen(true)} label="📷 เริ่มบทเรียน AR" />
+            <PrimaryButton onClick={() => setArGoldOpen(true)} label="📷 ตอบคำถามด้วย AR" />
           </div>
           )}
           </CardFrame>

@@ -2,14 +2,10 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import type { CSSProperties } from 'react';
 import { challengeApiAvailable, fetchChallenge, postChallengeResult } from '@/core/challengeApi';
 import { decodeChallenge } from '@/core/qrChallenge';
-import { lessonVideoFor } from '@/core/videoPool';
 import type { GoldArChallenge } from '@/core/qrChallenge';
 
 const ARGoldChallenge = lazy(() =>
   import('@/components/ARGoldChallenge').then((module) => ({ default: module.ARGoldChallenge }))
-);
-const QrVideoStage = lazy(() =>
-  import('./QrVideoStage').then((module) => ({ default: module.QrVideoStage }))
 );
 // กล้องรอสแกนใบต่อไป — ตัวเดียวกับที่หน้า answer.html ใช้ (โค้ดเดียว กฎกรอง QR เดียว)
 // lazy เพราะ jsqr หนัก ~130KB และหน้าจอผลลัพธ์เป็นปลายทาง ไม่ควรถ่วงตอนโหลดภารกิจ
@@ -29,8 +25,6 @@ function goToChallenge(url: string) {
 type PageState =
   | 'loading'
   | 'ready'
-  | 'qr-video'
-  | 'card-fallback'
   | 'question'
   | 'sending'
   | 'sent'
@@ -93,29 +87,16 @@ export function GoldArPage() {
     [challenge?.i]
   );
 
-  if (state === 'qr-video' && challenge?.i) {
-    return (
-      <Suspense fallback={<StatusScreen title="กำลังเตรียมตัวติดตาม QR…" />}>
-        <QrVideoStage
-          challengeId={challenge.i}
-          lessonUrl={lessonVideoFor(challenge.quiz.id, challenge.quiz.videoUrl, challenge.king.arVideo)}
-          kingName={challenge.king.name}
-          onEnded={() => setState('question')}
-          onFallback={() => setState('card-fallback')}
-        />
-      </Suspense>
-    );
-  }
-
-  if ((state === 'card-fallback' || state === 'question') && challenge) {
+  if (state === 'question' && challenge) {
     return (
       <Suspense fallback={<StatusScreen title="กำลังเตรียมระบบ AR…" />}>
         <ARGoldChallenge
           king={challenge.king}
           quiz={challenge.quiz}
           useCamera
-          cardMode={state === 'card-fallback'}
-          startAtQuestion={state === 'question'}
+          // ไม่ต้องส่องการ์ดเองแล้ว (MyWebAR ทำไปก่อนหน้า) → เข้าคำถาม + จีบนิ้วตรง ๆ
+          cardMode={false}
+          startAtQuestion
           onDone={(correct) => void sendResult(correct)}
           onCancel={() => setState('cancelled')}
         />
@@ -169,12 +150,14 @@ export function GoldArPage() {
         <div style={eyebrow}>ภารกิจการ์ดทอง</div>
         <h1 style={title}>{challenge?.king.name}</h1>
         <div style={steps}>
-          <span>ส่องการ์ดทอง</span>
-          <span>ชมวิดีโอ AR</span>
+          <span>เปิดกล้อง</span>
+          <span>จีบนิ้ว</span>
           <span>ลากคำตอบ</span>
         </div>
-        <button type="button" style={startButton} onClick={() => setState('qr-video')}>
-          เปิดกล้องและส่อง QR
+        {/* ขั้นดูเรื่องราว/เบาะแสทำไปแล้วที่การ์ด AR ภายนอก (MyWebAR) บนมือถืออีกเครื่อง
+            มือถือเครื่องนี้จึงเข้าคำถามตรง ๆ ไม่ต้องเล่นคลิปซ้ำ (state 'qr-video' เลิกใช้แล้ว) */}
+        <button type="button" style={startButton} onClick={() => setState('question')}>
+          เริ่มตอบคำถาม
         </button>
       </section>
     </main>

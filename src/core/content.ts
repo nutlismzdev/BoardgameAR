@@ -50,7 +50,10 @@ export function getKing(id: string | null | undefined): King | undefined {
 
 let QUIZ = [...(cardsData.quiz as QuizCard[])];
 let KNOWLEDGE = [...(cardsData.knowledge as KnowledgeCard[])];
-let GOLD: GoldQuizCard[] = [...QUIZ];
+// การ์ดทอง = 1 ข้อ/พระองค์ ตรงกับคำถามที่ "พิมพ์อยู่บนการ์ด AR จริง" (public/assets/ar-cards/)
+// จึงต้อง seed จาก cards.json.gold เท่านั้น — ห้ามกลับไป copy QUIZ เพราะคำถามบนจอ
+// จะไม่ตรงกับใบที่เด็กถืออยู่ในมือ (ดู CLAUDE.md หัวข้อการ์ดทอง)
+let GOLD: GoldQuizCard[] = [...((cardsData as { gold?: GoldQuizCard[] }).gold ?? [])];
 let SUBJECT: SubjectQuizCard[] = [...((cardsData as { subject?: SubjectQuizCard[] }).subject ?? [])];
 
 interface ContentCache {
