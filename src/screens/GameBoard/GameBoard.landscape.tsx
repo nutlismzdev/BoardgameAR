@@ -13,7 +13,7 @@ import { ShopModal } from '@/components/ShopModal';
 import { SettingsPanel } from '@/screens/Settings/Settings';
 import { getKingPawnImage, getKingCoinImage } from '@/core/kingAssets';
 import { KingCoinRow } from '@/components/KingCoinRow';
-import { RoomStandings } from '@/components/RoomStandings';
+import { RoomClock, RoomStandings } from '@/components/RoomStandings';
 import { KINGS } from '@/core/content';
 import { useViewportSize } from '@/hooks/useViewportSize';
 import { color, radius } from '@/theme/tokens';
@@ -120,9 +120,6 @@ export function GameBoardLandscape() {
       >
         <BoardImage size={boardSize} />
 
-        {/* อันดับสดของห้องแข่งออนไลน์ (ซ่อนเองเมื่อไม่ได้อยู่ในห้อง) */}
-        <RoomStandings />
-
         {/* HUD เหรียญ ลอยซ้ายบนของกระดาน */}
         <div style={{ ...pill, top: 10, left: 10 }}>
           <span>{renderHearts(player?.hearts ?? 3)}</span>
@@ -224,8 +221,9 @@ export function GameBoardLandscape() {
           zIndex: 1,
         }}
       >
-        {/* แถวบน: ตั้งค่า + ออก (เอาตัวนับเทิร์นออกแล้ว) */}
+        {/* แถวบน: รหัสห้อง+เวลา (ซ้าย ที่ว่างเดิม) · ตั้งค่า + ออก (ขวา) */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+          <RoomClock />
           <button onClick={() => setSettingsOpen(true)} style={iconBtn} aria-label="ตั้งค่า">
             ⚙️
           </button>
@@ -233,6 +231,9 @@ export function GameBoardLandscape() {
             🏠
           </button>
         </div>
+
+        {/* อันดับของทุกทีมในห้องแข่ง (ซ่อนเองเมื่อไม่ได้อยู่ในห้อง) */}
+        <RoomStandings />
 
         {/* แถบผู้เล่น (หลายคน) — แยกสถานะให้ครูเห็นชัด ไม่เบียดการ์ดเหรียญกษัตริย์ */}
         {players.length > 1 && (

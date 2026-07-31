@@ -10,7 +10,7 @@
 | 0 · ย้าย `bg7-api` ไป IIS+FastCGI | ⛔ **ยังไม่ทำ — เป็นงานบนเครื่องเซิร์ฟเวอร์ ต้องรันเอง** (ภาคผนวก C ของ `DEPLOY.md`) · จนกว่าจะย้าย ให้จำกัดห้องละ ≤ 4 ทีม และห้ามอัปโหลดวิดีโอระหว่างแข่ง |
 | 1 · ตาราง + `server/room.php` | ✅ ทำแล้ว + ทดสอบด้วย `curl` ครบทุก action |
 | 2 · `roomApi.ts` + หน้า สร้าง/เข้าร่วม/ล็อบบี้ + ล็อกกติกา | ✅ ทำแล้ว (`src/core/roomApi.ts`, `src/screens/Room/RoomPanel.tsx`) |
-| 3 · heartbeat + แถบอันดับใน HUD | ✅ ทำแล้ว (`src/core/useRoomHeartbeat.ts`, `src/components/RoomStandings.tsx`) |
+| 3 · heartbeat + แผงอันดับในแถบขวา | ✅ ทำแล้ว (`src/core/useRoomHeartbeat.ts`, `src/components/RoomStandings.tsx`) |
 | 4 · หมดเวลา/ถึงเป้า → จอสรุปอันดับ | ✅ ทำแล้ว (`RoomResult` ใน `GameOver.tsx`) |
 | 5 · ทดสอบกับอุปกรณ์จริง 2 เครื่อง | ⛔ ยังไม่ได้ทดสอบบนอุปกรณ์จริง |
 
@@ -39,7 +39,7 @@
   "เริ่มแข่ง"                  →  ทุกเครื่องนับถอยหลัง 3-2-1 พร้อมกัน
 
   ระหว่างแข่ง: กระดานของใครของมัน
-  มุมจอมีแถบอันดับสด  🥇 ทีมข 4 · 🥈 เรา 3 · 🥉 ทีมค 2   (อัปเดตทุก 3 วิ)
+  แถบขวามีแผงอันดับสด  🥇 ทีมข 4 · 🥈 เรา 3 · 🥉 ทีมค 2   (อัปเดตทุก 3 วิ)
 
   หมดเวลา หรือมีทีมถึงเป้า → จอสรุปอันดับของทุกทีม
 ```
@@ -131,7 +131,7 @@
 **ไฟล์ใหม่**
 - `src/core/roomApi.ts` — client เรียก `/api/room.php` · **standalone ห้าม import store** (แบบเดียวกับ `challengeApi.ts`)
 - `src/screens/Room/CreateRoom.tsx` · `JoinRoom.tsx` · `Lobby.tsx`
-- `src/components/RoomStandings.tsx` — แถบอันดับสดมุมจอ
+- `src/components/RoomStandings.tsx` — `RoomClock` (รหัสห้อง+เวลาถอยหลัง ในแถวไอคอน) + `RoomStandings` (แผงอันดับในแถบขวา)
 
 **ไฟล์ที่แตะ (เล็กน้อย)**
 - `store.ts` — เพิ่ม slice `room` (code / teamToken / rules / standings / endsAt) · **ห้ามแตะ logic เกมเดิม** · เพิ่มแค่ตัวส่ง heartbeat ที่อ่าน `kingCoins` ไปรายงาน
