@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useGame } from '@/core/store';
 import { syncContent } from '@/core/content';
+import { useRoomHeartbeat } from '@/core/useRoomHeartbeat';
 import { startBackgroundMusic, stopBackgroundMusic, setSoundEnabled } from '@/core/sfx';
 import { Home } from '@/screens/Home/Home';
 import { GameBoard } from '@/screens/GameBoard';
@@ -15,6 +16,9 @@ export default function App() {
   useEffect(() => {
     void syncContent();
   }, []);
+
+  // ห้องแข่งออนไลน์: ส่งแต้มทีมเรา + รับอันดับทั้งห้อง (ไม่ทำอะไรเลยถ้าไม่ได้อยู่ในห้อง)
+  useRoomHeartbeat();
 
   // sync ค่าเสียงเข้ากับโมดูล sfx — จำเป็นเพราะ settings ถูก persist แล้ว (เช่น รีโหลด/resume)
   // ไม่งั้น flag ภายใน sfx (enabled=true) จะไม่ตรงกับ settings.soundEnabled ที่กู้คืนมา

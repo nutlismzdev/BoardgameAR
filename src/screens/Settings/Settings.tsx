@@ -15,6 +15,7 @@ import {
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const settings = useGame((s) => s.settings);
   const update = useGame((s) => s.updateSettings);
+  const inRoom = useGame((s) => !!s.room); // อยู่ในห้องแข่ง = กติกาถูกล็อกจากห้อง
   const [adminOpen, setAdminOpen] = useState(false);
 
   // เต็มจอเป็นสถานะของเครื่อง ไม่ใช่ settings ที่ persist — อ่านจากเบราว์เซอร์ตรง ๆ
@@ -57,6 +58,11 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             ตั้งค่าให้เหมาะกับชั้นเรียน
           </p>
 
+        {/* กติกาที่ห้องแข่งล็อกไว้ต้องเท่ากันทุกทีม ไม่งั้นแข่งกันไม่ยุติธรรม */}
+        {inRoom && (
+          <p style={lockedNote}>🌐 กำลังอยู่ในห้องแข่ง — ระดับความยากและเป้าเหรียญถูกล็อกให้เท่ากันทุกทีม</p>
+        )}
+
         {/* ระดับความยาก */}
         <Row label="ระดับความยากคำถาม">
           <Segmented
@@ -68,6 +74,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             ]}
             value={settings.difficulty}
             onChange={(v) => update({ difficulty: v as Settings['difficulty'] })}
+            disabled={inRoom}
           />
         </Row>
 
@@ -84,6 +91,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             ]}
             value={clampTargetCoins(settings.targetCoins)}
             onChange={(v) => update({ targetCoins: v })}
+            disabled={inRoom}
           />
           <p style={{ fontSize: 15, color: color.textMuted, margin: '8px 0 0', lineHeight: 1.5 }}>
             3 เหรียญ ≈ 45 นาที · 7 เหรียญ ≈ 2 ชั่วโมง (ครบทุกพระองค์)
@@ -193,6 +201,17 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
+const lockedNote: React.CSSProperties = {
+  margin: '0 0 4px',
+  fontSize: 15,
+  fontWeight: 700,
+  color: '#6B4E1E',
+  background: '#FFF6D8',
+  border: `1.5px solid ${color.secondary}`,
+  borderRadius: radius.md,
+  padding: '10px 14px',
+};
+
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ margin: '18px 0' }}>
@@ -206,18 +225,21 @@ function Segmented<T extends string | number>({
   options,
   value,
   onChange,
+  disabled = false,
 }: {
   options: { label: string; value: T }[];
   value: T;
   onChange: (v: T) => void;
+  disabled?: boolean;
 }) {
   return (
-    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', opacity: disabled ? 0.5 : 1 }}>
       {options.map((o) => {
         const active = o.value === value;
         return (
           <button
             key={String(o.value)}
+            disabled={disabled}
             onClick={() => onChange(o.value)}
             style={{
               fontFamily: 'inherit',
@@ -229,7 +251,7 @@ function Segmented<T extends string | number>({
               border: `2px solid ${color.secondary}`,
               background: active ? color.secondary : color.surface,
               color: active ? '#fff' : color.text,
-              cursor: 'pointer',
+              cursor: disabled ? 'not-allowed' : 'pointer',
             }}
           >
             {o.label}

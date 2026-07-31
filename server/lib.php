@@ -5,6 +5,10 @@ function send_json(array $payload, int $status = 200): void
 {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
+    // ⚠️ ห้ามให้ตัวกลางแคชคำตอบของ API — ห้องแข่ง poll URL เดิมซ้ำ ๆ (room.php?code=XXXX)
+    // ถ้าโซน Cloudflare มี Cache Rule แบบ "Cache Everything" อันดับจะค้างไม่อัปเดต
+    // แล้วดีบักยากมากเพราะฝั่งเซิร์ฟเวอร์ทำงานถูกทุกอย่าง (เดิมรอดเพราะทุก poll มี ?id= ไม่ซ้ำ)
+    header('Cache-Control: no-store');
     echo json_encode($payload, JSON_UNESCAPED_UNICODE);
     exit;
 }

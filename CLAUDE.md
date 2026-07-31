@@ -169,6 +169,22 @@ finishTurn(): เช็กชนะ (kingCoins≥7) → ส่งเทิร์
   - helper ที่ `content.php` กับ `import.php` ใช้ร่วมกัน (`normalize_id`, `ensure_schema_for_type`, `db_to_card`, `list_cards`, `VALID_SUBJECTS`) **อยู่ใน `lib.php` ที่เดียว**
 - deploy จริงต้องให้ PHP เขียน `server/uploads/` ได้ และตั้ง `VITE_API_BASE`/CORS ให้ตรงโดเมน
 
+## 🏫 ห้องแข่งออนไลน์ (แข่งขนาน) — ดูรายละเอียดเต็มใน `ROOM-PLAN.md`
+
+สร้างห้อง → ผู้เล่นอื่นใส่รหัส 6 ตัว → เริ่มพร้อมกัน → **แต่ละทีมเล่นกระดานของตัวเอง** แล้วเห็นอันดับของกันและกันสด ๆ
+
+- **กติกาเกมยังอยู่ที่ `store.ts` ทั้งหมด ห้องเป็นแค่ "กระดานคะแนนกลาง"** — `server/room.php` (5 action: create/join/start/sync/leave/end) + `core/roomApi.ts` (standalone ห้าม import store) + `useRoomHeartbeat` ที่ `App.tsx` ยิง `sync` ทุก 3 วิ
+- **`sync` = round trip เดียว: ส่งแต้มทีมเรา + รับอันดับทั้งห้องกลับมา** — `php -S` รับทีละคำขอ การประหยัด round trip คือการประหยัดคอขวดโดยตรง · **ห้ามใช้ long-polling/SSE** (ค้างคอนเนกชัน = บล็อกทั้งเซิร์ฟเวอร์)
+- **⚠️ ในโหมดห้อง `finishTurn` ไม่เช็กเงื่อนไขชนะ** — server เป็นคนประกาศจบ (หมดเวลา/มีทีมถึงเป้า) เพราะคะแนนทีม = **ผลรวมเหรียญของทุกคนในเครื่อง** ซึ่งถึงเป้าก่อนที่ผู้เล่นคนใดคนหนึ่งจะถึง · ถ้าเอาเช็กเดิมกลับมา เครื่องจะจบไม่พร้อมห้อง = อันดับเพี้ยน
+- **ห้องล็อก `contentVersion`** — เข้าร่วมด้วยคลังการ์ดคนละเวอร์ชันไม่ได้ (`getContentVersion()` ใน `content.ts`) ไม่งั้นแข่งกันไม่ยุติธรรม · เครื่องที่ไม่เคยซิงก์ API เลยได้ 0 = เข้าห้องไม่ได้
+- **ห้องล็อกจำนวนผู้เล่นต่อเครื่องให้เท่ากันทุกทีม** — ไม่งั้นทีม 4 คนได้ทอยเต๋าบ่อยกว่าทีม 2 คนเท่าตัว
+- **แข่งจับเวลา** (ค่าเริ่มต้น 30 นาที) หมดเวลาแล้วเหรียญมากสุดชนะ — เพราะเป้า 7 เหรียญใช้เวลา ≈ 1.8 ชม. เกินคาบเรียน ถ้าไม่จับเวลาจะเล่นไม่จบพร้อมกัน
+- **เวลาทุกอย่างอิงนาฬิกา server** (`serverTime` ในทุก response, คอลัมน์เวลาเป็น INT unix ที่คิดด้วย `time()` ของ PHP) — ห้ามให้ client คิดจาก `Date.now()` เพราะนาฬิกาแท็บเล็ตแต่ละทีมไม่ตรงกัน
+- **เน็ตหลุด = เกมในเครื่องเดินต่อปกติ** แค่แถบอันดับขึ้น "ขาดการเชื่อมต่อ" (`room.offline`) แล้ว retry รอบหน้า — ห้ามให้ห้องมาบล็อกการเล่น
+- **โมเดลเชื่อใจ:** แต้มมาจากเครื่องผู้เล่น แก้ `localStorage` โกงได้ · กันแบบเบา: `team_token` (แก้ได้แค่แถวตัวเอง) + แต้มเพิ่มได้อย่างเดียว + ธง `suspect` เมื่อแต้มพุ่งผิดปกติ (**เตือนครู ไม่ปฏิเสธ** — ปฏิเสธพลาดแล้วเกมพังกลางคาบ)
+- **PDPA:** ส่งขึ้น server แค่ชื่อทีม + แต้ม · **ห้ามส่งชื่อผู้เล่นที่กรอกหน้า Home**
+- `?room=ABC123` ในลิงก์ = เปิดแผงห้องพร้อมกรอกรหัสให้ (QR ในล็อบบี้สร้างลิงก์นี้)
+
 ## ระบบเสริม
 
 - **คอมโบ:** ตอบถูกติดกัน → ตัวคูณเหรียญ (`comboMult`, `streak`)
@@ -260,6 +276,8 @@ src/
     kingAssets.ts   ← id พระองค์ → หมาก `/assets/chess/{order}.png` + เหรียญ `/assets/coins/{id}.png`
     diceLogic.ts    ← rollDie
     registerSW.ts   ← ลงทะเบียน service worker (เรียกจากทั้ง 3 entry)
+    roomApi.ts      ← client ห้องแข่งออนไลน์ (standalone ห้าม import store)
+    useRoomHeartbeat.ts ← ส่งแต้มทีม + รับอันดับห้องทุก 3 วิ (เรียกที่ App.tsx ที่เดียว)
     sfx.ts          ← เสียง (Web Audio) + เพลงพื้นหลัง (startBackgroundMusic ใน App.tsx)
   data/
     board-layout.json  ← ผังช่อง 0–76 + next[] (กราฟ) + penalty/label
@@ -276,7 +294,8 @@ src/
     KingPawnToken.tsx / PawnToken.tsx / KingCollection.tsx / CollectionMuseumModal.tsx /
     KingDetailModal.tsx / ItemBar.tsx / DiceButton.tsx / Confetti.tsx / Mascot.tsx ...
   screens/
-    Home/        ← เลือกจำนวนผู้เล่น + เริ่ม
+    Home/        ← เลือกจำนวนผู้เล่น + เริ่ม + ปุ่ม "แข่งกับผู้เล่นอื่น"
+    Room/        ← RoomPanel: สร้างห้อง/เข้าร่วมด้วยรหัส/ล็อบบี้ (ห้องแข่งออนไลน์)
     GameBoard/   ← index (เลือก layout) + portrait + landscape (มี ForkOverlay + ShopModal)
     GameOver/    ← จัดอันดับด้วย kingCoins + แถวเหรียญ
     Settings/    ← Teacher Mode (ไม่มี maxRounds แล้ว)

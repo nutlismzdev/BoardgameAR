@@ -6,6 +6,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import boardData from '@/data/board-layout.json';
 import kingsData from '@/data/kings.json';
 import type { Player, Tile, TileEvent, Difficulty } from './types';
+import type { RoomState } from './roomApi';
 import { rollDie } from './diceLogic';
 import { sfx, setSoundEnabled, startBackgroundMusic, stopBackgroundMusic } from './sfx';
 
@@ -140,6 +141,7 @@ interface GameState {
   doubleNext: boolean; // ×2 เหรียญรางวัลถัดไป
   usedQuizIds: string[]; // กันสุ่มคำถามซ้ำจนกว่าจะใช้ครบ pool
   exitPrompt: boolean; // เปิดกล่องยืนยันออกจากเกม (ปุ่ม 🏠 หรือปุ่ม back เบราว์เซอร์)
+  room: RoomSession | null; // ห้องแข่งออนไลน์ (null = เล่นเดี่ยวตามปกติ)
 
   // actions
   setupGame: (count: number, kingTokenIds?: string[], names?: string[]) => void;
@@ -162,6 +164,33 @@ interface GameState {
   requestExit: () => void;
   cancelExit: () => void;
   confirmExit: () => void;
+  enterRoom: (session: RoomSession) => void;
+  updateRoomState: (state: RoomState) => void;
+  setRoomOffline: (offline: boolean) => void;
+  leaveRoomSession: () => void;
+}
+
+// ── ห้องแข่งออนไลน์ ──
+// เกมยังเดินด้วย store นี้เหมือนเดิมทุกอย่าง ห้องเป็นแค่ "กระดานคะแนนกลาง" ที่รับแต้มไปแสดง
+// ⚠️ ในโหมดห้อง **เกมท้องถิ่นไม่จบเอง** — ห้องเป็นคนจบ (หมดเวลา หรือมีทีมถึงเป้า)
+// เพราะคะแนนทีมคือ "ผลรวมเหรียญของทุกคนในเครื่อง" ซึ่งถึงเป้าได้ก่อนที่ผู้เล่นคนใดคนหนึ่งจะถึง
+// ถ้าปล่อยให้เช็กแบบเดิมด้วย เกมจะจบไม่พร้อมกันระหว่างจอกับห้อง = อันดับเพี้ยน
+export interface RoomSession {
+  code: string;
+  teamToken: string;
+  teamName: string;
+  isHost: boolean;
+  state: RoomState | null; // สถานะล่าสุดที่ได้จาก server (null = ยังไม่เคยซิงก์สำเร็จ)
+  offline: boolean; // sync ล่าสุดล้มเหลว — เกมเดินต่อได้ แต่แถบอันดับค้าง
+}
+
+/** คะแนนทีม = ผลรวมเหรียญกษัตริย์ของทุกคนในเครื่อง (ห้องล็อกจำนวนผู้เล่นให้เท่ากันทุกทีม) */
+export function teamKingCoins(players: Player[]): number {
+  return players.reduce((sum, p) => sum + p.kingCoins.length, 0);
+}
+
+export function teamCoins(players: Player[]): number {
+  return players.reduce((sum, p) => sum + p.coins, 0);
 }
 
 const TOKENS = ['🐘', '⛵', '🛕', '🐉'];
@@ -190,6 +219,7 @@ export const useGame = create<GameState>()(
   doubleNext: false,
   usedQuizIds: [],
   exitPrompt: false,
+  room: null,
 
   setupGame: (count, kingTokenIds = KING_IDS, names) => {
     gameGen++; // เกมใหม่: loop เดินหมากของเกมก่อนหน้า (ถ้ายังค้าง) ต้องหยุดทันที
@@ -437,7 +467,8 @@ export const useGame = create<GameState>()(
   backToHome: () => {
     gameGen++; // ออกจากเกม: ตัด loop เดินหมากที่ยัง await ค้างอยู่ ไม่ให้ไปอ่าน players ที่ถูกล้างแล้ว
     stopBackgroundMusic();
-    set({ players: [], phase: 'setup', currentPlayerIndex: 0, round: 1, lastRoll: null, pendingEvent: null });
+    // ออกจากเกม = ออกจากห้องแข่งด้วย (ไม่งั้น heartbeat จะยิงแต้มของเกมที่ไม่มีอยู่แล้วต่อไป)
+    set({ players: [], phase: 'setup', currentPlayerIndex: 0, round: 1, lastRoll: null, pendingEvent: null, room: null });
   },
 
   // เปิด/ปิด/ยืนยัน กล่องออกจากเกม — เส้นทางออกทั้งปุ่ม 🏠 และปุ่ม back เบราว์เซอร์รวมมาที่นี่
@@ -447,6 +478,26 @@ export const useGame = create<GameState>()(
     set({ exitPrompt: false });
     get().backToHome();
   },
+
+  // ── ห้องแข่ง ── store เก็บแค่ "เราอยู่ห้องไหน + อันดับล่าสุด" ไม่มีกติกาเกมอยู่ในนี้
+  enterRoom: (session) => set({ room: session }),
+  updateRoomState: (state) => {
+    const room = get().room;
+    if (!room) return; // ออกจากห้องไปแล้วระหว่างที่คำขอค้างอยู่ — ทิ้งผลลัพธ์
+    set({ room: { ...room, state, offline: false } });
+    // ห้องประกาศจบ (หมดเวลา / มีทีมถึงเป้า) = จบเกมบนเครื่องนี้ด้วย
+    // ต้องเช็ก phase ก่อน ไม่งั้นจะยิง sfx.win ซ้ำทุกครั้งที่ poll หลังจบไปแล้ว
+    if (state.room.status === 'ended' && get().phase !== 'gameover' && get().phase !== 'setup') {
+      sfx.win();
+      set({ phase: 'gameover', lastRoll: null, pendingEvent: null, pendingFork: null });
+    }
+  },
+  setRoomOffline: (offline) => {
+    const room = get().room;
+    if (!room || room.offline === offline) return; // กัน set ซ้ำทุกรอบ poll = re-render ทั้งจอฟรี ๆ
+    set({ room: { ...room, offline } });
+  },
+  leaveRoomSession: () => set({ room: null }),
     }),
     {
       name: SAVE_KEY,
@@ -462,6 +513,9 @@ export const useGame = create<GameState>()(
         items: s.items,
         doubleNext: s.doubleNext,
         usedQuizIds: s.usedQuizIds,
+        // เก็บห้องแข่งไว้ด้วย — เผลอรีเฟรช/แอปถูก kill กลางแมตช์แล้วกลับเข้าห้องเดิมได้
+        // (teamToken อยู่ในนี้ ถ้าหายต้อง join ใหม่ซึ่งชื่อทีมจะซ้ำแล้วเข้าไม่ได้)
+        room: s.room,
         phase: savablePhase(s.phase),
         savedAt: Date.now(), // ประทับเวลาทุกครั้งที่ state เปลี่ยน = "เวลาที่เล่นล่าสุด"
       }),
@@ -486,6 +540,8 @@ export const useGame = create<GameState>()(
           items: p.items ?? current.items,
           doubleNext: p.doubleNext ?? false,
           usedQuizIds: p.usedQuizIds ?? [],
+          // สถานะห้องที่เซฟไว้อาจเก่าแล้ว — heartbeat รอบแรกจะเขียนทับให้เอง
+          room: p.room ?? null,
           // snap กลับสถานะเสถียร: รอผู้เล่นปัจจุบันทอย (กัน phase ชั่วคราว/การ์ดค้างเมื่อ resume)
           phase: 'idle',
           pendingEvent: null,
@@ -572,8 +628,10 @@ function finishTurn(set: any, get: any) {
   set({ pendingEvent: null });
 
   // เงื่อนไขจบเกมทันที: มีผู้เล่นเก็บเหรียญกษัตริย์ครบตามเป้าที่ครูตั้งไว้
+  // ⚠️ ยกเว้นโหมดห้องแข่ง — ที่นั่นคะแนนคือ "ผลรวมทั้งทีม" และ server เป็นคนประกาศจบ
+  // (หมดเวลา หรือมีทีมถึงเป้า) ถ้าเช็กที่นี่ด้วย เครื่องจะจบไม่พร้อมห้อง = อันดับเพี้ยน
   const target = clampTargetCoins(get().settings.targetCoins);
-  if (players.some((p: Player) => p.kingCoins.length >= target)) {
+  if (!get().room && players.some((p: Player) => p.kingCoins.length >= target)) {
     sfx.win();
     set({ phase: 'gameover', lastRoll: null });
     return;

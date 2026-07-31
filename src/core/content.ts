@@ -68,11 +68,20 @@ function isBrowser(): boolean {
   return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
 }
 
+// เวอร์ชันคลังการ์ดที่เครื่องนี้ถืออยู่ — ห้องแข่งใช้เช็กว่าทุกทีมเล่นคลังเดียวกันจริง
+// 0 = ยังไม่เคยซิงก์จาก API เลย (ใช้ seed/cache ล้วน) ซึ่งเข้าห้องแข่งไม่ได้
+let CONTENT_VERSION = 0;
+
+export function getContentVersion(): number {
+  return CONTENT_VERSION;
+}
+
 function applyContent(cache: ContentCache): void {
   if (cache.quiz.length) QUIZ = cache.quiz;
   if (cache.knowledge.length) KNOWLEDGE = cache.knowledge;
   if (cache.gold.length) GOLD = cache.gold;
   if (cache.subject.length) SUBJECT = cache.subject;
+  CONTENT_VERSION = cache.version;
 }
 
 export function hydrateFromCache(): void {
@@ -82,7 +91,7 @@ export function hydrateFromCache(): void {
     if (!raw) return;
     const parsed = JSON.parse(raw) as Partial<ContentCache>;
     applyContent({
-      version: Number(parsed.version ?? 1),
+      version: Number(parsed.version ?? 0),
       quiz: Array.isArray(parsed.quiz) ? (parsed.quiz as QuizCard[]) : [],
       knowledge: Array.isArray(parsed.knowledge) ? (parsed.knowledge as KnowledgeCard[]) : [],
       gold: Array.isArray(parsed.gold) ? (parsed.gold as GoldQuizCard[]) : [],

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGame } from '@/core/store';
 import { KINGS } from '@/core/content';
 import { getKingPawnImage } from '@/core/kingAssets';
 import { sfx } from '@/core/sfx';
 import { enterFullscreen } from '@/core/viewportLock';
 import { SettingsPanel } from '@/screens/Settings/Settings';
+import { RoomPanel } from '@/screens/Room/RoomPanel';
 import { MuseumShowcase } from '@/components/MuseumShowcase';
 
 // สีประจำผู้เล่น 1–4 (ตามดีไซน์ "ตั้งค่าเกม")
@@ -67,6 +68,12 @@ export function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [showMuseum, setShowMuseum] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  // ลิงก์เชิญของห้องแข่ง (`?room=ABC123`) → เปิดแผงห้องพร้อมกรอกรหัสให้เลย
+  const invitedCode = useMemo(() => {
+    const raw = new URLSearchParams(window.location.search).get('room') ?? '';
+    return /^[A-Za-z0-9]{4,8}$/.test(raw) ? raw.toUpperCase() : '';
+  }, []);
+  const [showRoom, setShowRoom] = useState(!!invitedCode);
 
   const [playerCount, setPlayerCount] = useState(1);
   const [activePlayer, setActivePlayer] = useState(0);
@@ -649,6 +656,27 @@ export function Home() {
               {allPicked ? `▶ เริ่มเล่น (${TH[playerCount]} คน)` : 'เลือกกษัตริย์ให้ครบก่อน'}
             </button>
 
+            {/* ห้องแข่งออนไลน์ — จำนวนผู้เล่น/กษัตริย์ถูกกำหนดโดยห้อง ไม่ใช่ฟอร์มด้านบน */}
+            <button
+              onClick={() => {
+                sfx.step();
+                setShowRoom(true);
+              }}
+              style={{
+                padding: 13,
+                borderRadius: 14,
+                border: '2px solid #C79A3A',
+                background: '#FFF6D8',
+                color: '#7A5B1E',
+                fontFamily: "'Trirong',serif",
+                fontWeight: 700,
+                fontSize: 17,
+                cursor: 'pointer',
+              }}
+            >
+              🌐 แข่งกับผู้เล่นอื่น
+            </button>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
               <button
                 onClick={() => {
@@ -859,6 +887,7 @@ export function Home() {
 
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
       {showMuseum && <MuseumShowcase onClose={() => setShowMuseum(false)} />}
+      {showRoom && <RoomPanel onClose={() => setShowRoom(false)} initialCode={invitedCode || undefined} />}
 
       {/* คู่มือเล่นเกม — เอกสาร HTML สำเร็จรูปใน public/guide/ โหลดผ่าน iframe
           (iframe มี scroll ของตัวเอง จึงไม่ชน viewport lock ที่ล็อก body เป็น position:fixed) */}

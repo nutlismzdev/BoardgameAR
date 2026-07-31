@@ -1,4 +1,5 @@
 import { useGame, clampTargetCoins } from '@/core/store';
+import type { RoomSession } from '@/core/store';
 import { KINGS } from '@/core/content';
 import { KingCoinRow } from '@/components/KingCoinRow';
 import { getKingPawnImage } from '@/core/kingAssets';
@@ -82,6 +83,12 @@ export function GameOver() {
   const setupGame = useGame((s) => s.setupGame);
   const backToHome = useGame((s) => s.backToHome);
   const target = useGame((s) => clampTargetCoins(s.settings.targetCoins));
+  const room = useGame((s) => s.room);
+
+  // อยู่ในห้องแข่ง → ผลที่คนทั้งห้องรอดูคือ "อันดับของทุกทีม" ไม่ใช่อันดับในเครื่อง
+  if (room?.state) {
+    return <RoomResult room={room} players={players} onHome={backToHome} />;
+  }
 
   const badgeFor = (p: Player, rank: number) => {
     // "ผู้พิชิต ๗ มหาราช" ต้องสงวนไว้ให้คนที่เก็บครบ 7 จริง ๆ เท่านั้น
@@ -278,6 +285,99 @@ export function GameOver() {
 }
 
 // สรุปผลโหมดเดี่ยว — ดาว + สถิติ
+// ── จอสรุปห้องแข่งออนไลน์ ──
+// อันดับมาจาก server แล้ว (เรียงตาม เหรียญกษัตริย์ → เหรียญปกติ → ใครถึงก่อน) ที่นี่แค่แสดง
+function RoomResult({
+  room,
+  players,
+  onHome,
+}: {
+  room: RoomSession;
+  players: Player[];
+  onHome: () => void;
+}) {
+  const teams = room.state?.teams ?? [];
+  const medals = ['🥇', '🥈', '🥉', '🎖️'];
+  const weWon = teams[0]?.name === room.teamName;
+
+  return (
+    <div style={screenStyle()}>
+      <RoyalBackdrop />
+      <div style={{ position: 'relative', zIndex: 1, width: 'min(620px, 94vw)', margin: '0 auto', padding: 18 }}>
+        <div style={{ textAlign: 'center', marginBottom: 14 }}>
+          <div style={{ fontSize: 15, color: '#E9D9A8', fontWeight: 700 }}>ผลการแข่ง · ห้อง {room.code}</div>
+          <h1 style={{ fontSize: 34, margin: '4px 0', color: '#FFE9A8' }}>
+            {weWon ? '🏆 ทีมเราชนะ!' : `🏫 ${teams[0]?.name ?? '—'} ชนะ`}
+          </h1>
+        </div>
+
+        <div style={{ display: 'grid', gap: 8 }}>
+          {teams.map((t, i) => {
+            const me = t.name === room.teamName;
+            return (
+              <div
+                key={t.name}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '12px 14px',
+                  borderRadius: 14,
+                  background: me ? 'rgba(255,233,168,.95)' : 'rgba(255,253,246,.9)',
+                  border: me ? '2px solid #C79A3A' : '1.5px solid rgba(199,154,58,.5)',
+                  fontWeight: me ? 800 : 600,
+                  color: '#3A2A12',
+                }}
+              >
+                <span style={{ fontSize: 22, width: 30 }}>{medals[i] ?? i + 1}</span>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 18 }}>
+                  {t.name}
+                  {me && ' (ทีมเรา)'}
+                  {/* แต้มพุ่งผิดปกติ — ให้ครูดูเอง ระบบไม่ตัดสิทธิ์ใคร */}
+                  {t.suspect && <span title="แต้มเพิ่มเร็วผิดปกติ"> ⚠️</span>}
+                </span>
+                <span style={{ fontSize: 19, fontWeight: 900 }}>👑 {t.kingCoins}</span>
+                <span style={{ fontSize: 15, color: '#7A5B1E' }}>🪙 {t.coins}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* สรุปของทีมเราเอง — ใครในเครื่องเก็บได้เท่าไร */}
+        <div style={{ marginTop: 16, padding: '12px 14px', borderRadius: 14, background: 'rgba(0,0,0,.35)' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#E9D9A8', marginBottom: 6 }}>ทีมเรา ({room.teamName})</div>
+          {players.map((p) => (
+            <div key={p.id} style={{ display: 'flex', gap: 8, color: '#FFF8E7', fontSize: 16, padding: '3px 0' }}>
+              <span style={{ flex: 1 }}>{p.name}</span>
+              <span>👑 {p.kingCoins.length}</span>
+              <span>🪙 {p.coins}</span>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={onHome}
+          style={{
+            marginTop: 18,
+            width: '100%',
+            padding: 16,
+            borderRadius: 16,
+            border: 'none',
+            fontFamily: "'Trirong',serif",
+            fontWeight: 700,
+            fontSize: 20,
+            color: '#FBEECB',
+            background: 'linear-gradient(180deg,#A81E1E,#7E0F0F)',
+            cursor: 'pointer',
+          }}
+        >
+          กลับหน้าแรก
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SoloSummary({
   player,
   badge,

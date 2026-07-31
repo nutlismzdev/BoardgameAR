@@ -13,6 +13,7 @@ import { ShopModal } from '@/components/ShopModal';
 import { SettingsPanel } from '@/screens/Settings/Settings';
 import { getKingPawnImage, getKingCoinImage } from '@/core/kingAssets';
 import { KingCoinRow } from '@/components/KingCoinRow';
+import { RoomStandings } from '@/components/RoomStandings';
 import { KINGS } from '@/core/content';
 import { useViewportSize } from '@/hooks/useViewportSize';
 import { color, radius } from '@/theme/tokens';
@@ -118,6 +119,9 @@ export function GameBoardLandscape() {
         }}
       >
         <BoardImage size={boardSize} />
+
+        {/* อันดับสดของห้องแข่งออนไลน์ (ซ่อนเองเมื่อไม่ได้อยู่ในห้อง) */}
+        <RoomStandings />
 
         {/* HUD เหรียญ ลอยซ้ายบนของกระดาน */}
         <div style={{ ...pill, top: 10, left: 10 }}>
