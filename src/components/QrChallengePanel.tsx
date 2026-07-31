@@ -18,6 +18,7 @@ export function QrChallengePanel({
   onResult,
   onCancel,
   onUnavailable,
+  allowManual = true,
   variant = 'quiz',
 }: {
   challenge: QrChallenge;
@@ -26,6 +27,9 @@ export function QrChallengePanel({
   onCancel?: () => void;
   // สร้าง QR ไม่สำเร็จ (payload ยาวเกินความจุ QR) — ผู้เรียกควรถอยไปทางเล่นอื่นแทนที่จะโชว์กล่องพัง
   onUnavailable?: () => void;
+  // โชว์ปุ่ม "ตอบถูก/ตอบผิด" ที่ครูกดเองไหม (ปิดเพื่อกันเด็กกดข้ามคำถาม)
+  // ⚠️ มีผลเฉพาะโหมดอัตโนมัติ — ไม่มี backend แล้วซ่อนปุ่มนี้ = เกมเดินต่อไม่ได้เลย
+  allowManual?: boolean;
   variant?: 'quiz' | 'gold-ar';
 }) {
   const [dataUrl, setDataUrl] = useState<string>('');
@@ -170,18 +174,20 @@ export function QrChallengePanel({
             <span style={dot} className="qr-dot" />
             รอคำตอบจากมือถือ…
           </div>
-          {/* fallback เผื่อเน็ตหลุด/ผลไม่ขึ้น */}
-          <div style={fallbackWrap}>
-            <span style={fallbackLabel}>ยังไม่ขึ้น? เลือกผลเอง</span>
-            <div style={btnRow}>
-              <button style={ghostBtn(color.success)} onClick={() => manual(true)}>
-                ตอบถูก
-              </button>
-              <button style={ghostBtn(color.danger)} onClick={() => manual(false)}>
-                ตอบผิด
-              </button>
+          {/* fallback เผื่อเน็ตหลุด/ผลไม่ขึ้น — ครูปิดได้ใน Teacher Mode ถ้ากลัวเด็กกดเอง */}
+          {allowManual && (
+            <div style={fallbackWrap}>
+              <span style={fallbackLabel}>ยังไม่ขึ้น? เลือกผลเอง</span>
+              <div style={btnRow}>
+                <button style={ghostBtn(color.success)} onClick={() => manual(true)}>
+                  ตอบถูก
+                </button>
+                <button style={ghostBtn(color.danger)} onClick={() => manual(false)}>
+                  ตอบผิด
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </>
       ) : (
         <>
@@ -200,9 +206,13 @@ export function QrChallengePanel({
         </>
       )}
 
-      {variant === 'gold-ar' && onCancel ? (
+      {/* ── ทางออกฉุกเฉิน ──
+          ปิดปุ่ม "ตอบถูก/ตอบผิด" แล้วมือถือไม่ตอบ (เด็กเดินออก/แบตหมด/สแกนไม่ติด) การ์ดจะค้างถาวร
+          เพราะจอนี้ไม่มีทางออกอื่นเลย → ต้องมีปุ่มข้ามที่ **ไม่ตัดสินถูก/ผิด** ไว้เสมอ
+          (ข้าม = จบเทิร์น ไม่ได้เหรียญ ไม่เสียหัวใจ — ตรงกับการกดยกเลิกของการ์ดทอง) */}
+      {onCancel ? (
         <button type="button" style={cancelBtn} onClick={onCancel}>
-          ยกเลิกภารกิจนี้
+          {variant === 'gold-ar' ? 'ยกเลิกภารกิจนี้' : 'ข้ามข้อนี้ (ไม่ได้เหรียญ)'}
         </button>
       ) : null}
 

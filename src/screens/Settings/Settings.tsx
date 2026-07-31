@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useGame, clampTargetCoins } from '@/core/store';
 import type { Settings } from '@/core/store';
 import { AdminPanel } from '@/screens/Admin/AdminPanel';
-import { hasAdminToken } from '@/core/api';
+import { adminLoginAvailable, hasAdminToken, login } from '@/core/api';
 import { color, radius, elevation } from '@/theme/tokens';
 import {
   enterFullscreen,
@@ -18,9 +18,27 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const update = useGame((s) => s.updateSettings);
   const inRoom = useGame((s) => !!s.room); // อยู่ในห้องแข่ง = กติกาถูกล็อกจากห้อง
   const [adminOpen, setAdminOpen] = useState(false);
-  // สถานะเข้าสู่ระบบครู — เดิมไม่มีให้เห็นบนจอเลย ต้องกดเข้าหลังบ้านถึงจะรู้ว่าล็อกอินอยู่ไหม
-  // (อ่านตอน render ทุกครั้งที่เปิด/ปิดหลังบ้าน ก็พอ — ไม่ต้อง subscribe อะไร)
-  const loggedIn = hasAdminToken();
+  // ── โหมดครูถูกล็อกไว้หลังรหัส ──
+  // เดิมสวิตช์ทั้งหมดเปิดโล่ง เด็กที่หยิบแท็บเล็ตไปกดปิดตัวจับเวลา/ลดเป้าเหรียญ/เปิดโหมดนำเสนอได้เอง
+  // ⚠️ ล็อกได้เฉพาะตอนมี backend ให้ล็อกอิน — ไม่งั้นครูจะเข้าตั้งค่าไม่ได้เลยตลอดกาล
+  const gated = adminLoginAvailable();
+  const [loggedIn, setLoggedIn] = useState(() => !gated || hasAdminToken());
+  const [password, setPassword] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState('');
+
+  const doLogin = async () => {
+    setAuthError('');
+    setAuthBusy(true);
+    try {
+      await login(password);
+      setLoggedIn(true);
+    } catch {
+      setAuthError('รหัสไม่ถูกต้อง');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
 
   // เต็มจอเป็นสถานะของเครื่อง ไม่ใช่ settings ที่ persist — อ่านจากเบราว์เซอร์ตรง ๆ
   // (ผู้ใช้กด Esc / ปัดออกเองได้ ต้องตามให้ทัน) · ติดตั้งเป็น PWA แล้วเต็มจออยู่แล้ว ไม่ต้องโชว์
@@ -61,6 +79,68 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           <p style={{ color: color.textMuted, marginTop: -8, fontSize: 17 }}>
             ตั้งค่าให้เหมาะกับชั้นเรียน
           </p>
+
+        {/* ── ประตูรหัสครู ── ยังไม่ล็อกอิน = ไม่เห็นสวิตช์อะไรเลย */}
+        {!loggedIn ? (
+          <div style={{ display: 'grid', gap: 12, margin: '10px 0 4px' }}>
+            <div style={lockedNote}>🔒 ต้องใส่รหัสครูก่อนจึงจะเห็นและแก้การตั้งค่าได้</div>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void doLogin()}
+              placeholder="รหัสครู"
+              style={{
+                fontFamily: 'inherit',
+                fontSize: 18,
+                padding: '12px 14px',
+                minHeight: 50,
+                borderRadius: radius.md,
+                border: `2px solid ${color.secondary}`,
+                background: '#fff',
+                color: color.text,
+              }}
+            />
+            {authError && (
+              <div style={{ fontSize: 15, fontWeight: 700, color: color.danger }}>{authError}</div>
+            )}
+            <button
+              onClick={() => void doLogin()}
+              disabled={authBusy || !password}
+              style={{
+                fontFamily: 'inherit',
+                fontSize: 19,
+                fontWeight: 700,
+                color: '#fff',
+                background: color.primary,
+                border: 'none',
+                borderRadius: radius.pill,
+                padding: 15,
+                minHeight: 54,
+                cursor: authBusy || !password ? 'not-allowed' : 'pointer',
+                opacity: authBusy || !password ? 0.6 : 1,
+              }}
+            >
+              {authBusy ? 'กำลังตรวจสอบ…' : 'เข้าสู่ระบบ'}
+            </button>
+            <button
+              onClick={onClose}
+              style={{
+                fontFamily: 'inherit',
+                fontSize: 16,
+                fontWeight: 700,
+                color: color.textMuted,
+                background: 'transparent',
+                border: 'none',
+                padding: 10,
+                cursor: 'pointer',
+              }}
+            >
+              ปิด
+            </button>
+          </div>
+        ) : (
+        <>
 
         {/* กติกาที่ห้องแข่งล็อกไว้ต้องเท่ากันทุกทีม ไม่งั้นแข่งกันไม่ยุติธรรม */}
         {inRoom && (
@@ -149,6 +229,16 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           onToggle={() => update({ arCardMode: !settings.arCardMode })}
         />
         <Toggle
+          label="🎬 โหมดนำเสนอ (เจอการ์ดทอง AR บ่อยขึ้น)"
+          on={settings.goldBoostMode}
+          onToggle={() => update({ goldBoostMode: !settings.goldBoostMode })}
+        />
+        <Toggle
+          label="🙋 ปุ่มตอบถูก/ตอบผิดบนจอ QR"
+          on={settings.manualResultButtons}
+          onToggle={() => update({ manualResultButtons: !settings.manualResultButtons })}
+        />
+        <Toggle
           label="🎲 แสดงไอคอนบนช่อง"
           on={settings.showTileIcons}
           onToggle={() => update({ showTileIcons: !settings.showTileIcons })}
@@ -159,6 +249,11 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           onToggle={() => update({ calibrate: !settings.calibrate })}
         />
 
+        </>
+        )}
+
+        {loggedIn && (
+          <>
           <button
             onClick={() => setAdminOpen(true)}
             style={{
@@ -181,9 +276,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           {/* บอกให้ชัดว่าปุ่มนี้ต้องใช้รหัส และตอนนี้เครื่องนี้ล็อกอินค้างอยู่หรือเปล่า
               (สำคัญบนแท็บเล็ตที่เด็กใช้ร่วมกัน — ครูจะได้รู้ว่าต้องออกจากระบบก่อนส่งต่อ) */}
           <p style={{ margin: '6px 0 0', fontSize: 14, color: color.textMuted, textAlign: 'center' }}>
-            {loggedIn
-              ? '🔓 เครื่องนี้เข้าสู่ระบบครูอยู่ — ออกจากระบบได้ในหน้าหลังบ้าน'
-              : 'ต้องใช้รหัสครู · การสร้างห้องแข่งไม่ต้องใช้รหัสนี้'}
+            🔓 เครื่องนี้เข้าสู่ระบบครูอยู่ — ออกจากระบบได้ในหน้าหลังบ้าน
           </p>
 
           <button
@@ -205,6 +298,8 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           >
             เสร็จสิ้น
           </button>
+          </>
+        )}
         </div>
       </div>
       {adminOpen && <AdminPanel onClose={() => setAdminOpen(false)} />}

@@ -89,6 +89,11 @@ export function logout(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+/** มี backend ให้ล็อกอินไหม — ถ้าไม่มี ห้ามล็อกโหมดครูไว้ ไม่งั้นจะเข้าไม่ได้เลยตลอดกาล */
+export function adminLoginAvailable(): boolean {
+  return !!API_BASE;
+}
+
 export function hasAdminToken(): boolean {
   return Boolean(token());
 }

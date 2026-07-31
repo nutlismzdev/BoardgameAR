@@ -38,6 +38,7 @@ export function useRoomHeartbeat() {
         // ถูกปฏิเสธเมื่อไร resolveSabotageSend คืนเหรียญให้เอง (หักไปตั้งแต่ตอนกด)
         if (outgoing) game.resolveSabotageSend(res.sent ?? null);
         if (res.incoming?.length) game.receiveEffects(res.incoming);
+        game.setSabotageWait(res.sabotageWait ?? 0);
       } catch {
         // เน็ตสะดุด/เซิร์ฟเวอร์ล่ม — **เกมในเครื่องต้องเดินต่อได้ปกติ** แค่แถบอันดับค้าง
         if (alive) useGame.getState().setRoomOffline(true);

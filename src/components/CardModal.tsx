@@ -106,6 +106,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   const cardEffects = useGame((s) => s.cardEffects);
   const hardened = cardEffects.includes('hardQuiz');
   const stormed = cardEffects.includes('storm');
+  const itemsLocked = cardEffects.includes('lockItems'); // 🔒 ใช้ไอเทมช่วยกับการ์ดใบนี้ไม่ได้
   const pickDifficulty = hardened ? ('hard' as const) : settings.difficulty;
 
   // ช่องทองก็ต้องมีคำถาม (ใช้กับ drag-to-slot ใน AR) จึงสุ่ม quiz ไว้ด้วย
@@ -132,7 +133,8 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             label: qrLabel,
             id: genChallengeId(),
             timeLimitSec: settings.timerEnabled ? timeLimit : undefined,
-            items: { f: items.fiftyFifty, s: items.skip },
+            // ล็อกไอเทม = ส่ง 0 ไปกับ payload ด้วย ไม่งั้นมือถือยังโชว์ปุ่มให้กดได้
+            items: itemsLocked ? { f: 0, s: 0 } : { f: items.fiftyFifty, s: items.skip },
             drag: settings.dragAnswerMode,
             hand: settings.handAnswerMode,
           })
@@ -265,7 +267,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
     ) : null;
 
   const itemButtons =
-    answered === null && quiz && (items.fiftyFifty > 0 || items.skip > 0) ? (
+    answered === null && quiz && !itemsLocked && (items.fiftyFifty > 0 || items.skip > 0) ? (
       <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
         {items.fiftyFifty > 0 && hidden.length === 0 && (
           <button
@@ -380,6 +382,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
                 closeEvent();
               }}
               onCancel={closeEvent}
+              allowManual={settings.manualResultButtons}
               onUnavailable={() => setQrFailedEvent(event)}
             />
           ) : (
@@ -440,6 +443,9 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
           {qrMode && qrChallenge ? (
             <QrChallengePanel
               challenge={qrChallenge}
+              allowManual={settings.manualResultButtons}
+              // ทางออกฉุกเฉินเมื่อมือถือไม่ตอบ — จำเป็นมากเมื่อครูปิดปุ่มตอบถูก/ตอบผิด
+              onCancel={closeEvent}
               onResult={(ok, usedItems) => {
                 // หักไอเทมที่ผู้เล่นกดใช้บนมือถือ — คลังไอเทมอยู่ที่ store เสมอ มือถือแค่รายงานกลับ
                 usedItems.forEach((it) => useItem(it));
@@ -526,6 +532,9 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
 
             {/* ปุ่มไอเทมช่วย (ก่อนตอบ) — โหมดลากย้ายไปไว้บนจอลาก */}
             {!dragMode && itemButtons}
+            {itemsLocked && answered === null && (
+              <div style={lockedItemsNote}>🔒 ถูกล็อกไอเทม — การ์ดใบนี้ใช้ตัวช่วยไม่ได้</div>
+            )}
 
             {answered !== null &&
               (() => {
@@ -761,6 +770,18 @@ function DifficultyBadge({ difficulty }: { difficulty: 'easy' | 'medium' | 'hard
     </span>
   );
 }
+
+const lockedItemsNote: React.CSSProperties = {
+  marginTop: 12,
+  fontSize: 15,
+  fontWeight: 700,
+  textAlign: 'center',
+  color: '#6B4E1E',
+  background: '#F3ECD9',
+  border: '1.5px dashed #C9A227',
+  borderRadius: radius.md,
+  padding: '9px 12px',
+};
 
 const itemBtn: React.CSSProperties = {
   fontFamily: 'inherit',

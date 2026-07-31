@@ -54,13 +54,7 @@ export function RoomStandings() {
       {sabotageOpen && <SabotagePicker targets={targets} onClose={() => setSabotageOpen(false)} />}
       <div style={panelHeader}>
         <span>อันดับ</span>
-        {canSabotage ? (
-          <button style={sabotageBtn} onClick={() => setSabotageOpen(true)}>
-            😈 ป่วน
-          </button>
-        ) : (
-          <span style={{ fontWeight: 700, color: color.textMuted }}>{teams.length} ทีม</span>
-        )}
+        <span style={{ fontWeight: 700, color: color.textMuted }}>{teams.length} ทีม</span>
       </div>
       <div style={list}>
         {rows.map(({ team, rank }) => {
@@ -78,7 +72,48 @@ export function RoomStandings() {
           );
         })}
       </div>
+
+      {/* ── ปุ่มส่งการ์ดป่วน ──
+          เดิมเป็นชิปเล็ก ๆ ซ่อนอยู่มุมหัวแผง เด็กหาไม่เจอว่ามีของเล่นอยู่ตรงนี้
+          ตอนนี้เป็นปุ่มเต็มความกว้างใต้ตารางอันดับ + บอกสถานะ 3 แบบในตัวเอง:
+          พร้อมยิง (เรืองแสง) / กำลังคูลดาวน์ (นับถอยหลัง) / เหรียญไม่พอ */}
+      {canSabotage && <SabotageButton onOpen={() => setSabotageOpen(true)} />}
     </section>
+  );
+}
+
+/** ปุ่มป่วน — นับถอยหลังคูลดาวน์ให้เห็นเอง ไม่ต้องกดแล้วค่อยโดนบอกว่ายังไม่ได้ */
+function SabotageButton({ onOpen }: { onOpen: () => void }) {
+  const coins = useGame((s) => s.players[s.currentPlayerIndex]?.coins ?? 0);
+  const wait = useGame((s) => s.sabotageWait);
+  const pending = useGame((s) => !!s.outgoingSabotage);
+  // เดินนาฬิกาต่อเองระหว่างรอ sync รอบถัดไป (server อัปเดตค่านี้ทุก 3 วิ)
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    setTick(0);
+    if (wait <= 0) return;
+    const iv = window.setInterval(() => setTick((t) => t + 1), 1000);
+    return () => window.clearInterval(iv);
+  }, [wait]);
+  const left = Math.max(0, wait - tick);
+
+  const cheapest = Math.min(...Object.values(EFFECTS).map((e) => e.price));
+  const poor = coins < cheapest;
+  const ready = left === 0 && !poor && !pending;
+
+  return (
+    <button style={sabotageBtn(ready, left > 0)} onClick={onOpen} disabled={!ready}>
+      <span style={{ fontSize: 17 }}>😈</span>
+      <span style={{ flex: 1, textAlign: 'left' }}>
+        {pending ? 'กำลังส่ง…' : left > 0 ? `พร้อมใน ${formatClock(left)}` : poor ? `ต้องมี 🪙 ${cheapest}` : 'ส่งการ์ดป่วน'}
+      </span>
+      {ready && <span style={sabotageReadyDot} className="sab-pulse" />}
+      <style>{`
+        @keyframes sabPulse { 0%,100% { opacity:.35; transform:scale(.75) } 50% { opacity:1; transform:scale(1) } }
+        .sab-pulse { animation: sabPulse 1.1s ease-in-out infinite }
+        @media (prefers-reduced-motion: reduce) { .sab-pulse { animation: none } }
+      `}</style>
+    </button>
   );
 }
 
@@ -280,16 +315,37 @@ const scoreCell: CSSProperties = {
   flexShrink: 0,
 };
 
-const sabotageBtn: CSSProperties = {
-  fontFamily: 'inherit',
-  fontSize: 11.5,
-  fontWeight: 900,
-  color: '#8B0000',
-  background: '#FFE7E7',
-  border: '1.5px solid #E5A5A5',
-  borderRadius: radius.pill,
-  padding: '2px 9px',
-  cursor: 'pointer',
+function sabotageBtn(ready: boolean, cooling: boolean): CSSProperties {
+  return {
+    fontFamily: 'inherit',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 7,
+    width: '100%',
+    marginTop: 7,
+    padding: '8px 11px',
+    minHeight: 40,
+    fontSize: 13,
+    fontWeight: 900,
+    borderRadius: radius.md,
+    border: `2px solid ${ready ? '#B02020' : cooling ? '#C8B48A' : '#D8D2C4'}`,
+    background: ready
+      ? 'linear-gradient(160deg,#FFE0E0,#FFC9C9)'
+      : cooling
+      ? '#F4EFE3'
+      : '#EFEDE7',
+    color: ready ? '#8B0000' : '#8A7250',
+    cursor: ready ? 'pointer' : 'not-allowed',
+    boxShadow: ready ? '0 4px 12px rgba(176,32,32,.22)' : 'none',
+  };
+}
+
+const sabotageReadyDot: CSSProperties = {
+  width: 9,
+  height: 9,
+  borderRadius: '50%',
+  background: '#B02020',
+  flexShrink: 0,
 };
 
 const pickerOverlay: CSSProperties = {

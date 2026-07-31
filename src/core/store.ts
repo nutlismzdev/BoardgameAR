@@ -6,7 +6,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import boardData from '@/data/board-layout.json';
 import kingsData from '@/data/kings.json';
 import type { Player, Tile, TileEvent, Difficulty } from './types';
-import { BLOCK_STEPS, EFFECTS, TAX_COINS, sendErrorMessage } from './roomApi';
+import { BLOCK_STEPS, EFFECTS, REWIND_STEPS, STEAL_GAIN, STEAL_LOSS, sendErrorMessage } from './roomApi';
 import type { EffectKind, RoomEffect, RoomState, SendResult } from './roomApi';
 import { rollDie } from './diceLogic';
 import { sfx, setSoundEnabled, startBackgroundMusic, stopBackgroundMusic } from './sfx';
@@ -94,6 +94,13 @@ export interface Settings {
   // และการ์ดฟ้า/สาระเจอบ่อยกว่าช่องทองมาก → พึ่ง service worker แคช `/mediapipe/` ให้ทน reload
   // (ลงทะเบียนครบทั้ง 3 entry แล้ว) · เครื่องที่กล้อง/ตรวจจับมือไม่ไหวยังถอยไปแตะลาก/ปุ่มกดได้เอง
   handAnswerMode: boolean; // ใช้จีบนิ้วผ่านกล้องแทนการแตะลาก (มีผลเมื่อ dragAnswerMode เปิด)
+  // โหมดนำเสนอ: ช่องเดินเปล่ากลายเป็นช่องทองหมด → เจอบทเรียน AR บ่อยขึ้นมากตอนสาธิตให้คนดู
+  // (ช่องเดินเปล่ามี 14 ใน 46 → ความถี่เจอการ์ดทองขยับจากราว 13% เป็น ~43% ของเทิร์น)
+  goldBoostMode: boolean;
+  // ปุ่ม "ตอบถูก/ตอบผิด" ที่ครูกดเองบนจอ QR — **ปิดเป็นค่าเริ่มต้น** เพื่อกันเด็กกดข้ามคำถามเอง
+  // ⚠️ ซ่อนได้เฉพาะตอนมี backend คอยส่งผลอัตโนมัติ — ถ้า `auto === false` จอบังคับโชว์เสมอ
+  //    ไม่งั้นเกมไม่มีทางเดินต่อ · และมีปุ่ม "ข้ามข้อนี้" เป็นทางออกฉุกเฉินไว้ทุกกรณีแล้ว
+  manualResultButtons: boolean;
   targetCoins: number; // เก็บเหรียญกษัตริย์กี่เหรียญถึงชนะ (ครูปรับตามเวลาที่มีในคาบ)
 }
 
@@ -122,6 +129,8 @@ const DEFAULT_SETTINGS: Settings = {
   calibrate: false,
   showTileIcons: true,
   qrAnswerMode: true, // ตอบบนมือถือส่วนตัวเป็นค่าเริ่มต้น — คำถามไม่โผล่บนจอกลาง ผู้เล่นอื่นไม่เห็นเฉลย
+  goldBoostMode: false,
+  manualResultButtons: false, // ซ่อนไว้ก่อน — ให้ผลมาจากมือถือจริงเท่านั้น
   dragAnswerMode: true, // ตอบแบบลากคำตอบเป็นค่าเริ่มต้นทุกการ์ด (ให้ฟีลเดียวกับการ์ดทอง)
   handAnswerMode: true, // จีบนิ้วผ่านกล้องเป็นค่าเริ่มต้น — ครูปิดเองได้ถ้าเน็ต/เครื่องไม่ไหว
   targetCoins: DEFAULT_TARGET_COINS,
@@ -147,6 +156,8 @@ interface GameState {
   pendingCardEffects: EffectKind[]; // รอลงกับ "การ์ดใบถัดไป" (storm / hardQuiz)
   cardEffects: EffectKind[]; // ผลที่ติดอยู่กับการ์ดที่เปิดอยู่ตอนนี้
   rollCap: number | null; // เพดานแต้มของการทอยครั้งถัดไป (จากการ์ดช้างขวางทาง)
+  pendingBack: number; // ถอยหลังกี่ช่องก่อนทอยครั้งถัดไป (จากการ์ดย้อนรอย)
+  sabotageWait: number; // เหลืออีกกี่วินาทีถึงส่งการ์ดป่วนใบถัดไปได้ (0 = พร้อม)
   outgoingSabotage: { to: string; kind: EffectKind } | null; // รอ heartbeat ฝากไปกับ sync รอบหน้า
   sabotageNotice: { id: number; from: string; kind: EffectKind } | null; // ป้ายแจ้งเตือน "โดนป่วน"
   sabotageFeedback: { id: number; ok: boolean; message: string } | null; // ผลของการ์ดที่เราส่งไป
@@ -175,6 +186,7 @@ interface GameState {
   enterRoom: (session: RoomSession) => void;
   updateRoomState: (state: RoomState) => void;
   setRoomOffline: (offline: boolean) => void;
+  setSabotageWait: (sec: number) => void;
   leaveRoomSession: () => void;
   receiveEffects: (effects: RoomEffect[]) => void;
   queueSabotage: (to: string, kind: EffectKind) => boolean;
@@ -236,6 +248,8 @@ export const useGame = create<GameState>()(
   pendingCardEffects: [],
   cardEffects: [],
   rollCap: null,
+  pendingBack: 0,
+  sabotageWait: 0,
   outgoingSabotage: null,
   sabotageNotice: null,
   sabotageFeedback: null,
@@ -270,6 +284,7 @@ export const useGame = create<GameState>()(
       pendingCardEffects: [],
       cardEffects: [],
       rollCap: null,
+      pendingBack: 0,
       outgoingSabotage: null,
       sabotageNotice: null,
     });
@@ -288,6 +303,16 @@ export const useGame = create<GameState>()(
   roll: async () => {
     const { phase } = get();
     if (phase !== 'idle') return;
+
+    // การ์ด "ย้อนรอย": ถอยหลังก่อนทอย — ทำตรงนี้เพราะเป็นจังหวะเดียวที่หมากอยู่นิ่งแน่นอน
+    // ⚠️ ข้ามถ้าอยู่ในเลนแยก (index ≥ LOOP) เพราะ applyPenalty คิดด้วย %LOOP ซึ่งใช้กับวงนอกเท่านั้น
+    // ถ้าไม่กัน หมากจะวาร์ปข้ามกระดานแบบหาสาเหตุไม่เจอ (กับดักเดียวกับ applyChance)
+    const back = get().pendingBack;
+    if (back > 0) {
+      const pos = get().players[get().currentPlayerIndex]?.position ?? 0;
+      if (pos < LOOP) get().applyPenalty(back, 0);
+      set({ pendingBack: 0 });
+    }
 
     // การ์ด "ช้างขวางทาง" จากทีมอื่น: จำกัดแต้มของการทอยครั้งนี้ แล้วใช้แล้วหมดไป
     // (ยังได้ทอย ได้เดิน ได้เปิดการ์ด — แค่ไปได้ไม่ไกล ตรงตามกฎ "ป่วน ≠ ทำให้หยุดเล่น")
@@ -509,6 +534,7 @@ export const useGame = create<GameState>()(
       pendingCardEffects: [],
       cardEffects: [],
       rollCap: null,
+      pendingBack: 0,
       outgoingSabotage: null,
       sabotageNotice: null,
     });
@@ -535,6 +561,11 @@ export const useGame = create<GameState>()(
       set({ phase: 'gameover', lastRoll: null, pendingEvent: null, pendingFork: null });
     }
   },
+  setSabotageWait: (sec) => {
+    if (get().sabotageWait === sec) return; // กัน re-render ทุกรอบ poll
+    set({ sabotageWait: sec });
+  },
+
   setRoomOffline: (offline) => {
     const room = get().room;
     if (!room || room.offline === offline) return; // กัน set ซ้ำทุกรอบ poll = re-render ทั้งจอฟรี ๆ
@@ -551,18 +582,22 @@ export const useGame = create<GameState>()(
     const idx = get().currentPlayerIndex;
     const cardKinds: EffectKind[] = [];
     let cap = get().rollCap;
-    let taxed = 0;
+    let back = get().pendingBack;
+    let stolen = 0;
 
     for (const e of effects) {
-      if (e.kind === 'tax') taxed += TAX_COINS;
+      if (e.kind === 'steal') stolen += STEAL_LOSS;
       else if (e.kind === 'block') cap = BLOCK_STEPS;
-      else cardKinds.push(e.kind);
+      else if (e.kind === 'rewind') back += REWIND_STEPS;
+      else if (e.kind === 'ghost') continue; // ตลกล้วน ไม่มีผลกับเกม — เด้งแค่ป้ายแจ้งเตือน
+      else cardKinds.push(e.kind); // storm / hardQuiz / lockItems → ลงกับการ์ดใบถัดไป
     }
 
     set((s) => ({
-      players: taxed
-        ? s.players.map((p, i) => (i === idx ? { ...p, coins: Math.max(0, p.coins - taxed) } : p))
+      players: stolen
+        ? s.players.map((p, i) => (i === idx ? { ...p, coins: Math.max(0, p.coins - stolen) } : p))
         : s.players,
+      pendingBack: back,
       // เก็บได้ไม่เกิน 2 ใบ (ตรงกับเพดานฝั่ง server) — ที่เกินทิ้ง ไม่สะสมไว้ถล่มทีหลัง
       pendingCardEffects: [...s.pendingCardEffects, ...cardKinds].slice(0, 2),
       rollCap: cap,
@@ -597,10 +632,11 @@ export const useGame = create<GameState>()(
     if (!outgoing) return;
     const failed = !result || !result.ok;
     const idx = get().currentPlayerIndex;
-    const refund = failed ? EFFECTS[outgoing.kind].price : 0;
+    // ล้มเหลว = คืนราคาเต็ม · สำเร็จและเป็น "โจรปล้น" = ได้ส่วนแบ่งที่ปล้นมา
+    const delta = failed ? EFFECTS[outgoing.kind].price : outgoing.kind === 'steal' ? STEAL_GAIN : 0;
     set((s) => ({
-      players: refund
-        ? s.players.map((p, i) => (i === idx ? { ...p, coins: p.coins + refund } : p))
+      players: delta
+        ? s.players.map((p, i) => (i === idx ? { ...p, coins: p.coins + delta } : p))
         : s.players,
       outgoingSabotage: null,
       sabotageFeedback: {
@@ -610,6 +646,8 @@ export const useGame = create<GameState>()(
           ? result
             ? sendErrorMessage(result)
             : 'ส่งการ์ดป่วนไม่สำเร็จ'
+          : outgoing.kind === 'steal'
+          ? `🥷 ปล้น ${outgoing.to} สำเร็จ · ได้ 🪙 ${STEAL_GAIN}`
           : `ส่ง ${EFFECTS[outgoing.kind].icon} ${EFFECTS[outgoing.kind].label} ไปที่ ${outgoing.to} แล้ว`,
       },
     }));
@@ -717,14 +755,23 @@ async function resolveLanding(set: any, get: any, idx: number, gen: number) {
   // ── ดึงการ์ดป่วนที่รออยู่มาลงกับ "การ์ดใบนี้" ──
   // ทำที่นี่ที่เดียว (ไม่ใช่ใน UI) เพราะต้องเกิดครั้งเดียวต่อการลงช่อง 1 ครั้ง
   // ถ้าไปดึงตอน CardModal เรนเดอร์ StrictMode จะ mount ซ้ำแล้วผลหายไปเงียบ ๆ
+  // ── โหมดนำเสนอ ── ช่องเดินเปล่ากลายเป็นช่องทอง เพื่อให้เห็นบทเรียน AR บ่อย ๆ ตอนสาธิต
+  // แปลงที่นี่ที่เดียว (ไม่แตะ board-layout.json) → ปิดโหมดแล้วกระดานกลับเป็นปกติทันที
+  // ลงพอดีจุดแยก (6/12/36 เป็นช่องเปล่า) ก็ยังปลอดภัย — resolve การ์ดก่อน แล้วทางแยกเด้งเทิร์นถัดไป
+  // เหมือนที่ช่องโบนัส 32 ทำอยู่แล้ว
+  const boosted =
+    get().settings.goldBoostMode && tile.type === 'blank'
+      ? ({ ...tile, type: 'goldking' } as Tile)
+      : tile;
+
   const isCardTile =
-    tile.type === 'question' || tile.type === 'subject' || tile.type === 'goldking';
+    boosted.type === 'question' || boosted.type === 'subject' || boosted.type === 'goldking';
   if (isCardTile && get().pendingCardEffects.length) {
     set({ cardEffects: get().pendingCardEffects, pendingCardEffects: [] });
   }
 
   // ช่องทอง: หาพระองค์ถัดไปที่ยังไม่มีเหรียญ แล้วเปิดควิซชิงเหรียญกษัตริย์
-  if (tile.type === 'goldking') {
+  if (boosted.type === 'goldking') {
     const nextKing = KING_IDS.find((id) => !player.kingCoins.includes(id)) ?? null;
     if (!nextKing) {
       set({ phase: 'resolving' });
@@ -735,7 +782,7 @@ async function resolveLanding(set: any, get: any, idx: number, gen: number) {
     }
     set({
       phase: 'resolving',
-      pendingEvent: { tile: { ...tile, kingId: nextKing }, kind: 'goldking' },
+      pendingEvent: { tile: { ...boosted, kingId: nextKing }, kind: 'goldking' },
     });
     return;
   }

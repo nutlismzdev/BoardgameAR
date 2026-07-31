@@ -34,6 +34,13 @@ export function SabotageToast() {
 
   return (
     <div style={wrap}>
+      {/* 👻 ผีหลอก — การ์ดที่ไม่มีผลกับเกมเลย มีไว้ให้เด็กแกล้งกันแบบไม่เจ็บ
+          (ราคาถูกสุด และเป็นตัวที่ทำให้กลไกนี้รู้สึก "เล่นกัน" ไม่ใช่ "ทำร้ายกัน") */}
+      {notice?.kind === 'ghost' && (
+        <div key={`g${notice.id}`} style={ghostLayer} className="sab-ghost">
+          👻
+        </div>
+      )}
       {notice && (
         // key = id → บังคับ remount ให้อนิเมชันเล่นใหม่ทุกใบ แม้โดนการ์ดชนิดเดิมติดกัน
         <div key={notice.id} style={hitCard} className="sabotage-pop">
@@ -52,9 +59,11 @@ export function SabotageToast() {
         </div>
       )}
       <style>{`
+        @keyframes sabGhost { 0% { left: -18vw; transform: rotate(-8deg) } 100% { left: 108vw; transform: rotate(8deg) } }
+        .sab-ghost { animation: sabGhost 2.4s cubic-bezier(.4,0,.6,1) both }
         @keyframes sabotagePop { from { opacity: 0; transform: translateY(-14px) scale(.94) } to { opacity: 1; transform: none } }
         .sabotage-pop { animation: sabotagePop .28s cubic-bezier(.2,1.1,.4,1) both; }
-        @media (prefers-reduced-motion: reduce) { .sabotage-pop { animation: none } }
+        @media (prefers-reduced-motion: reduce) { .sabotage-pop, .sab-ghost { animation: none } }
       `}</style>
     </div>
   );
@@ -71,6 +80,17 @@ const wrap: CSSProperties = {
   justifyItems: 'center',
   pointerEvents: 'none', // เป็นป้ายบอกสถานะ ไม่ใช่ปุ่ม — ห้ามบังการแตะ
   maxWidth: 'min(460px, 92vw)',
+};
+
+const ghostLayer: CSSProperties = {
+  position: 'fixed',
+  top: '38vh',
+  left: '-18vw',
+  fontSize: 'clamp(90px, 22vw, 190px)',
+  opacity: 0.9,
+  filter: 'drop-shadow(0 10px 28px rgba(0,0,0,.4))',
+  pointerEvents: 'none',
+  zIndex: 139,
 };
 
 const hitCard: CSSProperties = {

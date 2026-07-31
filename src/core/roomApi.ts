@@ -23,7 +23,7 @@ export interface RoomRules {
 // ── การ์ดป่วนข้ามทีม ──
 // ผลทั้งหมดเป็นแบบ "ครั้งหน้า" ไม่ใช่ "เดี๋ยวนี้" เพราะ sync วิ่งทุก 3 วิ ผลจึงมาช้าได้ถึง 3 วินาที
 // ถ้าออกแบบให้มีผลทันทีจะรู้สึกสุ่มสี่สุ่มห้า (เช่นเวลาหายกลางคันขณะกำลังตอบ)
-export type EffectKind = 'storm' | 'block' | 'tax' | 'hardQuiz';
+export type EffectKind = 'ghost' | 'storm' | 'steal' | 'hardQuiz' | 'lockItems' | 'block' | 'rewind';
 
 export interface RoomEffect {
   from: string; // ชื่อทีมที่ส่งมา — ต้องบอกเสมอ ความสนุกอยู่ที่ "รู้ว่าใครทำ แล้วอยากเอาคืน"
@@ -39,16 +39,22 @@ export interface EffectMeta {
 
 // ราคา = เหรียญของตัวเอง · จงใจให้ "จ่ายแพงกว่าที่คู่แข่งเสีย" — การป่วนคือการยอมสละ
 // ความก้าวหน้าของตัวเองเพื่อถ่วงคนที่นำอยู่ ไม่ใช่ทางลัดที่กดรัวแล้วได้เปรียบฟรี
+// เรียงจากถูกไปแพง = จากกวนไปเจ็บ · เด็กจะได้ไล่ระดับความแสบเองโดยไม่ต้องอ่านคำอธิบายยาว
 export const EFFECTS: Record<EffectKind, EffectMeta> = {
+  ghost: { icon: '👻', label: 'ผีหลอก', detail: 'ผีวิ่งผ่านจอเป้าหมาย 1 ครั้ง (ไม่เสียอะไรเลย)', price: 30 },
   storm: { icon: '🌪️', label: 'พายุ', detail: 'คำถามข้อถัดไปของเป้าหมาย เวลาลด 8 วินาที', price: 60 },
+  steal: { icon: '🥷', label: 'โจรปล้น', detail: 'ปล้นเหรียญเป้าหมาย 60 · เราได้ 40', price: 70 },
   hardQuiz: { icon: '📜', label: 'ข้อสอบยาก', detail: 'การ์ดใบถัดไปของเป้าหมายเป็นระดับยาก', price: 70 },
-  tax: { icon: '💸', label: 'ริบเหรียญ', detail: 'เป้าหมายเสียเหรียญ 60', price: 70 },
+  lockItems: { icon: '🔒', label: 'ล็อกไอเทม', detail: 'เป้าหมายใช้ไอเทมช่วยในการ์ดใบถัดไปไม่ได้', price: 80 },
   block: { icon: '🐘', label: 'ช้างขวางทาง', detail: 'ทอยครั้งถัดไปของเป้าหมายเดินได้ไม่เกิน 2 ช่อง', price: 90 },
+  rewind: { icon: '🔁', label: 'ย้อนรอย', detail: 'เป้าหมายถอยหลัง 3 ช่องก่อนทอยครั้งถัดไป', price: 110 },
 };
 
-export const TAX_COINS = 60; // เหรียญที่เป้าหมายเสียจากการ์ด "ริบเหรียญ"
+export const STEAL_LOSS = 60; // เหรียญที่เป้าหมายเสียจากการ์ด "โจรปล้น"
+export const STEAL_GAIN = 40; // เหรียญที่ผู้ส่งได้คืน (น้อยกว่าที่ปล้นได้ — ป่วนต้องมีต้นทุนเสมอ)
 export const STORM_SECONDS = 8; // วินาทีที่หายไปจากการ์ด "พายุ"
 export const BLOCK_STEPS = 2; // เดินได้ไม่เกินกี่ช่องจากการ์ด "ช้างขวางทาง"
+export const REWIND_STEPS = 3; // ถอยหลังกี่ช่องจากการ์ด "ย้อนรอย"
 
 export interface RoomTeam {
   name: string;
@@ -175,6 +181,9 @@ export interface SendResult {
 export interface SyncResult extends RoomState {
   incoming: RoomEffect[]; // การ์ดป่วนที่ส่งมาถึงเรา (server ปิดเป็น delivered แล้ว = ได้ครั้งเดียว)
   sent: SendResult | null;
+  // วินาทีที่ต้องรอจนกว่าจะส่งการ์ดป่วนใบถัดไปได้ (0 = พร้อม) — ปุ่มเอาไปนับถอยหลังให้เห็น
+  // เดิม client ไม่รู้เลย เด็กกดแล้วค่อยโดนบอกว่า "รออีก 120 วิ" ซึ่งสายไปแล้ว
+  sabotageWait: number;
 }
 
 /**

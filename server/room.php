@@ -14,7 +14,7 @@ const ROOM_ONLINE_SEC = 60;     // ไม่ส่ง sync เกินเท่
 const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ตัด I O 0 1 ออก กันอ่านผิด
 
 // ── การ์ดป่วนข้ามทีม ──
-const EFFECT_KINDS = ['storm', 'block', 'tax', 'hardQuiz'];
+const EFFECT_KINDS = ['ghost', 'storm', 'steal', 'hardQuiz', 'lockItems', 'block', 'rewind'];
 const EFFECT_COOLDOWN_SEC = 120; // 1 ใบ ต่อ 2 นาที ต่อทีม — กันสแปมและกันคำขอถล่มเซิร์ฟเวอร์
 const ROOM_MAX_NEW_PER_HOUR = 60; // เพดานสร้างห้องต่อชั่วโมง (กันสแปมเมื่อไม่มี login)
 const EFFECT_INBOX_MAX = 2;      // ค้างในตัวได้ทีละ 2 ใบ ที่เกินถูกปฏิเสธ (กันทีมเดียวโดนถล่มพร้อมกัน)
@@ -160,8 +160,17 @@ switch ($action) {
             $sendResult = try_send_effect($code, $rules, (string) $team['team_name'], $body['send'], $now);
         }
         $inbox = take_inbox($code, (string) $team['team_name']);
+        // เหลืออีกกี่วินาทีถึงจะส่งใบถัดไปได้ — ให้ปุ่มฝั่งเกมนับถอยหลังได้โดยไม่ต้องเดา
+        $lastSent = (int) query_one(
+            'SELECT COALESCE(MAX(created_at), 0) FROM room_effect WHERE room_code = ? AND from_team = ?',
+            [$code, (string) $team['team_name']]
+        );
+        $wait = max(0, EFFECT_COOLDOWN_SEC - ($now - $lastSent));
 
-        send_json(['ok' => true, 'incoming' => $inbox, 'sent' => $sendResult] + room_state($code));
+        send_json(
+            ['ok' => true, 'incoming' => $inbox, 'sent' => $sendResult, 'sabotageWait' => $wait]
+            + room_state($code)
+        );
 
     case 'lineup':
         // เลือกขุนศึกในล็อบบี้ — ทุกทีมเห็นของกันและกัน (นั่นคือสิ่งที่ทำให้รู้สึกว่ากำลังท้าชิง)
