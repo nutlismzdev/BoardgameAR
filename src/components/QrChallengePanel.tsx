@@ -17,12 +17,15 @@ export function QrChallengePanel({
   challenge,
   onResult,
   onCancel,
+  onUnavailable,
   variant = 'quiz',
 }: {
   challenge: QrChallenge;
   // `items` = ไอเทมที่ผู้เล่นกดใช้บนมือถือ (ว่างเสมอเมื่อครูกดผลเองบนแท็บเล็ต)
   onResult: (correct: boolean, items: QuizItem[]) => void;
   onCancel?: () => void;
+  // สร้าง QR ไม่สำเร็จ (payload ยาวเกินความจุ QR) — ผู้เรียกควรถอยไปทางเล่นอื่นแทนที่จะโชว์กล่องพัง
+  onUnavailable?: () => void;
   variant?: 'quiz' | 'gold-ar';
 }) {
   const [dataUrl, setDataUrl] = useState<string>('');
@@ -31,6 +34,9 @@ export function QrChallengePanel({
   const resolvedRef = useRef(false);
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
+  // เก็บใน ref เหมือน onResult — ไม่งั้นต้องใส่ใน deps ของ effect สร้าง QR แล้ว QR จะถูกวาดใหม่ทุก render
+  const onUnavailableRef = useRef(onUnavailable);
+  onUnavailableRef.current = onUnavailable;
 
   // คำถามใหม่ = เริ่มรับผลใหม่ได้ (กันค้างสถานะ resolved ข้ามการ์ด เผื่อ component ถูก reuse)
   useEffect(() => {
@@ -71,6 +77,12 @@ export function QrChallengePanel({
         if (cancelled) return;
         setDataUrl('');
         setErr(String(e?.message ?? e));
+        // ── ทางนี้เกิดจริงกับการ์ดทองเมื่อ registerChallenge ล้ม (เน็ตสะดุด/เซิร์ฟเวอร์ล่ม) ──
+        // แล้วตกไปใช้ URL#hash ที่ฝัง king+quiz ทั้งก้อน = 3,740 ตัวอักษร ซึ่งเกินความจุ QR
+        // ทั้ง ECC M (2,331) และ L (2,953) → toDataURL โยน error → จอกลางเหลือแต่กล่องพัง
+        // + ปุ่มให้ครูกดผลเอง ทั้งที่เด็กยังไม่เคยเห็นคำถามด้วยซ้ำ (การ์ดทอง = เงื่อนไขชนะ)
+        // บอกผู้เรียกให้ถอยไปเล่นบนแท็บเล็ตแทน — ทางนั้นไม่ต้องใช้เน็ตเลย
+        onUnavailableRef.current?.();
       });
     return () => {
       cancelled = true;

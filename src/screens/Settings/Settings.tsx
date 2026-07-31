@@ -74,62 +74,75 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         {/* เป้าหมายเหรียญกษัตริย์ = ตัวคุมความยาวเกมที่ตรงที่สุด
             ช่องทองต้อง "ลงพอดี" เท่านั้น → ได้เหรียญราว 1 ครั้งต่อ 7-8 เทิร์น
             3 เหรียญ ≈ 45 นาที (จบในคาบ) · 7 เหรียญ ≈ 1.8 ชม. (เกินคาบ) */}
-        <Row label="🏆 เก็บเหรียญกษัตริย์กี่เหรียญถึงชนะ">
+        <Row label="🏆 เหรียญที่ต้องเก็บเพื่อชนะ">
           <Segmented
             options={[
-              { label: '3 (≈45 นาที)', value: 3 },
+              { label: '3', value: 3 },
               { label: '4', value: 4 },
               { label: '5', value: 5 },
-              { label: '7 (ครบทุกพระองค์)', value: 7 },
+              { label: '7', value: 7 },
             ]}
             value={clampTargetCoins(settings.targetCoins)}
             onChange={(v) => update({ targetCoins: v })}
           />
           <p style={{ fontSize: 15, color: color.textMuted, margin: '8px 0 0', lineHeight: 1.5 }}>
-            ยิ่งตั้งสูง เกมยิ่งยาว — เลือกให้พอดีกับเวลาที่เหลือในคาบ
+            3 เหรียญ ≈ 45 นาที · 7 เหรียญ ≈ 2 ชั่วโมง (ครบทุกพระองค์)
           </p>
         </Row>
 
-        {/* toggles */}
+        {/* ป้ายสวิตช์: สั้น เป็นไทยล้วน ไม่มีคำอธิบายในวงเล็บ
+            (รายละเอียด เช่น ขนาดที่ต้องโหลดของตัวตรวจจับมือ อยู่ใน CLAUDE.md ไม่ใช่บนจอครู) */}
         {showFullscreenToggle && (
           <Toggle
-            label="🖥️ เต็มจอ + ล็อกแนวนอน (กันจอซูมเพี้ยน)"
+            label="🖥️ เต็มจอแนวนอน"
             on={fullscreen}
             onToggle={() => void (fullscreen ? exitFullscreen() : enterFullscreen())}
           />
         )}
         <Toggle
-          label="⏱️ ตัวจับเวลาคำถาม"
+          label="⏱️ จับเวลาคำถาม"
           on={settings.timerEnabled}
           onToggle={() => update({ timerEnabled: !settings.timerEnabled })}
         />
         <Toggle
-          label="🔊 เพลงพื้นหลัง + เสียง + การสั่น"
+          label="🔊 เสียงและการสั่น"
           on={settings.soundEnabled}
           onToggle={() => update({ soundEnabled: !settings.soundEnabled })}
         />
         <Toggle
-          label="📱 ตอบคำถามผ่านมือถือ"
+          label="📱 ตอบคำถามบนมือถือ"
           on={settings.qrAnswerMode}
           onToggle={() => update({ qrAnswerMode: !settings.qrAnswerMode })}
         />
         <Toggle
-          label="📷 เปิดกล้อง AR (ช่องทอง)"
+          label="🖐️ ตอบแบบลากคำตอบ"
+          on={settings.dragAnswerMode}
+          onToggle={() => update({ dragAnswerMode: !settings.dragAnswerMode })}
+        />
+        {settings.dragAnswerMode && (
+          <Toggle
+            label="✌️ จีบนิ้วผ่านกล้อง"
+            on={settings.handAnswerMode}
+            onToggle={() => update({ handAnswerMode: !settings.handAnswerMode })}
+          />
+        )}
+        <Toggle
+          label="📷 เปิดกล้องช่องทอง"
           on={settings.arEnabled}
           onToggle={() => update({ arEnabled: !settings.arEnabled })}
         />
         <Toggle
-          label="🃏 โหมดส่องการ์ดจริง (AR image-target) — ต้องมีไฟล์การ์ด"
+          label="🃏 ส่องการ์ดจริง"
           on={settings.arCardMode}
           onToggle={() => update({ arCardMode: !settings.arCardMode })}
         />
         <Toggle
-          label="🎲 แสดงไอคอนบอกชนิดช่อง"
+          label="🎲 แสดงไอคอนบนช่อง"
           on={settings.showTileIcons}
           onToggle={() => update({ showTileIcons: !settings.showTileIcons })}
         />
         <Toggle
-          label="🎯 โหมดปรับตำแหน่งช่อง (ผู้ดูแล)"
+          label="🎯 ปรับตำแหน่งช่อง"
           on={settings.calibrate}
           onToggle={() => update({ calibrate: !settings.calibrate })}
         />
@@ -151,7 +164,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               cursor: 'pointer',
             }}
           >
-            📚 จัดการเนื้อหาการ์ด (หลังบ้าน)
+            📚 จัดการเนื้อหาการ์ด
           </button>
 
           <button

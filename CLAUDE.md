@@ -31,7 +31,9 @@ Stack: React 18 + TypeScript + Zustand (state) + Vite. ไม่มี test runn
 - **ชนะเมื่อเก็บ "เหรียญกษัตริย์" ครบตามเป้า `settings.targetCoins`** → `Player.kingCoins`
 - เหรียญกษัตริย์ได้จาก **ช่องทอง (goldking) เท่านั้น** และต้อง **ตอบคำถาม AR ถูก**
 - **เกมจบทางเดียว: มีผู้เล่นถึงเป้าเหรียญกษัตริย์** (`finishTurn` ใน store.ts) — **ถอด `maxRounds`/ลิมิตรอบออกแล้ว** (round ยังนับไว้ภายในแต่ไม่ใช้จบเกม/ไม่โชว์)
-- **⏱️ `targetCoins` คือปุ่มคุมความยาวเกม (ค่าเริ่มต้น 3 ไม่ใช่ 7)** — ครูปรับได้ใน Teacher Mode · เหตุผลเชิงตัวเลข: ช่องทองวงนอกมี 6 ช่องใน 46 และต้อง **ลงพอดี** เท่านั้น → ลูกเต๋าเฉลี่ย 3.5 ก้าว ได้ลงช่องทองราว **0.13 ครั้ง/เทิร์น (1 ครั้งต่อ ~7.7 เทิร์น)** · ตั้ง 7 เหรียญ = ผู้ชนะต้องเล่น ~54 เทิร์น (4 คน ≈ 216 เทิร์นรวม ≈ **1.8 ชม. เกินคาบเรียน**) ส่วน 3 เหรียญ ≈ 23 เทิร์น ≈ 45 นาที
+- **⏱️ `targetCoins` คือปุ่มคุมความยาวเกม — ค่าเริ่มต้น = 7 (ครบทุกพระองค์)** ตัดสินใจโดยเจ้าของโปรเจกต์ 2026-07-31 · ครูปรับได้ใน Teacher Mode (3/4/5/7)
+  - **⚠️ รู้ไว้ว่าแลกมากับเวลา:** ช่องทองวงนอกมี 6 ช่องใน 46 และต้อง **ลงพอดี** เท่านั้น → ลูกเต๋าเฉลี่ย 3.5 ก้าว ได้ลงช่องทองราว **0.13 ครั้ง/เทิร์น (1 ครั้งต่อ ~7.7 เทิร์น)** · 7 เหรียญ = ผู้ชนะเล่น ~54 เทิร์น (4 คน ≈ 216 เทิร์นรวม ≈ **1.8 ชม.**) ส่วน 3 เหรียญ ≈ 23 เทิร์น ≈ 45 นาที
+  - **ถ้าอยากให้ 7 จบทันคาบ ต้องเพิ่มจำนวนช่องทองใน `board-layout.json` ไม่ใช่แก้ `DEFAULT_TARGET_COINS`** — ค่านี้ไม่ได้ทำให้เกมเร็วขึ้น มันแค่ตั้งเส้นชัย
   - อ่านค่าผ่าน `clampTargetCoins()` เสมอ (กันค่าเพี้ยนจากเซฟเก่า) · ทุกจอที่เคยฮาร์ดโค้ด `/7` (HUD landscape, `KingCollection`, `GameOver`) อิงเป้านี้แล้ว — **ยกเว้นพิพิธภัณฑ์ที่ยังเป็น `/7` โดยตั้งใจ** เพราะเป็นตู้สะสมของครบชุด 7 พระองค์ ไม่ใช่ตัวชี้เงื่อนไขชนะ
 - **ทอยได้ 6 = ส่งตาปกติ** (เอาโบนัสทอยซ้ำออกแล้ว — ทุกเลขจบเทิร์นแล้วส่งให้คนถัดไป)
 - **ระบบหัวใจ:** ผู้เล่นเริ่ม `MAX_HEARTS = 3` (`Player.hearts`). ตอบคำถามฟ้าผิดหรือ AR ทองไม่สำเร็จ → เสีย 1 หัวใจ. ถ้าหัวใจเหลือ 0 → ตั้ง `skipNext` อย่างน้อย 1 เพื่อพักฟื้น 1 เทิร์น; เมื่อถูกข้ามจนพักครบ จะกลับมาพร้อม 1 หัวใจ
@@ -184,6 +186,10 @@ finishTurn(): เช็กชนะ (kingCoins≥7) → ส่งเทิร์
   - **ผลกลับ tablet 2 โหมด:** (1) **อัตโนมัติ** ถ้าตั้ง `VITE_API_BASE` — มือถือ POST ผลขึ้น `server/challenge.php` → tablet **poll ทุก ~1.3 วิ** (`core/challengeApi.ts`) → เดินเกมต่อเอง · (2) **fallback กดเอง** ถ้าไม่มี backend/เน็ตหลุด → ปุ่ม ตอบถูก/ตอบผิด บน tablet · `resolvedRef` กัน resolve ซ้ำ (poll+กดเองชนกัน)
   - คำถามฝังใน **URL#hash** (base64url UTF-8 รองรับไทย, `core/qrChallenge.ts` ใช้ร่วม 2 ฝั่ง — มี `i`=challenge id จับคู่ผล) · payload มี index เฉลย (โหมดเชื่อใจยอมรับได้) · gold AR/knowledge ยังไม่เข้าโหมดนี้
   - ไฟล์: `answer.html` (root) + `src/answer/` (entry มือถือ) · `QrChallengePanel.tsx` (tablet: วาด QR ด้วย `qrcode` + poll/ปุ่ม) · `core/challengeApi.ts` · `server/challenge.php` (+ ตาราง `qr_challenge` auto-migrate/schema.sql) · `vite.config.ts` multi-page (main+answer)
+  - **รูปแบบการตอบส่งผ่าน payload 2 ฟิลด์: `ui:'drag'` + `hd:1`** (ชื่อย่อเพราะทุกไบต์ลง QR) → มือถือประกอบ `QuizCard` ปลอมด้วย `challengeToQuizCard()` แล้วเรนเดอร์ `DragAnswerStage` (lazy) · **ห้ามฝังการ์ดทั้งใบแบบ `gold-ar` เด็ดขาด** — วัดจริง payload การ์ดทอง = **3,740 ตัวอักษร เกินความจุ QR ทั้ง ECC M (2,331) และ L (2,953)** ส่วนแบบ flag ของช่องฟ้า/สาระ = 946 ตัวอักษร ปลอดภัย
+  - **🩹 QR การ์ดทองสร้างไม่ได้ → ถอยไปเล่น AR บนแท็บเล็ต (`onUnavailable`)** — `registerChallenge` ล้ม (เน็ตสะดุด/เซิร์ฟเวอร์ล่ม) จะตกไปใช้ URL#hash ที่ยาวเกินความจุ → `QRCode.toDataURL` throw → เดิมจอกลางเหลือแต่ "สร้างรหัสไม่สำเร็จ" + ปุ่มให้ครูกดผลเอง **ทั้งที่เด็กยังไม่เคยเห็นคำถาม** (การ์ดทอง = เงื่อนไขชนะ ส่วนการ์ดฟ้า/สาระ payload เล็กจึงรอด = ความไม่สมมาตรที่เป็นตัวปัญหาจริง) · ตอนนี้ `QrChallengePanel` ยิง `onUnavailable` → `CardModal` ตั้ง `qrFailedEvent` (event-keyed เหมือน `pickedEvent`) → สลับไปสาขา `setArGoldOpen(true)` ที่มีอยู่แล้ว พร้อมป้ายบอกเหตุผล
+  - **จงใจไม่ย่อ payload ทองให้ลง QR** — ต่อให้ย่อจนใส่ได้ มือถือที่รับผ่าน hash ก็ **ส่งผลกลับไม่ได้อยู่ดี** (เซิร์ฟเวอร์ตัวเดียวกันที่เพิ่งล่ม) → จบที่จอ `manual-complete` ให้ครูกดผลเองเหมือนเดิม = ได้ QR มาแต่ไม่ได้อะไรเพิ่ม · ทางแท็บเล็ตไม่ต้องใช้เน็ตเลยและเด็กได้ตอบเอง
+  - `buildQuizChallenge(quiz, opts)` รับ options object (`label`/`id`/`timeLimitSec`/`items`/`drag`/`hand`) ไม่ใช่ positional args แล้ว
   - **📷 สแกนใบต่อไปบนมือถือ (`src/answer/QrRescanner.tsx`):** ตอบเสร็จ → **`AnswerPage` return คนละจอไปเลย: ตัดคำถาม/ตัวเลือก/ตัวจับเวลาทิ้ง เหลือ "ผล + กล้อง"** → เปิดกล้อง (jsqr) ค้างรอเล็ง QR ใบถัดไปบนจอกลางได้เลย ไม่ต้องออกไปเปิดแอปกล้องใหม่ทุกตา · เจอแล้ว `goToChallenge` พาไปการ์ดใหม่
     - **ตอบผิดต้องบอกเฉลยในแบนเนอร์** (`คำตอบที่ถูกคือ: …`) — เดิมดูจากตัวเลือกที่ไฮไลต์เขียว แต่ตอนนี้ซ่อนตัวเลือกไปแล้ว ถ้าไม่บอกตรงนี้เด็กตอบผิดจะไม่รู้คำตอบที่ถูก = เสียคุณค่าการเรียนรู้
     - ตัดคำถามทิ้งทำให้ทุกอย่างพอดี **1 จอ ไม่ต้องสกรอลล์** (วัดจริง 390×844: กล้อง 350–560 · `scrollHeight` ไม่เกินจอ)
@@ -214,6 +220,8 @@ finishTurn(): เช็กชนะ (kingCoins≥7) → ส่งเทิร์
   - **กฎเหล็ก:** body ถูกล็อกแล้ว **สกรอลล์ระดับหน้าไม่ได้อีก** — หน้าที่เนื้อหายาว (เช่น `Home`) ต้องใช้ `height` (ไม่ใช่ `minHeight`) + `overflowY:auto` เพื่อสกรอลล์ในกล่องตัวเอง ไม่งั้นเนื้อหาส่วนเกิน**โดนตัดหาย**
   - `enterFullscreen()` ต้องเรียกจาก **user gesture** เท่านั้น → เรียกในปุ่ม "เริ่มเล่น" (`Home.tsx`) + toggle ใน Settings (ซ่อนถ้า `isStandalone()`/iOS ที่ไม่รองรับ) · iOS ไม่รองรับ `requestFullscreen` ต้องใช้ "เพิ่มไปยังหน้าจอโฮม"
   - `sw.js` = navigate → network-first · asset same-origin → stale-while-revalidate (ภาพกระดาน/การ์ดไม่มี hash ในชื่อ) · **ไม่แตะ `/api` และ origin ข้ามโดเมน** · ลงทะเบียนเฉพาะ PROD · เปลี่ยน `VERSION` เมื่อต้องล้างแคชเก่า
+  - **ลงทะเบียน SW ครบทั้ง 3 entry ผ่าน `core/registerSW.ts`** (index + `answer.html` + `ar.html`) — เดิมมีแต่ `main.tsx` ซึ่ง **มือถือเด็กไม่เคยเปิด** (มันเข้ามาทาง QR เท่านั้น) → เครื่องนั้นไม่มี SW คุมเลย ทั้งที่ `isStatic` มีกฎแคช `/mediapipe/` รออยู่แล้ว และ `AnswerPage` สั่ง `reload()` ทุกคำถาม
+  - **navigate ต้องแคชด้วย "path ล้วน" ตัด query ทิ้ง** — มือถือเปิด `answer.html?id=<challenge>` ใบใหม่ทุกคำถาม ถ้าใช้ `req` เป็นคีย์ แคชจะบวมทีละใบไม่สิ้นสุด และตอนออฟไลน์ก็ match ไม่เจอสักใบ (id ไม่ซ้ำ) แล้วตกไป `/index.html` = ได้หน้าเกมแทนหน้าตอบ · `SHELL_URLS` precache `/answer.html` + `/ar.html` ด้วย
   - ไอคอน `public/icons/` สร้างจากภาพเหรียญบนพื้นแดงชาด `#8B0000` (192/512/maskable-512/apple-touch)
 - **🎬 คลิปบทเรียน AR — ⚠️ ไม่อยู่ในโฟลว์เกมแล้ว (2026-07-21)** ขั้นดูวิดีโอถูกถอดออกจากช่องทองทั้งฝั่งแท็บเล็ตและ `ar.html` (แทนด้วยการส่องการ์ดผ่าน AR ภายนอก) · `videoPool.ts` + `ar-mobile/QrVideoStage.tsx` **ยังอยู่บนดิสก์แต่ไม่มีใคร import** (vite tree-shake ออกจาก bundle แล้ว) เก็บไว้เผื่อย้อนกลับ — เนื้อหาด้านล่างคือของเดิม:
   - **ลำดับความสำคัญอยู่ที่ `lessonVideoFor()` (`videoPool.ts`) ที่เดียว:** CMS (`quiz.videoUrl`) > `King.arVideo` > **คลิปสำรองในเครื่องจาก `LESSON_VIDEO_POOL`** (เลือกคงที่ด้วย hash ของ `card.id` → ใบเดิมได้คลิปเดิมเสมอ + เบราว์เซอร์แคชได้)
@@ -221,6 +229,12 @@ finishTurn(): เช็กชนะ (kingCoins≥7) → ส่งเทิร์
   - `QrVideoStage` มี `onError={onFallback}` บน `<video>` — ไฟล์ 404/เสีย จะถอยไปโหมด AR การ์ดทอง ไม่ค้างที่จอ "เล็ง QR" ตลอดกาล
   - **`sw.js` ต้องไม่แคชวิดีโอ** (`isVideo` ปล่อยผ่านก่อน `isStatic`) — `<video>` ขอด้วย Range → ได้ **206 Partial Content** ซึ่ง `res.ok === true` แต่ `Cache.put()` **โยน TypeError กับ 206 ตามสเปก** → แคชไม่มีวันติด ได้แต่ error รัวใน SW · ถ้าเพิ่มนามสกุลวิดีโอใหม่ ต้องเติมใน `isVideo` ไม่ใช่ `isStatic`
 - **AR:** เฉพาะ**ช่องทอง** (`ARGoldChallenge.tsx`). `settings.arEnabled` = เปิด/ปิดกล้อง (ปิดแล้วเล่นบนพื้นหลังเข้ม ยังชนะได้). วิดีโอจริงมาจาก `QuizCard.videoUrl`/CMS ถ้ามี. **`ARLauncher.tsx` (poster maker) ถูกลบแล้ว**
+- **🖐️ ตอบแบบลากคำตอบ = `DragAnswer.tsx` (ใช้ร่วมทุกการ์ด ไม่ใช่ของช่องทองอย่างเดียวแล้ว · 2026-07-31)**
+  - `DragAnswer` = UI คำถามแบบลากไปวางในช่อง · `DragAnswerStage` = จอเต็มจอ (กล้องหน้าเป็นพื้นหลัง) · `useFrontCamera` = hook เปิด/คืนกล้อง (ใช้ทั้งที่นี่และ `ARGoldChallenge`)
+  - **กฎเหล็ก: `DragAnswer` และ `ARGoldChallenge` ห้าม import store** — ทั้งคู่ถูกเรนเดอร์บนมือถือ (`ar.html`/`answer.html`) ที่ไม่มี `players` ในเครื่อง · เดิม `DragQuestion` อ่าน `coins`/`buyHint` จาก `useGame` ตรง ๆ → ปุ่มคำใบ้บนมือถือขึ้น "มี 🪙 0" **กดไม่ได้ตลอดกาล** · ตอนนี้คำใบ้เข้ามาทาง prop `hint` (แท็บเล็ตส่ง, มือถือไม่ส่ง = ปุ่มไม่ขึ้น) และ `hidden` เป็น controlled prop ทั้งหมด (เจ้าของ logic ไอเทม/คำใบ้คือผู้เรียก) · ตรวจได้ด้วย `grep -l bg7_save dist/assets/*.js` → ต้องเจอแค่ `main-*.js`
+  - **จีบนิ้ว ≠ ลากคำตอบ** — แยกเป็น 2 สวิตช์ใน Teacher Mode: `settings.dragAnswerMode` (ลาก) และ `settings.handAnswerMode` (จีบนิ้ว, มีผลเมื่อ drag เปิด) · **ทั้งคู่ default `true`** (ตั้งใจ: ให้ทุกการ์ดได้ฟีลเดียวกับการ์ดทอง) · แตะลาก = 0 MB ไม่ขอกล้อง ส่วนจีบนิ้วต้องโหลด MediaPipe **wasm 11 MB + โมเดล 7.8 MB ต่อ 1 เครื่อง** ซึ่งช่องฟ้า/สาระเจอบ่อยกว่าช่องทองมาก (12 ช่องวงนอก vs ~1 ครั้ง/7.7 เทิร์น) → **พึ่ง service worker แคช `/mediapipe/` เป็นหลัก ห้ามถอด SW ออกจาก entry มือถือ** · `useHandTracking` เช็ก `enabled` ก่อน dynamic import → ปิดจีบนิ้ว = ไม่โหลด wasm สักไบต์ (ทางหนีของเน็ต/เครื่องที่ไม่ไหว)
+  - แท็บเล็ต (`CardModal`): จั่วการ์ดเสร็จ → `DragAnswerStage` เต็มจอ → วางคำตอบ → `setAnswered(index)` **ไหลกลับเข้าเส้นเดิม** (แบนเนอร์/ตราประทับ/`answerQuiz` ทำงานเหมือนตอบด้วยปุ่ม) · ตัวเลือกในการ์ดถูกซ่อนด้วย `display:none` ระหว่างลาก แล้วโผล่พร้อมสีเฉลยหลังตอบ
+  - **ต้องมีทางออกเสมอ (`onExit`)** — ถอยไปตอบด้วยปุ่มกดเฉพาะการ์ดใบนั้น (กล้องพัง/ตรวจจับมือไม่ได้/เด็กลากไม่ไหว) เก็บสถานะเป็น `escapedEvent` (เทียบ reference กับ event เหมือน `pickedEvent`) ไม่งั้นเกมค้างเพราะมีวิธีตอบวิธีเดียว
 - **🧍 สเตจบทเรียนบนการ์ด = โมเดล 3D หรือ คลิป 15 วิ** (`AR.lessonStageMode` ใน `arConfig.ts`) — `'model'` วาง `.glb` ยืนบนการ์ด เล่นแอนิเมชันวนจนครบ `lessonSeconds` แล้วเข้าคำถาม · **สลับกลับเป็นคลิปได้ด้วยการแก้ค่าเดียวเป็น `'video'`** (โค้ดวิดีโอ/`setLessonVideo` ยังอยู่ครบ ไม่ถูกลบ) · โมเดลโหลดไม่ขึ้น → `onFallback()` = ถอยไปโหมดคลิปปกติเอง
   - **pipeline แปลงโมเดล (CLI ไม่ต้องเปิด Blender):** `fbx2gltf` (binary ใน `node_modules/fbx2gltf/bin/Windows_NT/`) แปลง FBX→GLB แล้ว `gltf-transform optimize --compress meshopt --texture-compress webp --texture-size 1024` → **11.2 MB → 0.8 MB** · **เลือก meshopt ไม่ใช่ draco** (draco เล็กกว่า 200KB แต่ต้องโหลด decoder wasm แยกตอนรัน ส่วน meshopt decoder bundle มากับ three แล้ว)
   - **กับดัก: `Box3.setFromObject` โกหกเรื่องขนาดของ skinned mesh** — node ของเมชมี `scale=100` + geometry bbox ±1 → วัดได้ ~190 แต่ตอนเรนเดอร์ three ใช้ bone matrices ที่ `bindMatrix` หัก scale นั้นทิ้ง ขนาดจริงตามกระดูก = 1.9 · เคยทำให้ `scale` เพี้ยนเป็น 0.0058 **โมเดลย่อจนเป็นจุดมองไม่เห็น ทั้งที่ไม่มี error ใด ๆ** (จับได้ตอนถ่ายภาพจริงมาดู) → ความสูงจริงต้องเป็นค่าคงที่ `AR.modelNativeHeight` ที่วัดมาก่อนด้วย `gltf-transform inspect` เท่านั้น
@@ -245,6 +259,7 @@ src/
     cardImport.ts   ← นำเข้า Excel: สร้างไฟล์เทมเพลต (.xlsx) + อ่าน/ตรวจไฟล์ที่ครูกรอก (SheetJS, dynamic import)
     kingAssets.ts   ← id พระองค์ → หมาก `/assets/chess/{order}.png` + เหรียญ `/assets/coins/{id}.png`
     diceLogic.ts    ← rollDie
+    registerSW.ts   ← ลงทะเบียน service worker (เรียกจากทั้ง 3 entry)
     sfx.ts          ← เสียง (Web Audio) + เพลงพื้นหลัง (startBackgroundMusic ใน App.tsx)
   data/
     board-layout.json  ← ผังช่อง 0–76 + next[] (กราฟ) + penalty/label
@@ -253,7 +268,8 @@ src/
     cards.json         ← ควิซ (quiz) + ความรู้ (knowledge) เท่านั้น
   components/
     BoardImage.tsx  ← กระดาน (ภาพ + ไอคอนสีเต็มวง/เลข/label/หมาก/calibrate)
-    CardModal.tsx   ← การ์ด question/knowledge/penalty/bonus + launcher ช่องทอง
+    CardModal.tsx   ← การ์ด question/knowledge/penalty/bonus + launcher ช่องทอง + จอลากคำตอบ (ฟ้า/สาระ)
+    DragAnswer.tsx  ← UI ลากคำตอบไปวางในช่อง + จอเต็มจอ + useFrontCamera (ห้าม import store)
     ARGoldChallenge.tsx ← บทเรียน AR ช่องทอง (กล้อง + คลิป 15 วิ + ลากคำตอบ + คำใบ้เหรียญ)
     ShopModal.tsx   ← ร้านค้าไอเทม (ใช้เหรียญซื้อ)
     KingCoinRow.tsx ← แถวช่องเก็บเหรียญ 7 พระองค์ (ใช้ซ้ำ HUD/GameOver/museum)

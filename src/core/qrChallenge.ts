@@ -15,6 +15,10 @@ export interface QrChallenge {
   d?: 'easy' | 'medium' | 'hard'; // ระดับความยาก
   x?: string; // คำอธิบายเฉลย (optional)
   it?: { f: number; s: number }; // ไอเทมที่ใช้ได้: f = 50:50, s = ข้ามคำถาม (จำนวนคงเหลือ)
+  // ── รูปแบบการตอบบนมือถือ ── ชื่อย่อเพราะทุกไบต์ลง QR (ห้ามฝังทั้งการ์ดแบบ gold-ar เด็ดขาด:
+  // วัดจริงแล้ว payload การ์ดทอง = 3,740 ตัวอักษร ซึ่งเกินความจุ QR ทั้ง ECC M และ L)
+  ui?: 'drag'; // 'drag' = ลากคำตอบไปวางในช่อง (แทนปุ่มกด) · ไม่ใส่ = ปุ่มกดแบบเดิม
+  hd?: 1; // เปิดจีบนิ้วผ่านกล้องหน้า (มีผลเมื่อ ui='drag' เท่านั้น — ไม่ใส่ = แตะลากอย่างเดียว)
 }
 
 // ไอเทมที่ "ใช้ในหน้าคำถาม" ได้ — ชนิดอื่น (×2/ยารักษา) กดที่แท็บเล็ตอยู่แล้ว ไม่ต้องส่งมามือถือ
@@ -81,32 +85,52 @@ export function buildCompactChallengeUrl(id: string, base?: string, page = 'answ
 // แปลง QuizCard (ช่องฟ้า/สาระ) → payload สำหรับ QR
 // `items` = จำนวนไอเทมคงเหลือของทีม ส่งไปให้มือถือรู้ว่ากดใช้อะไรได้บ้าง
 // (ตัวหักจำนวนจริงยังอยู่ที่ store บนแท็บเล็ต — มือถือแค่ "ขอใช้" แล้วรายงานกลับ)
-export function buildQuizChallenge(
-  quiz: QuizCard,
-  label?: string,
-  id?: string,
-  timeLimitSec?: number,
-  items?: { f: number; s: number }
-): QrChallenge {
+export interface QuizChallengeOptions {
+  label?: string;
+  id?: string;
+  timeLimitSec?: number;
+  items?: { f: number; s: number };
+  drag?: boolean; // ตอบแบบลากคำตอบไปวางในช่อง
+  hand?: boolean; // จีบนิ้วผ่านกล้อง (ใช้ได้เมื่อ drag = true)
+}
+
+export function buildQuizChallenge(quiz: QuizCard, opts: QuizChallengeOptions = {}): QrChallenge {
   return {
-    i: id,
+    i: opts.id,
     q: quiz.question,
     c: quiz.choices.map((ch) => ch.text),
     a: quiz.choices.findIndex((ch) => ch.correct),
     r: quiz.reward,
-    s: timeLimitSec,
-    t: label,
+    s: opts.timeLimitSec,
+    t: opts.label,
     d: quiz.difficulty,
     x: quiz.explanation,
-    it: items && (items.f > 0 || items.s > 0) ? items : undefined,
+    it: opts.items && (opts.items.f > 0 || opts.items.s > 0) ? opts.items : undefined,
+    ui: opts.drag ? 'drag' : undefined,
+    hd: opts.drag && opts.hand ? 1 : undefined,
   };
 }
 
 export function buildGoldArChallenge(king: King, quiz: QuizCard, id: string): GoldArChallenge {
   return {
-    ...buildQuizChallenge(quiz, king.name, id),
+    ...buildQuizChallenge(quiz, { label: king.name, id }),
     mode: 'gold-ar',
     king,
     quiz,
+  };
+}
+
+// ประกอบ QuizCard ปลอมจาก payload — ให้ DragAnswer (ที่กินชนิด QuizCard) ใช้บนมือถือได้
+// โดยไม่ต้องฝังการ์ดทั้งใบลง QR · `a` มีอยู่ใน payload อยู่แล้วตามโมเดลเชื่อใจเดิม
+export function challengeToQuizCard(ch: QrChallenge): QuizCard {
+  return {
+    id: ch.i ?? 'qr-challenge',
+    kingId: '',
+    difficulty: ch.d ?? 'medium',
+    reward: ch.r,
+    timeLimitSec: ch.s ?? 0,
+    question: ch.q,
+    choices: ch.c.map((text, i) => ({ text, correct: i === ch.a })),
+    explanation: ch.x ?? '',
   };
 }

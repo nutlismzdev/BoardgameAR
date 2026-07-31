@@ -7,11 +7,20 @@
 //   - static asset same-origin  → stale-while-revalidate (ภาพกระดาน/การ์ดไม่มี hash ในชื่อ
 //     จึงต้องอัปเดตพื้นหลังเสมอ ไม่ใช้ cache-first)
 //   - อย่างอื่น (API/POST/ข้ามโดเมน) → ปล่อยผ่าน ไม่แตะ
-const VERSION = 'bg7-v2'; // v2: เลิกแคชวิดีโอ (206 Partial Content ใส่ Cache.put ไม่ได้)
+// v3: precache หน้ามือถือ (answer/ar) ด้วย — ตั้งแต่ทั้งสอง entry เรียก registerServiceWorker()
+//     เครื่องที่สแกน QR เข้ามาจึงมี SW คุมจริง (ก่อนหน้านี้มีแต่ index.html ที่ลงทะเบียน)
+const VERSION = 'bg7-v3'; // v2: เลิกแคชวิดีโอ (206 Partial Content ใส่ Cache.put ไม่ได้)
 const SHELL = `${VERSION}-shell`;
 const ASSETS = `${VERSION}-assets`;
 
-const SHELL_URLS = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png'];
+const SHELL_URLS = [
+  '/',
+  '/index.html',
+  '/answer.html',
+  '/ar.html',
+  '/manifest.webmanifest',
+  '/icons/icon-192.png',
+];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
@@ -62,14 +71,18 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.startsWith('/api/')) return; // proxy dev + CMS content ต้องสดเสมอ
 
   if (req.mode === 'navigate') {
+    // แคชด้วย "path ล้วน" ตัด query ทิ้ง — มือถือเปิด answer.html?id=<challenge> ใบใหม่ทุกคำถาม
+    // ถ้าใช้ req เป็นคีย์ แคชจะบวมทีละใบไม่มีที่สิ้นสุด และตอนออฟไลน์ก็ match ไม่เจอสักใบ
+    // (id ไม่เคยซ้ำ) แล้วตกไป /index.html = ได้หน้าเกมแทนหน้าตอบ
+    const key = url.origin + url.pathname;
     e.respondWith(
       fetch(req)
         .then((res) => {
           const copy = res.clone();
-          caches.open(SHELL).then((c) => c.put(req, copy));
+          caches.open(SHELL).then((c) => c.put(key, copy));
           return res;
         })
-        .catch(() => caches.match(req).then((hit) => hit || caches.match('/index.html')))
+        .catch(() => caches.match(key).then((hit) => hit || caches.match('/index.html')))
     );
     return;
   }

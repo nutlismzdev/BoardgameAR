@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { decodeChallenge } from '@/core/qrChallenge';
+import { challengeToQuizCard, decodeChallenge } from '@/core/qrChallenge';
 import type { QuizItem } from '@/core/qrChallenge';
 import {
   challengeApiAvailable,
@@ -13,6 +13,11 @@ import {
 // lazy — jsqr หนัก ~130KB และหน้านี้ต้องเบา (มือถือเด็กโหลดใหม่ทุกคำถามผ่านไวไฟโรงเรียน)
 // กล้องสแกนใช้ "หลังตอบเสร็จ" เท่านั้น จึงไม่ควรถ่วงตอนโหลดคำถาม → โหลดตอนต้องใช้จริง
 const QrRescanner = lazy(() => import('./QrRescanner').then((m) => ({ default: m.QrRescanner })));
+// lazy เช่นกัน — โหมดลากคำตอบเป็นทางเลือกของครู ไม่ควรถ่วงหน้าตอบแบบปุ่มกดที่เป็นค่าเริ่มต้น
+// (ตัว MediaPipe ยัง lazy ซ้อนอยู่ใน useHandTracking อีกชั้น → ปิดจีบนิ้ว = ไม่โหลด wasm เลย)
+const DragAnswerStage = lazy(() =>
+  import('@/components/DragAnswer').then((m) => ({ default: m.DragAnswerStage }))
+);
 
 // ── หน้าตอบคำถามบนมือถือส่วนตัว ──
 // ปกติโหลด payload ด้วย challenge id; รองรับ payload ใน hash เป็น fallback เมื่อไม่มี backend
@@ -44,6 +49,8 @@ export function AnswerPage() {
   // ตัวเลือกที่ถูก 50:50 ตัดทิ้ง (คำนวณบนมือถือได้เพราะ payload มี index เฉลยอยู่แล้ว)
   const [hidden, setHidden] = useState<number[]>([]);
   const [skipped, setSkipped] = useState(false);
+  // ถอยจากโหมดลากไปตอบด้วยปุ่มกด (กล้องพัง/ลากไม่ไหว) — เกมต้องไม่ค้างเพราะมีวิธีตอบวิธีเดียว
+  const [escapedDrag, setEscapedDrag] = useState(false);
   const itemsLeft = challenge?.it;
   // ส่งผลอัตโนมัติได้ไหม (มี challenge id + backend) — ถ้าไม่ ใช้โหมดกดผลเองบน tablet
   const auto = !!challenge?.i && challengeApiAvailable();
@@ -139,6 +146,9 @@ export function AnswerPage() {
     setPicked((prev) => (prev === null ? -1 : prev)); // -1 = ไม่ได้เลือกข้อไหน
   };
 
+  // การ์ดปลอมสำหรับ DragAnswer — ประกอบจาก payload ไม่ต้องฝังการ์ดทั้งใบลง QR
+  const dragQuiz = useMemo(() => (challenge ? challengeToQuizCard(challenge) : null), [challenge]);
+
   if (loading) {
     return (
       <div style={shell}>
@@ -189,6 +199,82 @@ export function AnswerPage() {
   const answered = picked !== null;
   const correct = answered && picked === challenge.a;
   const diff = challenge.d ? DIFF[challenge.d] : null;
+
+  // แถบบริบท/เวลา + ปุ่มไอเทม ใช้ร่วมกันทั้งจอตอบแบบปุ่มกดและจอลากคำตอบ → ประกอบไว้ที่เดียว
+  const contextChips = (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 4 }}>
+      {challenge.t && <span style={chip('#8B0000')}>{challenge.t}</span>}
+      {diff && <span style={chip(diff.bg)}>ระดับ{diff.label}</span>}
+    </div>
+  );
+
+  const timerBlock = timerOn ? (
+    <div style={timerWrap} role="timer" aria-live="polite">
+      <div style={timerTrack}>
+        <div
+          style={{
+            ...timerFill,
+            width: `${(timeLeft / challenge.s!) * 100}%`,
+            background: timeLeft <= 5 ? '#C62828' : '#C9A227',
+          }}
+        />
+      </div>
+      <strong style={{ color: timeLeft <= 5 ? '#C62828' : '#6B4E00' }}>{timeLeft} วินาที</strong>
+    </div>
+  ) : null;
+
+  // ── ไอเทมช่วยเล่น ──
+  // โหมด QR คำถามอยู่บนมือถือ แต่ปุ่มไอเทมเคยอยู่แต่ใน UI ควิซบนแท็บเล็ต
+  // → 50:50/ข้ามคำถาม ซื้อจากร้านได้แต่ไม่มีทางกดใช้ (กับดักดูดเหรียญ)
+  // คลังไอเทมยังอยู่ที่ store บนแท็บเล็ต มือถือแค่ "ขอใช้" แล้วรายงานกลับตอนส่งผล
+  // gate ด้วย `auto`: ไม่มี backend = ไม่มีช่องรายงานกลับ ถ้ายังโชว์ปุ่มจะกดใช้ฟรีไม่จำกัด
+  // (ครูกดผลเองบนแท็บเล็ตส่ง items ว่างเสมอ)
+  const itemsBlock =
+    auto && itemsLeft && (itemsLeft.f > 0 || itemsLeft.s > 0) ? (
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 12 }}>
+        {itemsLeft.f > 0 && !usedItems.includes('fiftyFifty') && (
+          <button type="button" onClick={useFiftyFifty} style={itemBtn}>
+            ✂️ 50:50 ({itemsLeft.f})
+          </button>
+        )}
+        {itemsLeft.s > 0 && (
+          <button type="button" onClick={useSkip} style={itemBtn}>
+            ⏭️ ข้ามคำถาม ({itemsLeft.s})
+          </button>
+        )}
+      </div>
+    ) : null;
+
+  // ── ตอบแบบลากคำตอบไปวางในช่อง (ครูเปิดใน Teacher Mode) ──
+  // ใช้คอมโพเนนต์ตัวเดียวกับการ์ดทอง · จีบนิ้วเปิดเมื่อ payload สั่ง (hd) เท่านั้น
+  // ไม่งั้นเป็นแค่แตะลากบนจอ = ไม่โหลด MediaPipe สักไบต์
+  if (!answered && dragQuiz && challenge.ui === 'drag' && !escapedDrag) {
+    return (
+      <Suspense
+        fallback={
+          <div style={shell}>
+            <div style={card}>กำลังเตรียมจอลากคำตอบ…</div>
+          </div>
+        }
+      >
+        <DragAnswerStage
+          quiz={dragQuiz}
+          hidden={hidden}
+          hand={challenge.hd === 1}
+          badge={challenge.t}
+          header={
+            <>
+              {contextChips}
+              {timerBlock}
+            </>
+          }
+          footer={itemsBlock}
+          onExit={() => setEscapedDrag(true)}
+          onSettle={(_ok, index) => setPicked((prev) => (prev === null ? index : prev))}
+        />
+      </Suspense>
+    );
+  }
 
   // ── ตอบแล้ว → ปิดคำถามเก่าทิ้งทั้งหมด เหลือแค่ "ผล + กล้องรอใบต่อไป" ──
   // คำถาม/ตัวเลือกไม่มีประโยชน์แล้วหลังตอบ แถมกินที่จนกล้องตกใต้จอ (เคยล้น 197px)
@@ -259,29 +345,13 @@ export function AnswerPage() {
     <div style={shell}>
       <div style={card}>
         {/* แถบบริบท (พระนาม/วิชา + ระดับ) — ไม่ใช่คำถาม */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 4 }}>
-          {challenge.t && <span style={chip('#8B0000')}>{challenge.t}</span>}
-          {diff && <span style={chip(diff.bg)}>ระดับ{diff.label}</span>}
-        </div>
+        {contextChips}
 
         <h1 style={{ fontSize: 22, fontWeight: 700, color: '#2A2118', lineHeight: 1.4, textAlign: 'center' }}>
           {challenge.q}
         </h1>
 
-        {timerOn && (
-          <div style={timerWrap} role="timer" aria-live="polite">
-            <div style={timerTrack}>
-              <div
-                style={{
-                  ...timerFill,
-                  width: `${(timeLeft / challenge.s!) * 100}%`,
-                  background: timeLeft <= 5 ? '#C62828' : '#C9A227',
-                }}
-              />
-            </div>
-            <strong style={{ color: timeLeft <= 5 ? '#C62828' : '#6B4E00' }}>{timeLeft} วินาที</strong>
-          </div>
-        )}
+        {timerBlock}
 
         {/* บล็อกนี้เรนเดอร์เฉพาะ "ก่อนตอบ" (ตอบแล้ว return ไปทางอื่นตั้งแต่ด้านบน)
             จึงไม่ต้องมีสถานะไฮไลต์เฉลย/disabled อีกแล้ว */}
@@ -311,26 +381,7 @@ export function AnswerPage() {
           )}
         </div>
 
-        {/* ── ไอเทมช่วยเล่น ──
-            โหมด QR คำถามอยู่บนมือถือ แต่ปุ่มไอเทมเคยอยู่แต่ใน UI ควิซบนแท็บเล็ต
-            → 50:50/ข้ามคำถาม ซื้อจากร้านได้แต่ไม่มีทางกดใช้ (กับดักดูดเหรียญ)
-            คลังไอเทมยังอยู่ที่ store บนแท็บเล็ต มือถือแค่ "ขอใช้" แล้วรายงานกลับตอนส่งผล
-            gate ด้วย `auto`: ไม่มี backend = ไม่มีช่องรายงานกลับ ถ้ายังโชว์ปุ่มจะกดใช้ฟรีไม่จำกัด
-            (ครูกดผลเองบนแท็บเล็ตส่ง items ว่างเสมอ) */}
-        {auto && itemsLeft && (itemsLeft.f > 0 || itemsLeft.s > 0) && (
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {itemsLeft.f > 0 && !usedItems.includes('fiftyFifty') && (
-              <button type="button" onClick={useFiftyFifty} style={itemBtn}>
-                ✂️ 50:50 ({itemsLeft.f})
-              </button>
-            )}
-            {itemsLeft.s > 0 && (
-              <button type="button" onClick={useSkip} style={itemBtn}>
-                ⏭️ ข้ามคำถาม ({itemsLeft.s})
-              </button>
-            )}
-          </div>
-        )}
+        {itemsBlock}
       </div>
     </div>
   );

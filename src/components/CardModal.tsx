@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useGame } from '@/core/store';
+import { useGame, HINT_PRICE } from '@/core/store';
 import {
   getKing,
   getGoldQuizForKing,
@@ -11,6 +11,7 @@ import {
 } from '@/core/content';
 import { color, radius, difficultyMeta } from '@/theme/tokens';
 import { ARGoldChallenge } from './ARGoldChallenge';
+import { DragAnswerStage } from './DragAnswer';
 import { CardPicker } from './CardPicker';
 import { GoldCardReveal } from './GoldCardReveal';
 import { CardFrame } from './CardFrame';
@@ -44,6 +45,9 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   const giveItem = useGame((s) => s.giveItem);
   const useItem = useGame((s) => s.useItem);
   const items = useGame((s) => s.items);
+  // คำใบ้ของช่องทอง: ARGoldChallenge ไม่แตะ store แล้ว (ต้องรันบนมือถือได้) → ส่งเข้าไปเป็น prop
+  const coins = useGame((s) => s.players[s.currentPlayerIndex]?.coins ?? 0);
+  const buyHint = useGame((s) => s.buyHint);
   const closeEvent = useGame((s) => s.closeEvent);
   const settings = useGame((s) => s.settings);
   const usedQuizIds = useGame((s) => s.usedQuizIds);
@@ -76,6 +80,15 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   // (เทียบ reference ตรง ๆ จึงรีเซ็ตเองเมื่อการ์ดใบใหม่มา ไม่ต้องพึ่ง effect ที่ค้างได้)
   const [revealedEvent, setRevealedEvent] = useState<TileEvent | null>(null);
   const goldRevealed = !!event && revealedEvent === event;
+  // ทางออกฉุกเฉินของโหมดลากคำตอบ: ถอยกลับไปตอบด้วยปุ่มกดเฉพาะการ์ดใบนี้
+  // (กล้องพัง/ตรวจจับมือไม่ได้/เด็กลากไม่ไหว — เกมต้องไม่ค้างเพราะวิธีตอบวิธีเดียว)
+  // เก็บเป็น event เหมือน pickedEvent → การ์ดใบใหม่รีเซ็ตเองโดยไม่ต้องมี effect
+  const [escapedEvent, setEscapedEvent] = useState<TileEvent | null>(null);
+  const dragEscaped = !!event && escapedEvent === event;
+  // ช่องทอง: สร้าง QR ไม่ได้ (เน็ตสะดุดตอน registerChallenge → payload ยาวเกินความจุ QR)
+  // → ถอยไปเล่น AR บนแท็บเล็ตเครื่องนี้เลย ซึ่งไม่ต้องใช้เน็ตและเด็กได้เห็น/ตอบคำถามจริง
+  const [qrFailedEvent, setQrFailedEvent] = useState<TileEvent | null>(null);
+  const goldQrFailed = !!event && qrFailedEvent === event;
 
   const kind = event?.kind;
   const kingId = event?.tile.kingId ?? null;
@@ -105,18 +118,19 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   const qrChallenge = useMemo(
     () =>
       qrMode && quiz
-        ? buildQuizChallenge(
-            quiz,
-            qrLabel,
-            genChallengeId(),
-            settings.timerEnabled ? quiz.timeLimitSec : undefined,
-            { f: items.fiftyFifty, s: items.skip }
-          )
+        ? buildQuizChallenge(quiz, {
+            label: qrLabel,
+            id: genChallengeId(),
+            timeLimitSec: settings.timerEnabled ? quiz.timeLimitSec : undefined,
+            items: { f: items.fiftyFifty, s: items.skip },
+            drag: settings.dragAnswerMode,
+            hand: settings.handAnswerMode,
+          })
         : null,
     // items ตั้งใจไม่ใส่ใน deps — ถ้าใส่ QR จะถูกสร้างใหม่ (id ใหม่) ทุกครั้งที่คลังไอเทมเปลี่ยน
     // ระหว่างการ์ดใบเดิมยังเปิดอยู่ → เด็กที่สแกนไปแล้วจะตอบใส่ id เก่าที่ไม่มีใคร poll
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [quiz, qrMode, qrLabel, settings.timerEnabled]
+    [quiz, qrMode, qrLabel, settings.timerEnabled, settings.dragAnswerMode, settings.handAnswerMode]
   );
   const goldArChallenge = useMemo(
     () => (settings.qrAnswerMode && isGold && king && quiz ? buildGoldArChallenge(king, quiz, genChallengeId()) : null),
@@ -216,6 +230,62 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
     zIndex: 100,
     padding: isPortrait ? 0 : 24,
   };
+
+  // ── โหมดลากคำตอบบนแท็บเล็ต (การ์ดฟ้า/สาระ) ──
+  // ใช้คอมโพเนนต์เดียวกับการ์ดทอง (DragAnswer) แต่ห่อด้วยจอเต็มจอกลาง ๆ ที่ไม่มีเรื่องเหรียญกษัตริย์
+  // ผลลัพธ์ยังไหลกลับเข้า `answered` เส้นเดิม → แบนเนอร์/ตราประทับ/answerQuiz ทำงานเหมือนตอบด้วยปุ่ม
+  const dragMode = settings.dragAnswerMode && usesQuizUI && !qrMode && !dragEscaped;
+
+  // แถบจับเวลา + ปุ่มไอเทม ใช้ร่วมกันทั้งในการ์ดและในจอลาก → ประกอบไว้ที่เดียว
+  const timerBar =
+    timerOn && answered === null && quiz ? (
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ height: 8, borderRadius: radius.pill, background: '#eee', overflow: 'hidden' }}>
+          <div
+            style={{
+              height: '100%',
+              width: `${(timeLeft / quiz.timeLimitSec) * 100}%`,
+              background: timeLeft <= 5 ? color.danger : color.secondary,
+              transition: 'width 1s linear',
+            }}
+          />
+        </div>
+        <span style={{ fontSize: 16, color: color.textMuted }}>⏱️ {timeLeft} วินาที</span>
+      </div>
+    ) : null;
+
+  const itemButtons =
+    answered === null && quiz && (items.fiftyFifty > 0 || items.skip > 0) ? (
+      <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+        {items.fiftyFifty > 0 && hidden.length === 0 && (
+          <button
+            onClick={() => {
+              if (!useItem('fiftyFifty')) return;
+              const wrong = quiz.choices.map((c, i) => (!c.correct ? i : -1)).filter((i) => i >= 0);
+              // สุ่มตัดตัวเลือกผิด 2 ข้อ
+              setHidden(wrong.sort(() => Math.random() - 0.5).slice(0, 2));
+            }}
+            style={itemBtn}
+          >
+            ✂️ 50:50 ({items.fiftyFifty})
+          </button>
+        )}
+        {items.skip > 0 && (
+          <button
+            onClick={() => {
+              if (!useItem('skip')) return;
+              // ข้าม: ได้ครึ่งรางวัล แต่ไม่นับเป็น mastery ของพระองค์นั้น
+              resolveReward(Math.round(quiz.reward / 2));
+              closeEvent();
+            }}
+            style={itemBtn}
+          >
+            ⏭️ ข้ามคำถาม ({items.skip})
+          </button>
+        )}
+      </div>
+    ) : null;
+
   return (
     <>
       {/* ── ตราประทับผลลัพธ์ — เด้งกลางจอทันทีที่กดตอบ ──
@@ -236,6 +306,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
           // ในเกมจึงเข้าคำถาม + จีบนิ้วตรง ๆ ไม่ต้องเล่นคลิปซ้ำ และไม่ต้องส่องการ์ดเองด้วย MindAR
           cardMode={false}
           startAtQuestion
+          hint={{ coins, price: HINT_PRICE, onBuy: buyHint }}
           onDone={(correct) => {
             setArGoldOpen(false);
             answerKingCoin(correct, kingId!);
@@ -246,6 +317,21 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             setArGoldOpen(false);
             closeEvent();
           }}
+        />
+      )}
+
+      {/* จอลากคำตอบของการ์ดฟ้า/สาระ (เต็มจอ) — เปิดทันทีที่จั่วการ์ดเสร็จ ปิดเองเมื่อวางคำตอบแล้ว */}
+      {dragMode && picked && quiz && answered === null && (
+        <DragAnswerStage
+          quiz={quiz}
+          hidden={hidden}
+          useCamera={settings.arEnabled}
+          hand={settings.handAnswerMode}
+          badge={isSubject ? `📚 ${subjectName}` : '❓ การ์ดคำถาม'}
+          header={timerBar}
+          footer={itemButtons}
+          onExit={() => setEscapedEvent(event)}
+          onSettle={(_correct, index) => setAnswered(index)}
         />
       )}
     {needsDraw && !picked ? (
@@ -275,7 +361,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             orientation={orientation}
             skipBackFlip
           >
-          {goldArChallenge ? (
+          {goldArChallenge && !goldQrFailed ? (
             <QrChallengePanel
               challenge={goldArChallenge}
               variant="gold-ar"
@@ -284,9 +370,27 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
                 closeEvent();
               }}
               onCancel={closeEvent}
+              onUnavailable={() => setQrFailedEvent(event)}
             />
           ) : (
           <div>
+            {/* QR ใช้ไม่ได้ชั่วคราว — ต้องบอกครูว่าทำไมจู่ ๆ ถึงเปลี่ยนวิธีเล่น ไม่งั้นดูเหมือนบั๊ก */}
+            {goldQrFailed && (
+              <p
+                style={{
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: '#8B0000',
+                  background: '#FDECEC',
+                  border: '1.5px solid #E5A5A5',
+                  borderRadius: radius.md,
+                  padding: '10px 14px',
+                  marginBottom: 12,
+                }}
+              >
+                📶 ต่อเซิร์ฟเวอร์ไม่ได้ตอนนี้ — เล่นภารกิจ AR บนแท็บเล็ตเครื่องนี้แทนได้เลย (ได้เหรียญเหมือนกัน)
+              </p>
+            )}
             <p
               style={{
                 fontSize: 16,
@@ -352,34 +456,14 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
               {/* ป้ายวิชา (เฉพาะช่องกลุ่มสาระฯ) — บอกว่าสุ่มได้วิชาอะไร */}
               {isSubject && <div style={{ ...subjectChip, marginBottom: 0 }}>📚 กลุ่มสาระ · {subjectName}</div>}
             </div>
-            {/* แถบจับเวลา */}
-            {timerOn && answered === null && (
-              <div style={{ marginBottom: 12 }}>
-                <div
-                  style={{
-                    height: 8,
-                    borderRadius: radius.pill,
-                    background: '#eee',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <div
-                    style={{
-                      height: '100%',
-                      width: `${(timeLeft / quiz.timeLimitSec) * 100}%`,
-                      background: timeLeft <= 5 ? color.danger : color.secondary,
-                      transition: 'width 1s linear',
-                    }}
-                  />
-                </div>
-                <span style={{ fontSize: 16, color: color.textMuted }}>⏱️ {timeLeft} วินาที</span>
-              </div>
-            )}
+            {/* แถบจับเวลา — ระหว่างลากคำตอบย้ายไปอยู่บนจอลาก (ไม่โชว์ซ้ำในการ์ดที่ถูกบังอยู่) */}
+            {!dragMode && timerBar}
             <p style={{ fontSize: 22, fontWeight: 600, marginBottom: 16 }}>❓ {quiz.question}</p>
             <QuestionImage url={quiz.imageUrl} />
+            {/* โหมดลาก: ซ่อนปุ่มตัวเลือกไว้ก่อน แล้วโผล่มาพร้อมสีเฉลยหลังวางคำตอบเสร็จ */}
             <div
               style={{
-                display: 'grid',
+                display: dragMode && answered === null ? 'none' : 'grid',
                 gridTemplateColumns: isPortrait ? '1fr' : '1fr 1fr',
                 gap: 12,
               }}
@@ -430,39 +514,8 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
               })}
             </div>
 
-            {/* ปุ่มไอเทมช่วย (ก่อนตอบ) */}
-            {answered === null && (items.fiftyFifty > 0 || items.skip > 0) && (
-              <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                {items.fiftyFifty > 0 && hidden.length === 0 && (
-                  <button
-                    onClick={() => {
-                      if (!useItem('fiftyFifty')) return;
-                      const wrong = quiz.choices
-                        .map((c, i) => (!c.correct ? i : -1))
-                        .filter((i) => i >= 0);
-                      // สุ่มตัดตัวเลือกผิด 2 ข้อ
-                      setHidden(wrong.sort(() => Math.random() - 0.5).slice(0, 2));
-                    }}
-                    style={itemBtn}
-                  >
-                    ✂️ 50:50 ({items.fiftyFifty})
-                  </button>
-                )}
-                {items.skip > 0 && (
-                  <button
-                    onClick={() => {
-                      if (!useItem('skip')) return;
-                      // ข้าม: ได้ครึ่งรางวัล แต่ไม่นับเป็น mastery ของพระองค์นั้น
-                      resolveReward(Math.round(quiz.reward / 2));
-                      closeEvent();
-                    }}
-                    style={itemBtn}
-                  >
-                    ⏭️ ข้ามคำถาม ({items.skip})
-                  </button>
-                )}
-              </div>
-            )}
+            {/* ปุ่มไอเทมช่วย (ก่อนตอบ) — โหมดลากย้ายไปไว้บนจอลาก */}
+            {!dragMode && itemButtons}
 
             {answered !== null &&
               (() => {
