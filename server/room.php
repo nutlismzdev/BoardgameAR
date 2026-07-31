@@ -81,10 +81,10 @@ switch ($action) {
         }
         $token = bin2hex(random_bytes(16));
         $stmt = get_db()->prepare(
-            'INSERT INTO room_team (room_code, team_token, team_name, last_seen) VALUES (?, ?, ?, ?)'
+            'INSERT INTO room_team (room_code, team_token, team_name, lineup, last_seen) VALUES (?, ?, ?, ?, ?)'
         );
         try {
-            $stmt->execute([$code, $token, $teamName, time()]);
+            $stmt->execute([$code, $token, $teamName, clean_lineup($body['lineup'] ?? null, (int) $rules['playersPerTeam']), time()]);
         } catch (PDOException $e) {
             // UNIQUE(room_code, team_name) — ชื่อทีมซ้ำในห้องเดียวกัน
             send_json(['ok' => false, 'error' => 'team name already used in this room'], 409);
@@ -162,6 +162,19 @@ switch ($action) {
         $inbox = take_inbox($code, (string) $team['team_name']);
 
         send_json(['ok' => true, 'incoming' => $inbox, 'sent' => $sendResult] + room_state($code));
+
+    case 'lineup':
+        // เลือกขุนศึกในล็อบบี้ — ทุกทีมเห็นของกันและกัน (นั่นคือสิ่งที่ทำให้รู้สึกว่ากำลังท้าชิง)
+        // heartbeat ยังไม่ทำงานตอน phase 'setup' จึงต้องมี action แยก ไม่ฝากไปกับ sync ได้
+        $code = normalize_room_code((string) ($body['code'] ?? ''));
+        $token = (string) ($body['teamToken'] ?? '');
+        $room = load_room($code);
+        find_team($code, $token);
+        $rules = json_decode((string) $room['rules'], true) ?: [];
+        // ตัดตามจำนวนผู้เล่นต่อเครื่องที่ห้องล็อกไว้ — ไม่งั้น client แก้ค่าแล้วโชว์ขุนศึกเกินโควตาได้
+        $stmt = get_db()->prepare('UPDATE room_team SET lineup = ? WHERE room_code = ? AND team_token = ?');
+        $stmt->execute([clean_lineup($body['lineup'] ?? null, (int) ($rules['playersPerTeam'] ?? 4)), $code, $token]);
+        send_json(['ok' => true] + room_state($code));
 
     case 'leave':
         $code = normalize_room_code((string) ($body['code'] ?? ''));
@@ -282,7 +295,7 @@ function room_state(string $code): array
     }
 
     $stmt = get_db()->prepare(
-        'SELECT team_name, king_coins, coins, finished_at, suspect, last_seen
+        'SELECT team_name, king_coins, coins, finished_at, suspect, last_seen, lineup
          FROM room_team WHERE room_code = ?'
     );
     $stmt->execute([$code]);
@@ -294,6 +307,7 @@ function room_state(string $code): array
             'finishedAt' => $row['finished_at'] === null ? null : (int) $row['finished_at'],
             'suspect' => (bool) $row['suspect'],
             'online' => ($now - (int) $row['last_seen']) <= ROOM_ONLINE_SEC,
+            'lineup' => $row['lineup'] ? explode(',', (string) $row['lineup']) : [],
         ];
     }, $stmt->fetchAll());
 
@@ -409,6 +423,21 @@ function clean_team_name(string $raw): string
     return $name;
 }
 
+/** ขุนศึกที่ทีมเลือก — เก็บเป็น csv ของ king id · server ไม่รู้จักรายชื่อพระองค์ จึงตรวจแค่รูปแบบ */
+function clean_lineup(mixed $raw, int $max = 4): ?string
+{
+    if (!is_array($raw)) {
+        return null;
+    }
+    $ids = [];
+    foreach (array_slice($raw, 0, max(1, min(4, $max))) as $id) {
+        if (is_string($id) && preg_match('/^[a-zA-Z0-9_-]{1,40}$/', $id)) {
+            $ids[] = $id;
+        }
+    }
+    return $ids ? implode(',', $ids) : null;
+}
+
 function validate_rules(mixed $raw): array
 {
     if (!is_array($raw)) {
@@ -485,11 +514,15 @@ function ensure_room_tables(): void
             coins INT NOT NULL DEFAULT 0,
             finished_at INT NULL,
             suspect TINYINT(1) NOT NULL DEFAULT 0,
+            lineup VARCHAR(200) NULL,
             last_seen INT NOT NULL DEFAULT 0,
             UNIQUE KEY uniq_room_team (room_code, team_name),
             INDEX idx_room (room_code)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
+    if (!get_db()->query("SHOW COLUMNS FROM room_team LIKE 'lineup'")->fetch()) {
+        $db->exec("ALTER TABLE room_team ADD COLUMN lineup VARCHAR(200) NULL AFTER suspect");
+    }
     // DB เดิมที่สร้างก่อนเลิกใช้ require_admin ยังไม่มีคอลัมน์นี้
     if (!get_db()->query("SHOW COLUMNS FROM room LIKE 'host_token'")->fetch()) {
         $db->exec("ALTER TABLE room ADD COLUMN host_token VARCHAR(40) NOT NULL DEFAULT '' AFTER rules");

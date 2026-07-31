@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import QRCode from 'qrcode';
 import { useGame } from '@/core/store';
-import { getContentVersion, syncContent } from '@/core/content';
+import { KINGS, getContentVersion, syncContent } from '@/core/content';
+import { getKingPawnImage } from '@/core/kingAssets';
 import {
   RoomError,
   createRoom,
@@ -10,6 +11,7 @@ import {
   joinRoom,
   leaveRoom,
   roomApiAvailable,
+  setLineup,
   startRoom,
   type RoomState,
 } from '@/core/roomApi';
@@ -46,9 +48,26 @@ export function RoomPanel({ onClose, initialCode }: { onClose: () => void; initi
   // ฟอร์มเข้าร่วม
   const [code, setCode] = useState(initialCode ?? '');
   const [teamName, setTeamName] = useState('');
+  // ขุนศึกที่ทีมเราเลือก (king id ตามลำดับที่จะเล่นในเครื่อง) — ส่งขึ้นห้องให้ทีมอื่นเห็นด้วย
+  const [lineup, setLineupLocal] = useState<string[]>([]);
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   const isHost = !!session?.isHost;
   const roomCode = session?.code ?? '';
+  const myTeamName = session?.teamName ?? '';
+
+  // แตะรูปเพื่อเลือก/ถอดขุนศึก แล้วดันขึ้นห้องทันที (ทีมอื่นเห็นภายในรอบ poll ถัดไป)
+  const pickKing = (kingId: string) => {
+    const need = state?.room.rules.playersPerTeam ?? 1;
+    const next = lineup.includes(kingId)
+      ? lineup.filter((id) => id !== kingId)
+      : lineup.length < need
+      ? [...lineup, kingId]
+      : lineup;
+    if (next === lineup) return;
+    setLineupLocal(next);
+    if (session) void setLineup(session.code, session.teamToken, next).catch(() => {});
+  };
 
   // ── ล็อบบี้: poll จนกว่าเจ้าของห้องจะกดเริ่ม ──
   useEffect(() => {
@@ -81,9 +100,20 @@ export function RoomPanel({ onClose, initialCode }: { onClose: () => void; initi
     if (startedRef.current) return; // poll กับ start กดพร้อมกันได้ — ให้เริ่มครั้งเดียว
     startedRef.current = true;
     const rules = next.room.rules;
-    updateSettings({ targetCoins: rules.targetCoins, difficulty: rules.difficulty });
-    setupGame(rules.playersPerTeam);
-    onClose();
+    // นับถอยหลัง 3-2-1 พร้อมกันทุกเครื่องก่อนเข้ากระดาน — จังหวะที่ทำให้รู้สึกว่า "เริ่มท้าชิงแล้ว"
+    setCountdown(3);
+    const tick = window.setInterval(() => {
+      setCountdown((c) => {
+        if (c === null) return null;
+        if (c > 1) return c - 1;
+        window.clearInterval(tick);
+        updateSettings({ targetCoins: rules.targetCoins, difficulty: rules.difficulty });
+        // ขุนศึกที่เลือกไว้ = หมากของผู้เล่นในเครื่อง (เลือกไม่ครบ setupGame เติมค่าเริ่มต้นให้เอง)
+        setupGame(rules.playersPerTeam, lineup.length ? lineup : undefined);
+        onClose();
+        return null;
+      });
+    }, 900);
   };
 
   const runCreate = async () => {
@@ -122,7 +152,7 @@ export function RoomPanel({ onClose, initialCode }: { onClose: () => void; initi
     setBusy(true);
     try {
       await syncContent(); // คลังคำถามต้องตรงกับห้อง ไม่งั้น server ปฏิเสธ
-      const joined = await joinRoom(code, teamName, getContentVersion());
+      const joined = await joinRoom(code, teamName, getContentVersion(), lineup);
       enterRoom({
         code: joined.room.code,
         teamToken: joined.teamToken,
@@ -172,6 +202,18 @@ export function RoomPanel({ onClose, initialCode }: { onClose: () => void; initi
           โหมดนี้ต้องต่อกับเซิร์ฟเวอร์ (ยังไม่ได้ตั้งค่า <code>VITE_API_BASE</code>) — เล่นในเครื่องได้ตามปกติ
         </p>
       </Shell>
+    );
+  }
+
+  if (countdown !== null) {
+    return (
+      <div style={countdownShell}>
+        <div style={countdownLabel}>เตรียมตัวท้าชิง</div>
+        <div key={countdown} style={countdownNumber}>
+          {countdown}
+        </div>
+        <style>{`@keyframes cdPop{from{opacity:0;transform:scale(.5)}60%{opacity:1;transform:scale(1.08)}to{transform:scale(1)}}`}</style>
+      </div>
     );
   }
 
@@ -290,6 +332,9 @@ export function RoomPanel({ onClose, initialCode }: { onClose: () => void; initi
           state={state}
           isHost={isHost}
           busy={busy}
+          teamName={myTeamName}
+          lineup={lineup}
+          onPick={pickKing}
           onStart={() => void runStart()}
           onLeave={() => void runLeave()}
         />
@@ -303,6 +348,9 @@ function Lobby({
   state,
   isHost,
   busy,
+  teamName,
+  lineup,
+  onPick,
   onStart,
   onLeave,
 }: {
@@ -310,6 +358,9 @@ function Lobby({
   state: RoomState | null;
   isHost: boolean;
   busy: boolean;
+  teamName: string;
+  lineup: string[];
+  onPick: (kingId: string) => void;
   onStart: () => void;
   onLeave: () => void;
 }) {
@@ -327,45 +378,126 @@ function Lobby({
 
   const teams = state?.teams ?? [];
   const rules = state?.room.rules;
+  const need = rules?.playersPerTeam ?? 1;
+  const ready = lineup.length >= need;
+  const rivals = teams.filter((t) => t.name !== teamName);
+  const mine = teams.find((t) => t.name === teamName);
 
   return (
     <div style={{ display: 'grid', gap: 14 }}>
+      {/* ── รหัสห้อง + QR ── ยุบให้เล็กลงเมื่อเลือกขุนศึกครบแล้ว เพราะพื้นที่ควรไปอยู่ที่จอท้าชิง */}
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: color.textMuted }}>รหัสห้อง</div>
-        <div style={{ fontSize: 46, fontWeight: 900, letterSpacing: 8, color: color.primary }}>{code}</div>
-        {qr && <img src={qr} alt="" style={{ width: 168, height: 168, margin: '4px auto', display: 'block' }} />}
-        <div style={{ fontSize: 13, color: color.textMuted }}>ให้ผู้เล่นอื่นพิมพ์รหัสนี้ หรือสแกน QR</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: color.textMuted }}>รหัสห้อง</div>
+        <div style={{ fontSize: 40, fontWeight: 900, letterSpacing: 8, color: color.primary }}>{code}</div>
+        {!ready && qr && (
+          <img src={qr} alt="" style={{ width: 150, height: 150, margin: '2px auto', display: 'block' }} />
+        )}
+        <div style={{ fontSize: 12.5, color: color.textMuted }}>ให้ผู้เล่นอื่นพิมพ์รหัสนี้ หรือสแกน QR</div>
       </div>
 
       {rules && (
         <div style={rulesBox}>
           ⏱ {Math.round(rules.durationSec / 60)} นาที · 🏆 {rules.targetCoins} เหรียญ · 👥{' '}
-          {rules.playersPerTeam} คน/เครื่อง
+          {rules.playersPerTeam} คน/เครื่อง{rules.sabotage ? ' · 😈 การ์ดป่วน' : ''}
         </div>
       )}
 
-      <div>
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>ทีมในห้อง ({teams.length})</div>
-        <div style={{ display: 'grid', gap: 6 }}>
-          {teams.map((t) => (
-            <div key={t.name} style={teamRow}>
-              <span>{t.online ? '🟢' : '⚪'} {t.name}</span>
-            </div>
-          ))}
-          {teams.length === 0 && <div style={note}>ยังไม่มีใครเข้าร่วม…</div>}
+      {/* ── เลือกขุนศึก ── แตะรูปเพื่อเลือก/ถอด · เลขมุมบอกลำดับการเล่นในเครื่อง */}
+      <section>
+        <div style={sectionHead}>
+          <span>เลือกขุนศึกของทีม</span>
+          <span style={{ color: ready ? '#2E7D32' : color.textMuted, fontWeight: 800 }}>
+            {lineup.length}/{need}
+          </span>
         </div>
-      </div>
+        <div style={kingGrid}>
+          {KINGS.map((k) => {
+            const at = lineup.indexOf(k.id);
+            const picked = at >= 0;
+            const full = lineup.length >= need && !picked;
+            return (
+              <button
+                key={k.id}
+                onClick={() => onPick(k.id)}
+                disabled={full}
+                style={kingCell(picked, full)}
+                title={k.name}
+              >
+                <img src={getKingPawnImage(k.id)} alt="" draggable={false} style={kingImg} />
+                {picked && <span style={pickBadge}>{at + 1}</span>}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── จอท้าชิง ── ทีมเราปะทะผู้ท้าชิง เห็นขุนศึกของกันและกันจริง ๆ */}
+      <section>
+        <div style={sectionHead}>
+          <span>สนามท้าชิง</span>
+          <span style={{ color: color.textMuted, fontWeight: 700 }}>{teams.length} ทีม</span>
+        </div>
+        <div style={arenaWrap}>
+          <TeamCard team={mine} name={teamName} need={need} mine />
+          {rivals.length > 0 && <div style={vsMark}>VS</div>}
+          <div style={{ display: 'grid', gap: 8, flex: 1, minWidth: 0 }}>
+            {rivals.map((t) => (
+              <TeamCard key={t.name} team={t} name={t.name} need={need} />
+            ))}
+            {rivals.length === 0 && <div style={waitRival}>⏳ รอผู้ท้าชิง…</div>}
+          </div>
+        </div>
+      </section>
 
       {isHost ? (
         <button style={primaryBtn} disabled={busy || teams.length < 2} onClick={onStart}>
-          {teams.length < 2 ? 'รออีกอย่างน้อย 1 ทีม' : busy ? 'กำลังเริ่ม…' : '▶ เริ่มแข่ง'}
+          {teams.length < 2 ? 'รออีกอย่างน้อย 1 ทีม' : busy ? 'กำลังเริ่ม…' : '⚔️ เริ่มท้าชิง'}
         </button>
       ) : (
-        <div style={waitBox}>⏳ รอเจ้าของห้องกดเริ่มแข่ง…</div>
+        <div style={waitBox}>⏳ รอเจ้าของห้องกดเริ่ม…</div>
       )}
       <button style={ghostBtn} onClick={onLeave}>
         ออกจากห้อง
       </button>
+    </div>
+  );
+}
+
+/** การ์ดทีมในสนามท้าชิง — โชว์ขุนศึกที่เลือกไว้ + สถานะพร้อม/ยังเลือกไม่ครบ */
+function TeamCard({
+  team,
+  name,
+  need,
+  mine = false,
+}: {
+  team?: { lineup: string[]; online: boolean };
+  name: string;
+  need: number;
+  mine?: boolean;
+}) {
+  const picks = team?.lineup ?? [];
+  const ready = picks.length >= need;
+  return (
+    <div style={teamCard(mine)}>
+      <div style={teamCardName}>
+        {mine ? '🛡️ ' : ''}
+        {name}
+        {mine && <span style={mineTag}>ทีมเรา</span>}
+      </div>
+      <div style={{ display: 'flex', gap: 5, marginTop: 5, minHeight: 40 }}>
+        {Array.from({ length: need }, (_, i) =>
+          picks[i] ? (
+            <img key={i} src={getKingPawnImage(picks[i])} alt="" draggable={false} style={slotImg} />
+          ) : (
+            <span key={i} style={emptySlot}>
+              ?
+            </span>
+          )
+        )}
+      </div>
+      <div style={{ ...readyText, color: ready ? '#2E7D32' : color.textMuted }}>
+        {ready ? '● พร้อมรบ' : '○ กำลังเลือกขุนศึก'}
+      </div>
     </div>
   );
 }
@@ -533,13 +665,6 @@ const rulesBox: CSSProperties = {
   padding: '10px 12px',
 };
 
-const teamRow: CSSProperties = {
-  fontSize: 16,
-  fontWeight: 600,
-  background: color.bg,
-  borderRadius: radius.md,
-  padding: '10px 14px',
-};
 
 const waitBox: CSSProperties = {
   fontSize: 16,
@@ -547,4 +672,155 @@ const waitBox: CSSProperties = {
   textAlign: 'center',
   color: color.textMuted,
   padding: 10,
+};
+
+// ── สนามท้าชิง / เลือกขุนศึก ──
+const sectionHead: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  fontSize: 14.5,
+  fontWeight: 800,
+  color: color.primary,
+  marginBottom: 7,
+};
+
+const kingGrid: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(58px, 1fr))',
+  gap: 7,
+};
+
+function kingCell(picked: boolean, full: boolean): CSSProperties {
+  return {
+    position: 'relative',
+    padding: '7px 3px',
+    borderRadius: radius.md,
+    border: `2px solid ${picked ? color.primary : 'rgba(201,162,39,.45)'}`,
+    background: picked ? '#FFF3CC' : full ? '#F2EFE7' : '#fff',
+    opacity: full ? 0.45 : 1,
+    cursor: full ? 'not-allowed' : 'pointer',
+    transition: 'transform .12s, background .15s',
+    transform: picked ? 'translateY(-2px)' : 'none',
+  };
+}
+
+const kingImg: CSSProperties = { width: '100%', height: 42, objectFit: 'contain', display: 'block' };
+
+const pickBadge: CSSProperties = {
+  position: 'absolute',
+  top: -6,
+  right: -6,
+  width: 21,
+  height: 21,
+  borderRadius: '50%',
+  display: 'grid',
+  placeItems: 'center',
+  background: color.primary,
+  color: '#FFF3CF',
+  fontSize: 12,
+  fontWeight: 900,
+  border: '2px solid #fff',
+};
+
+const arenaWrap: CSSProperties = {
+  display: 'flex',
+  alignItems: 'stretch',
+  gap: 8,
+};
+
+const vsMark: CSSProperties = {
+  alignSelf: 'center',
+  fontFamily: "'Trirong',serif",
+  fontSize: 20,
+  fontWeight: 900,
+  color: '#8B0000',
+  flexShrink: 0,
+};
+
+function teamCard(mine: boolean): CSSProperties {
+  return {
+    flex: 1,
+    minWidth: 0,
+    padding: '9px 11px',
+    borderRadius: radius.md,
+    background: mine ? 'linear-gradient(160deg,#FFF8E2,#F6E6BE)' : 'rgba(255,255,255,.75)',
+    border: `2px solid ${mine ? color.primary : 'rgba(201,162,39,.4)'}`,
+  };
+}
+
+const teamCardName: CSSProperties = {
+  fontSize: 14,
+  fontWeight: 800,
+  color: color.text,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+
+const mineTag: CSSProperties = {
+  marginLeft: 6,
+  padding: '1px 7px',
+  borderRadius: 999,
+  background: color.primary,
+  color: '#FFF3CF',
+  fontSize: 10.5,
+  fontWeight: 800,
+};
+
+const slotImg: CSSProperties = { width: 30, height: 40, objectFit: 'contain' };
+
+const emptySlot: CSSProperties = {
+  width: 30,
+  height: 40,
+  display: 'grid',
+  placeItems: 'center',
+  borderRadius: 6,
+  border: '1.5px dashed rgba(201,162,39,.6)',
+  color: 'rgba(140,110,50,.7)',
+  fontSize: 15,
+  fontWeight: 800,
+};
+
+const readyText: CSSProperties = { marginTop: 4, fontSize: 12, fontWeight: 800 };
+
+const waitRival: CSSProperties = {
+  display: 'grid',
+  placeItems: 'center',
+  minHeight: 92,
+  borderRadius: radius.md,
+  border: '2px dashed rgba(201,162,39,.5)',
+  color: color.textMuted,
+  fontSize: 14,
+  fontWeight: 700,
+};
+
+// ── นับถอยหลังก่อนเข้ากระดาน ──
+const countdownShell: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 200,
+  display: 'grid',
+  placeItems: 'center',
+  alignContent: 'center',
+  gap: 6,
+  background: 'radial-gradient(120% 120% at 50% 40%, #3A1B0A, #140803)',
+};
+
+const countdownLabel: CSSProperties = {
+  fontFamily: "'Trirong',serif",
+  fontSize: 20,
+  fontWeight: 700,
+  letterSpacing: '.2em',
+  color: '#E6C35C',
+};
+
+const countdownNumber: CSSProperties = {
+  fontFamily: "'Trirong',serif",
+  fontSize: 'clamp(90px, 26vw, 170px)',
+  fontWeight: 800,
+  lineHeight: 1,
+  color: '#FFF3CF',
+  textShadow: '0 0 40px rgba(233,195,92,.7)',
+  animation: 'cdPop .5s cubic-bezier(.2,1.2,.4,1) both',
 };

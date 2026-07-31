@@ -74,7 +74,8 @@ CREATE TABLE IF NOT EXISTS room (
   code VARCHAR(8) PRIMARY KEY,              -- 7MHR42 (ตัวใหญ่ ไม่ใช้ I O 0 1 กันอ่านผิด)
   host_name VARCHAR(80) NOT NULL,           -- ชื่อทีมเจ้าของห้อง (ไม่ใช่ชื่อคน)
   status ENUM('lobby','running','ended') NOT NULL DEFAULT 'lobby',
-  rules TEXT NOT NULL,                      -- JSON: durationSec/targetCoins/playersPerTeam/difficulty/contentVersion
+  rules TEXT NOT NULL,                      -- JSON: durationSec/targetCoins/playersPerTeam/difficulty/sabotage/contentVersion
+  host_token VARCHAR(40) NOT NULL DEFAULT '', -- คนที่สร้างห้องเท่านั้นที่กดเริ่ม/จบได้ (ไม่ใช้รหัสครู)
   started_at INT NULL,
   ends_at INT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -90,6 +91,7 @@ CREATE TABLE IF NOT EXISTS room_team (
   coins INT NOT NULL DEFAULT 0,             -- เหรียญปกติ (ตัวตัดสินเสมอ)
   finished_at INT NULL,                     -- ถึงเป้าก่อนหมดเวลา
   suspect TINYINT(1) NOT NULL DEFAULT 0,    -- แต้มพุ่งผิดปกติ — ติดธงให้ครูดู ไม่ได้ปฏิเสธ
+  lineup VARCHAR(200) NULL,                 -- ขุนศึกที่ทีมเลือก (csv ของ king id) — โชว์ในจอท้าชิง
   last_seen INT NOT NULL DEFAULT 0,
   UNIQUE KEY uniq_room_team (room_code, team_name),
   INDEX idx_room (room_code)

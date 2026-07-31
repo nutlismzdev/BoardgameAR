@@ -57,6 +57,7 @@ export interface RoomTeam {
   finishedAt: number | null;
   suspect: boolean;
   online: boolean;
+  lineup: string[]; // ขุนศึกที่ทีมเลือก (king id) — ทุกทีมเห็นของกันและกันในจอท้าชิง
 }
 
 export interface RoomInfo {
@@ -139,9 +140,15 @@ export async function createRoom(
 export async function joinRoom(
   code: string,
   teamName: string,
-  contentVersion: number
+  contentVersion: number,
+  lineup: string[] = []
 ): Promise<RoomState & { teamToken: string }> {
-  return call<RoomState & { teamToken: string }>({ action: 'join', code, teamName, contentVersion });
+  return call<RoomState & { teamToken: string }>({ action: 'join', code, teamName, contentVersion, lineup });
+}
+
+/** ตั้งขุนศึกของทีมระหว่างอยู่ล็อบบี้ — heartbeat ยังไม่ทำงานตอน phase 'setup' จึงต้องมี action แยก */
+export async function setLineup(code: string, teamToken: string, lineup: string[]): Promise<RoomState> {
+  return call<RoomState>({ action: 'lineup', code, teamToken, lineup });
 }
 
 export async function startRoom(code: string, teamToken: string): Promise<RoomState> {
