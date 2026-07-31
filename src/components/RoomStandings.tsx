@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useGame } from '@/core/store';
-import type { RoomTeam } from '@/core/roomApi';
+import { EFFECTS } from '@/core/roomApi';
+import type { EffectKind, RoomTeam } from '@/core/roomApi';
 import { color, radius } from '@/theme/tokens';
 
 // ── ห้องแข่งออนไลน์: ป้ายบอกสถานะ 2 ชิ้น ──
@@ -37,16 +38,29 @@ export function RoomClock() {
 /** แผงอันดับของทุกทีมในห้อง — วางเป็นการ์ดในแถบขวา (ไม่ลอยทับกระดาน) */
 export function RoomStandings() {
   const room = useGame((s) => s.room);
+  const [sabotageOpen, setSabotageOpen] = useState(false);
   if (!room?.state) return null;
 
   const teams = room.state.teams;
   const rows = pickRows(teams, room.teamName);
+  // ป่วนได้เฉพาะทีมที่ "อันดับนำหน้าเรา" → ถ้าเรานำอยู่อันดับ 1 ก็ไม่มีใครให้ป่วน (ตามกฎ)
+  const myRank = teams.findIndex((t) => t.name === room.teamName);
+  const targets = myRank > 0 ? teams.slice(0, myRank) : [];
+  const canSabotage =
+    room.state.room.rules.sabotage && room.state.room.status === 'running' && targets.length > 0;
 
   return (
     <section style={panel}>
+      {sabotageOpen && <SabotagePicker targets={targets} onClose={() => setSabotageOpen(false)} />}
       <div style={panelHeader}>
         <span>อันดับ</span>
-        <span style={{ fontWeight: 700, color: color.textMuted }}>{teams.length} ทีม</span>
+        {canSabotage ? (
+          <button style={sabotageBtn} onClick={() => setSabotageOpen(true)}>
+            😈 ป่วน
+          </button>
+        ) : (
+          <span style={{ fontWeight: 700, color: color.textMuted }}>{teams.length} ทีม</span>
+        )}
       </div>
       <div style={list}>
         {rows.map(({ team, rank }) => {
@@ -65,6 +79,69 @@ export function RoomStandings() {
         })}
       </div>
     </section>
+  );
+}
+
+/**
+ * เลือกเป้าหมาย + การ์ดป่วน
+ * ⚠️ รายชื่อที่ส่งเข้ามาถูกกรองแล้วว่า "นำหน้าเรา" — แต่ server ตรวจซ้ำอีกชั้นเสมอ (ห้ามเชื่อ client)
+ */
+function SabotagePicker({ targets, onClose }: { targets: RoomTeam[]; onClose: () => void }) {
+  const coins = useGame((s) => s.players[s.currentPlayerIndex]?.coins ?? 0);
+  const queueSabotage = useGame((s) => s.queueSabotage);
+  const pending = useGame((s) => !!s.outgoingSabotage);
+  const [target, setTarget] = useState(targets[0]?.name ?? '');
+
+  const fire = (kind: EffectKind) => {
+    if (!target || !queueSabotage(target, kind)) return;
+    onClose(); // ผลจริงจะรู้ตอน heartbeat รอบหน้า (≤3 วิ) แล้วเด้งเป็นป้ายบอกให้เอง
+  };
+
+  return (
+    <div style={pickerOverlay} onClick={onClose}>
+      <div style={pickerPanel} onClick={(e) => e.stopPropagation()}>
+        <div style={{ fontSize: 17, fontWeight: 900, color: color.primary }}>😈 ส่งการ์ดป่วน</div>
+        <p style={pickerNote}>
+          ป่วนได้เฉพาะทีมที่นำหน้าเรา · จ่ายด้วยเหรียญของเราเอง (มี 🪙 {coins}) · ส่งได้ 1 ใบต่อ 2 นาที
+        </p>
+
+        <div style={{ display: 'grid', gap: 6 }}>
+          {targets.map((t) => (
+            <button
+              key={t.name}
+              onClick={() => setTarget(t.name)}
+              style={targetBtn(t.name === target)}
+            >
+              <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {t.name}
+              </span>
+              <span style={{ fontWeight: 900 }}>👑 {t.kingCoins}</span>
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: 'grid', gap: 8, marginTop: 4 }}>
+          {(Object.keys(EFFECTS) as EffectKind[]).map((kind) => {
+            const meta = EFFECTS[kind];
+            const afford = coins >= meta.price && !pending;
+            return (
+              <button key={kind} disabled={!afford} onClick={() => fire(kind)} style={effectBtn(afford)}>
+                <span style={{ fontSize: 20 }}>{meta.icon}</span>
+                <span style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
+                  <b>{meta.label}</b>
+                  <span style={{ display: 'block', fontSize: 11.5, opacity: 0.8 }}>{meta.detail}</span>
+                </span>
+                <span style={{ fontWeight: 900, whiteSpace: 'nowrap' }}>🪙 {meta.price}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <button style={closeBtn} onClick={onClose}>
+          ปิด
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -201,4 +278,94 @@ const scoreCell: CSSProperties = {
   fontWeight: 900,
   fontVariantNumeric: 'tabular-nums',
   flexShrink: 0,
+};
+
+const sabotageBtn: CSSProperties = {
+  fontFamily: 'inherit',
+  fontSize: 11.5,
+  fontWeight: 900,
+  color: '#8B0000',
+  background: '#FFE7E7',
+  border: '1.5px solid #E5A5A5',
+  borderRadius: radius.pill,
+  padding: '2px 9px',
+  cursor: 'pointer',
+};
+
+const pickerOverlay: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(0,0,0,.55)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 170,
+  padding: 18,
+};
+
+const pickerPanel: CSSProperties = {
+  width: 'min(420px, 96vw)',
+  maxHeight: '90vh',
+  overflowY: 'auto',
+  display: 'grid',
+  gap: 10,
+  padding: 18,
+  borderRadius: radius.lg,
+  background: color.surface,
+  boxShadow: '0 18px 50px rgba(0,0,0,.45)',
+};
+
+const pickerNote: CSSProperties = {
+  margin: 0,
+  fontSize: 13,
+  lineHeight: 1.6,
+  color: color.textMuted,
+};
+
+function targetBtn(active: boolean): CSSProperties {
+  return {
+    fontFamily: 'inherit',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    fontSize: 15,
+    fontWeight: active ? 900 : 600,
+    padding: '10px 12px',
+    minHeight: 44,
+    borderRadius: radius.md,
+    border: `2px solid ${active ? color.primary : 'rgba(201,162,39,.45)'}`,
+    background: active ? '#FFF3CC' : '#fff',
+    color: color.text,
+    cursor: 'pointer',
+  };
+}
+
+function effectBtn(afford: boolean): CSSProperties {
+  return {
+    fontFamily: 'inherit',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '10px 12px',
+    minHeight: 52,
+    borderRadius: radius.md,
+    border: `2px solid ${afford ? '#E5A5A5' : '#ddd'}`,
+    background: afford ? '#FFF6F6' : '#f2f2f2',
+    color: afford ? color.text : '#aaa',
+    cursor: afford ? 'pointer' : 'not-allowed',
+    fontSize: 14,
+  };
+}
+
+const closeBtn: CSSProperties = {
+  fontFamily: 'inherit',
+  fontSize: 16,
+  fontWeight: 700,
+  color: color.primary,
+  background: 'transparent',
+  border: `1.5px solid ${color.secondary}`,
+  borderRadius: radius.pill,
+  padding: 11,
+  minHeight: 44,
+  cursor: 'pointer',
 };

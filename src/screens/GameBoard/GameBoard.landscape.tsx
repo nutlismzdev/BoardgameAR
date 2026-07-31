@@ -14,6 +14,7 @@ import { SettingsPanel } from '@/screens/Settings/Settings';
 import { getKingPawnImage, getKingCoinImage } from '@/core/kingAssets';
 import { KingCoinRow } from '@/components/KingCoinRow';
 import { RoomClock, RoomStandings } from '@/components/RoomStandings';
+import { SabotageToast } from '@/components/SabotageToast';
 import { KINGS } from '@/core/content';
 import { useViewportSize } from '@/hooks/useViewportSize';
 import { color, radius } from '@/theme/tokens';
@@ -102,6 +103,9 @@ export function GameBoardLandscape() {
         animation: shake ? 'screenShake .5s ease-in-out' : undefined,
       }}
     >
+      {/* ป้ายแจ้งเตือนการ์ดป่วน (ซ่อนเองเมื่อไม่มีอะไรเกิดขึ้น) */}
+      <SabotageToast />
+
       {/* ชั้นตกแต่งพื้นหลัง (หลังทุกอย่าง) */}
       <TableBackdrop />
       <div style={motionFrame} />

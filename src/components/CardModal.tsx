@@ -19,6 +19,7 @@ import { QuestionImage } from './QuestionImage';
 import { QrChallengePanel } from './QrChallengePanel';
 import { ResultStamp, STAMP_MS } from './ResultStamp';
 import { buildGoldArChallenge, buildQuizChallenge, genChallengeId } from '@/core/qrChallenge';
+import { STORM_SECONDS } from '@/core/roomApi';
 import { getCardFront } from '@/core/cardAssets';
 import { sfx } from '@/core/sfx';
 import type { Orientation, KnowledgeCard, SubjectQuizCard, TileEvent } from '@/core/types';
@@ -100,18 +101,27 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   // โหมด QR: ช่องฟ้า/สาระ → โชว์ QR ให้ตอบบนมือถือส่วนตัวแทน UI ควิซบน tablet (ไม่มีตัวจับเวลา)
   const qrMode = settings.qrAnswerMode && usesQuizUI;
 
+  // ── การ์ดป่วนที่ทีมอื่นส่งมา (ถูกดึงมาผูกกับการ์ดใบนี้ตั้งแต่ resolveLanding ใน store) ──
+  // 📜 ข้อสอบยาก = บังคับระดับ hard · 🌪️ พายุ = ตัดเวลาตอบ 8 วิ
+  const cardEffects = useGame((s) => s.cardEffects);
+  const hardened = cardEffects.includes('hardQuiz');
+  const stormed = cardEffects.includes('storm');
+  const pickDifficulty = hardened ? ('hard' as const) : settings.difficulty;
+
   // ช่องทองก็ต้องมีคำถาม (ใช้กับ drag-to-slot ใน AR) จึงสุ่ม quiz ไว้ด้วย
   const quiz = useMemo(
     () =>
       kind === 'question'
-        ? getQuizForKing(kingId, settings.difficulty, usedQuizIds)
+        ? getQuizForKing(kingId, pickDifficulty, usedQuizIds)
         : isGold
-        ? getGoldQuizForKing(kingId, settings.difficulty, usedQuizIds)
+        ? getGoldQuizForKing(kingId, pickDifficulty, usedQuizIds)
         : isSubject
-        ? getSubjectQuizForKing(kingId, settings.difficulty, usedQuizIds)
+        ? getSubjectQuizForKing(kingId, pickDifficulty, usedQuizIds)
         : null,
     [event]
   );
+  // เวลาตอบจริงของการ์ดใบนี้ (หลังหักผลพายุ) — ใช้ทั้งตัวจับเวลาบนแท็บเล็ตและ payload ของ QR
+  const timeLimit = quiz ? Math.max(5, quiz.timeLimitSec - (stormed ? STORM_SECONDS : 0)) : 0;
   const subjectName = isSubject && quiz ? subjectLabel((quiz as SubjectQuizCard).subject) : '';
   // payload สำหรับโหมด QR — memo ให้ reference นิ่ง (ไม่งั้น QR วาดใหม่ทุก render)
   const qrLabel = isSubject ? subjectName : king ? shortKing(king.name) : undefined;
@@ -121,7 +131,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
         ? buildQuizChallenge(quiz, {
             label: qrLabel,
             id: genChallengeId(),
-            timeLimitSec: settings.timerEnabled ? quiz.timeLimitSec : undefined,
+            timeLimitSec: settings.timerEnabled ? timeLimit : undefined,
             items: { f: items.fiftyFifty, s: items.skip },
             drag: settings.dragAnswerMode,
             hand: settings.handAnswerMode,
@@ -151,7 +161,7 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   useEffect(() => {
     if (!usesQuizUI || !quiz) return;
     markQuizSeen(quiz.id);
-    setTimeLeft(quiz.timeLimitSec);
+    setTimeLeft(timeLimit);
     setAnswered(null);
     setHidden([]);
   }, [event]);

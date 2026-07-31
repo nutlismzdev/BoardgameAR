@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useGame, clampTargetCoins } from '@/core/store';
 import type { Settings } from '@/core/store';
 import { AdminPanel } from '@/screens/Admin/AdminPanel';
+import { hasAdminToken } from '@/core/api';
 import { color, radius, elevation } from '@/theme/tokens';
 import {
   enterFullscreen,
@@ -17,6 +18,9 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const update = useGame((s) => s.updateSettings);
   const inRoom = useGame((s) => !!s.room); // อยู่ในห้องแข่ง = กติกาถูกล็อกจากห้อง
   const [adminOpen, setAdminOpen] = useState(false);
+  // สถานะเข้าสู่ระบบครู — เดิมไม่มีให้เห็นบนจอเลย ต้องกดเข้าหลังบ้านถึงจะรู้ว่าล็อกอินอยู่ไหม
+  // (อ่านตอน render ทุกครั้งที่เปิด/ปิดหลังบ้าน ก็พอ — ไม่ต้อง subscribe อะไร)
+  const loggedIn = hasAdminToken();
 
   // เต็มจอเป็นสถานะของเครื่อง ไม่ใช่ settings ที่ persist — อ่านจากเบราว์เซอร์ตรง ๆ
   // (ผู้ใช้กด Esc / ปัดออกเองได้ ต้องตามให้ทัน) · ติดตั้งเป็น PWA แล้วเต็มจออยู่แล้ว ไม่ต้องโชว์
@@ -172,8 +176,15 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               cursor: 'pointer',
             }}
           >
-            📚 จัดการเนื้อหาการ์ด
+            📚 จัดการเนื้อหาการ์ด{loggedIn ? '' : ' 🔒'}
           </button>
+          {/* บอกให้ชัดว่าปุ่มนี้ต้องใช้รหัส และตอนนี้เครื่องนี้ล็อกอินค้างอยู่หรือเปล่า
+              (สำคัญบนแท็บเล็ตที่เด็กใช้ร่วมกัน — ครูจะได้รู้ว่าต้องออกจากระบบก่อนส่งต่อ) */}
+          <p style={{ margin: '6px 0 0', fontSize: 14, color: color.textMuted, textAlign: 'center' }}>
+            {loggedIn
+              ? '🔓 เครื่องนี้เข้าสู่ระบบครูอยู่ — ออกจากระบบได้ในหน้าหลังบ้าน'
+              : 'ต้องใช้รหัสครู · การสร้างห้องแข่งไม่ต้องใช้รหัสนี้'}
+          </p>
 
           <button
             onClick={onClose}

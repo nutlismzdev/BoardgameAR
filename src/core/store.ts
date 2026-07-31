@@ -6,7 +6,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import boardData from '@/data/board-layout.json';
 import kingsData from '@/data/kings.json';
 import type { Player, Tile, TileEvent, Difficulty } from './types';
-import type { RoomState } from './roomApi';
+import { BLOCK_STEPS, EFFECTS, TAX_COINS, sendErrorMessage } from './roomApi';
+import type { EffectKind, RoomEffect, RoomState, SendResult } from './roomApi';
 import { rollDie } from './diceLogic';
 import { sfx, setSoundEnabled, startBackgroundMusic, stopBackgroundMusic } from './sfx';
 
@@ -142,6 +143,13 @@ interface GameState {
   usedQuizIds: string[]; // กันสุ่มคำถามซ้ำจนกว่าจะใช้ครบ pool
   exitPrompt: boolean; // เปิดกล่องยืนยันออกจากเกม (ปุ่ม 🏠 หรือปุ่ม back เบราว์เซอร์)
   room: RoomSession | null; // ห้องแข่งออนไลน์ (null = เล่นเดี่ยวตามปกติ)
+  // ── การ์ดป่วนที่ทีมอื่นส่งมา ──
+  pendingCardEffects: EffectKind[]; // รอลงกับ "การ์ดใบถัดไป" (storm / hardQuiz)
+  cardEffects: EffectKind[]; // ผลที่ติดอยู่กับการ์ดที่เปิดอยู่ตอนนี้
+  rollCap: number | null; // เพดานแต้มของการทอยครั้งถัดไป (จากการ์ดช้างขวางทาง)
+  outgoingSabotage: { to: string; kind: EffectKind } | null; // รอ heartbeat ฝากไปกับ sync รอบหน้า
+  sabotageNotice: { id: number; from: string; kind: EffectKind } | null; // ป้ายแจ้งเตือน "โดนป่วน"
+  sabotageFeedback: { id: number; ok: boolean; message: string } | null; // ผลของการ์ดที่เราส่งไป
 
   // actions
   setupGame: (count: number, kingTokenIds?: string[], names?: string[]) => void;
@@ -168,6 +176,11 @@ interface GameState {
   updateRoomState: (state: RoomState) => void;
   setRoomOffline: (offline: boolean) => void;
   leaveRoomSession: () => void;
+  receiveEffects: (effects: RoomEffect[]) => void;
+  queueSabotage: (to: string, kind: EffectKind) => boolean;
+  resolveSabotageSend: (result: SendResult | null) => void;
+  clearSabotageNotice: () => void;
+  clearSabotageFeedback: () => void;
 }
 
 // ── ห้องแข่งออนไลน์ ──
@@ -220,6 +233,12 @@ export const useGame = create<GameState>()(
   usedQuizIds: [],
   exitPrompt: false,
   room: null,
+  pendingCardEffects: [],
+  cardEffects: [],
+  rollCap: null,
+  outgoingSabotage: null,
+  sabotageNotice: null,
+  sabotageFeedback: null,
 
   setupGame: (count, kingTokenIds = KING_IDS, names) => {
     gameGen++; // เกมใหม่: loop เดินหมากของเกมก่อนหน้า (ถ้ายังค้าง) ต้องหยุดทันที
@@ -248,6 +267,11 @@ export const useGame = create<GameState>()(
       items: { fiftyFifty: 0, skip: 0, double: 0, heartPotion: 0 },
       doubleNext: false,
       usedQuizIds: [],
+      pendingCardEffects: [],
+      cardEffects: [],
+      rollCap: null,
+      outgoingSabotage: null,
+      sabotageNotice: null,
     });
     if (get().settings.soundEnabled) startBackgroundMusic();
   },
@@ -265,9 +289,12 @@ export const useGame = create<GameState>()(
     const { phase } = get();
     if (phase !== 'idle') return;
 
-    const value = rollDie();
+    // การ์ด "ช้างขวางทาง" จากทีมอื่น: จำกัดแต้มของการทอยครั้งนี้ แล้วใช้แล้วหมดไป
+    // (ยังได้ทอย ได้เดิน ได้เปิดการ์ด — แค่ไปได้ไม่ไกล ตรงตามกฎ "ป่วน ≠ ทำให้หยุดเล่น")
+    const cap = get().rollCap;
+    const value = cap === null ? rollDie() : Math.min(rollDie(), cap);
     const gen = gameGen; // ผูกการเดินครั้งนี้กับรุ่นเกมปัจจุบัน
-    set({ phase: 'rolling', lastRoll: value });
+    set({ phase: 'rolling', lastRoll: value, rollCap: null });
     startBackgroundMusic();
     sfx.roll();
 
@@ -333,6 +360,9 @@ export const useGame = create<GameState>()(
       coins *= 2;
       usedDouble = true;
     }
+    // ตอบถูกทั้งที่โดนป่วน = ได้โบนัสแก้เผ็ด — เปลี่ยน "ถูกกลั่นแกล้ง" ให้เป็นโอกาส
+    // สำคัญในห้องเรียน: เด็กที่โดนถล่มต้องไม่รู้สึกว่าโดนลงโทษฟรี ๆ โดยทำอะไรไม่ได้
+    if (get().cardEffects.length > 0) coins += 40;
 
     sfx.correct();
     set((s) => ({
@@ -468,7 +498,20 @@ export const useGame = create<GameState>()(
     gameGen++; // ออกจากเกม: ตัด loop เดินหมากที่ยัง await ค้างอยู่ ไม่ให้ไปอ่าน players ที่ถูกล้างแล้ว
     stopBackgroundMusic();
     // ออกจากเกม = ออกจากห้องแข่งด้วย (ไม่งั้น heartbeat จะยิงแต้มของเกมที่ไม่มีอยู่แล้วต่อไป)
-    set({ players: [], phase: 'setup', currentPlayerIndex: 0, round: 1, lastRoll: null, pendingEvent: null, room: null });
+    set({
+      players: [],
+      phase: 'setup',
+      currentPlayerIndex: 0,
+      round: 1,
+      lastRoll: null,
+      pendingEvent: null,
+      room: null,
+      pendingCardEffects: [],
+      cardEffects: [],
+      rollCap: null,
+      outgoingSabotage: null,
+      sabotageNotice: null,
+    });
   },
 
   // เปิด/ปิด/ยืนยัน กล่องออกจากเกม — เส้นทางออกทั้งปุ่ม 🏠 และปุ่ม back เบราว์เซอร์รวมมาที่นี่
@@ -497,7 +540,82 @@ export const useGame = create<GameState>()(
     if (!room || room.offline === offline) return; // กัน set ซ้ำทุกรอบ poll = re-render ทั้งจอฟรี ๆ
     set({ room: { ...room, offline } });
   },
-  leaveRoomSession: () => set({ room: null }),
+  leaveRoomSession: () =>
+    set({ room: null, pendingCardEffects: [], cardEffects: [], rollCap: null, outgoingSabotage: null }),
+
+  // ── การ์ดป่วนที่ถูกส่งมาถึงเรา ──
+  // server ส่งมอบครั้งเดียว (ปิด delivered ตอนอ่าน) → ที่นี่ต้องลงผลให้ครบ ห้ามทิ้ง
+  // ผลทั้งหมดเป็นแบบ "ครั้งหน้า" ยกเว้นริบเหรียญที่ลงทันที เพราะไม่ต้องรอจังหวะอะไร
+  receiveEffects: (effects) => {
+    if (!effects.length) return;
+    const idx = get().currentPlayerIndex;
+    const cardKinds: EffectKind[] = [];
+    let cap = get().rollCap;
+    let taxed = 0;
+
+    for (const e of effects) {
+      if (e.kind === 'tax') taxed += TAX_COINS;
+      else if (e.kind === 'block') cap = BLOCK_STEPS;
+      else cardKinds.push(e.kind);
+    }
+
+    set((s) => ({
+      players: taxed
+        ? s.players.map((p, i) => (i === idx ? { ...p, coins: Math.max(0, p.coins - taxed) } : p))
+        : s.players,
+      // เก็บได้ไม่เกิน 2 ใบ (ตรงกับเพดานฝั่ง server) — ที่เกินทิ้ง ไม่สะสมไว้ถล่มทีหลัง
+      pendingCardEffects: [...s.pendingCardEffects, ...cardKinds].slice(0, 2),
+      rollCap: cap,
+      // แจ้งเตือนใบล่าสุด — ต้องบอกว่า "ใครส่งมา" ไม่งั้นมันเป็นแค่ความซวยลอย ๆ ไม่มีใครอยากเอาคืน
+      sabotageNotice: { id: ++fxCounter, from: effects[effects.length - 1].from, kind: effects[effects.length - 1].kind },
+    }));
+    sfx.wrong();
+  },
+
+  clearSabotageNotice: () => set({ sabotageNotice: null }),
+
+  // จ่ายเหรียญของตัวเองเพื่อถ่วงทีมที่นำอยู่ — หักเหรียญทันที แล้วให้ heartbeat ฝากไปกับ sync รอบหน้า
+  // (server เป็นคนตัดสินกฎจริงทั้งหมด ที่นี่แค่กันกดซ้ำและกันเหรียญไม่พอ)
+  queueSabotage: (to, kind) => {
+    const { room, outgoingSabotage, currentPlayerIndex, players } = get();
+    if (!room || outgoingSabotage) return false;
+    const price = EFFECTS[kind].price;
+    const player = players[currentPlayerIndex];
+    if (!player || player.coins < price) return false;
+    sfx.coin();
+    set((s) => ({
+      players: s.players.map((p, i) => (i === currentPlayerIndex ? { ...p, coins: p.coins - price } : p)),
+      outgoingSabotage: { to, kind },
+    }));
+    return true;
+  },
+
+  // server ตอบกลับว่ารับหรือปฏิเสธการ์ดที่ส่งไป — ถูกปฏิเสธต้อง **คืนเหรียญ** ที่หักไปตอนกด
+  // (หักตั้งแต่ตอนกดเพื่อให้ผู้เล่นเห็นผลทันที ไม่ต้องรอ 3 วิ แต่ต้องแก้กลับให้ครบเมื่อไม่สำเร็จ)
+  resolveSabotageSend: (result) => {
+    const outgoing = get().outgoingSabotage;
+    if (!outgoing) return;
+    const failed = !result || !result.ok;
+    const idx = get().currentPlayerIndex;
+    const refund = failed ? EFFECTS[outgoing.kind].price : 0;
+    set((s) => ({
+      players: refund
+        ? s.players.map((p, i) => (i === idx ? { ...p, coins: p.coins + refund } : p))
+        : s.players,
+      outgoingSabotage: null,
+      sabotageFeedback: {
+        id: ++fxCounter,
+        ok: !failed,
+        message: failed
+          ? result
+            ? sendErrorMessage(result)
+            : 'ส่งการ์ดป่วนไม่สำเร็จ'
+          : `ส่ง ${EFFECTS[outgoing.kind].icon} ${EFFECTS[outgoing.kind].label} ไปที่ ${outgoing.to} แล้ว`,
+      },
+    }));
+  },
+
+  clearSabotageFeedback: () => set({ sabotageFeedback: null }),
     }),
     {
       name: SAVE_KEY,
@@ -596,6 +714,15 @@ async function resolveLanding(set: any, get: any, idx: number, gen: number) {
   const player = get().players[idx];
   const tile = TILES[player.position] as Tile;
 
+  // ── ดึงการ์ดป่วนที่รออยู่มาลงกับ "การ์ดใบนี้" ──
+  // ทำที่นี่ที่เดียว (ไม่ใช่ใน UI) เพราะต้องเกิดครั้งเดียวต่อการลงช่อง 1 ครั้ง
+  // ถ้าไปดึงตอน CardModal เรนเดอร์ StrictMode จะ mount ซ้ำแล้วผลหายไปเงียบ ๆ
+  const isCardTile =
+    tile.type === 'question' || tile.type === 'subject' || tile.type === 'goldking';
+  if (isCardTile && get().pendingCardEffects.length) {
+    set({ cardEffects: get().pendingCardEffects, pendingCardEffects: [] });
+  }
+
   // ช่องทอง: หาพระองค์ถัดไปที่ยังไม่มีเหรียญ แล้วเปิดควิซชิงเหรียญกษัตริย์
   if (tile.type === 'goldking') {
     const nextKing = KING_IDS.find((id) => !player.kingCoins.includes(id)) ?? null;
@@ -625,7 +752,8 @@ async function resolveLanding(set: any, get: any, idx: number, gen: number) {
 // จบเทิร์น: ส่งเทิร์นให้ผู้เล่นถัดไปเสมอ (ไม่มีโบนัสทอยซ้ำแล้ว — ทอย 6 = ส่งตาปกติ)
 function finishTurn(set: any, get: any) {
   const { currentPlayerIndex, players, round } = get();
-  set({ pendingEvent: null });
+  // การ์ดใบนี้จบแล้ว ผลป่วนที่ติดอยู่กับมันต้องหมดไปด้วย (ไม่งั้นไปโผล่กับใบถัดไป)
+  set({ pendingEvent: null, cardEffects: [] });
 
   // เงื่อนไขจบเกมทันที: มีผู้เล่นเก็บเหรียญกษัตริย์ครบตามเป้าที่ครูตั้งไว้
   // ⚠️ ยกเว้นโหมดห้องแข่ง — ที่นั่นคะแนนคือ "ผลรวมทั้งทีม" และ server เป็นคนประกาศจบ

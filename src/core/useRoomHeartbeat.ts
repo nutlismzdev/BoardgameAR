@@ -22,14 +22,22 @@ export function useRoomHeartbeat() {
     const tick = async () => {
       const s = useGame.getState();
       if (!s.room) return; // ออกจากห้องไปแล้ว
+      const outgoing = s.outgoingSabotage; // การ์ดป่วนที่รอส่ง — ฝากไปกับ sync รอบนี้
       try {
-        const state = await syncRoom(
+        const res = await syncRoom(
           s.room.code,
           s.room.teamToken,
           teamKingCoins(s.players),
-          teamCoins(s.players)
+          teamCoins(s.players),
+          outgoing
         );
-        if (alive) useGame.getState().updateRoomState(state);
+        if (!alive) return;
+        const game = useGame.getState();
+        game.updateRoomState(res);
+        // ส่งไปแล้วจบรอบเสมอ ไม่ว่า server จะรับหรือปฏิเสธ — ถ้าค้างไว้จะยิงซ้ำทุก 3 วิ
+        // ถูกปฏิเสธเมื่อไร resolveSabotageSend คืนเหรียญให้เอง (หักไปตั้งแต่ตอนกด)
+        if (outgoing) game.resolveSabotageSend(res.sent ?? null);
+        if (res.incoming?.length) game.receiveEffects(res.incoming);
       } catch {
         // เน็ตสะดุด/เซิร์ฟเวอร์ล่ม — **เกมในเครื่องต้องเดินต่อได้ปกติ** แค่แถบอันดับค้าง
         if (alive) useGame.getState().setRoomOffline(true);

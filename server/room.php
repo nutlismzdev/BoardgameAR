@@ -13,6 +13,12 @@ const ROOM_MAX_TEAMS = 12;      // กันเซิร์ฟเวอร์ (p
 const ROOM_ONLINE_SEC = 60;     // ไม่ส่ง sync เกินเท่านี้ = ถือว่าหลุด
 const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ตัด I O 0 1 ออก กันอ่านผิด
 
+// ── การ์ดป่วนข้ามทีม ──
+const EFFECT_KINDS = ['storm', 'block', 'tax', 'hardQuiz'];
+const EFFECT_COOLDOWN_SEC = 120; // 1 ใบ ต่อ 2 นาที ต่อทีม — กันสแปมและกันคำขอถล่มเซิร์ฟเวอร์
+const ROOM_MAX_NEW_PER_HOUR = 60; // เพดานสร้างห้องต่อชั่วโมง (กันสแปมเมื่อไม่มี login)
+const EFFECT_INBOX_MAX = 2;      // ค้างในตัวได้ทีละ 2 ใบ ที่เกินถูกปฏิเสธ (กันทีมเดียวโดนถล่มพร้อมกัน)
+
 handle_cors();
 ensure_room_tables();
 
@@ -29,14 +35,27 @@ $action = require_string($body, 'action');
 
 switch ($action) {
     case 'create':
-        require_admin(); // สร้างห้องต้องเป็นครู — เข้าร่วมไม่ต้อง (เหมือน PIN ของ Kahoot)
+        // ── ไม่ต้อง login ── ใครสร้างห้องก็ได้ แต่ "คนที่สร้าง" เท่านั้นที่คุมห้องได้ (host_token)
+        // เดิมบังคับรหัสครู ซึ่งเป็นรหัสเดียวกับที่เข้า CMS ได้ทั้งหมด → ครูต้องพิมพ์รหัสนั้นต่อหน้าเด็ก
+        // แล้ว token ค้างในเครื่อง = เครื่องนั้นเข้าหลังบ้านได้ตลอด · การบังคับ login จึงเพิ่มความเสี่ยง
+        // แทนที่จะลด ส่วนสิ่งที่อยากกันจริง ๆ (ใครกดเริ่ม/จบห้อง) แก้ด้วย host_token ตรงกว่า
         // เก็บกวาดตอนสร้างห้องเท่านั้น — ห้ามใส่ไว้หัวไฟล์ ไม่งั้น sync ทุก 3 วิ/ทีม
         // จะลาก DELETE + subquery ไปด้วยทุกครั้งบนเซิร์ฟเวอร์ที่รับทีละคำขอ
         purge_old_rooms();
+        // กันสร้างห้องถล่ม (เปิดสาธารณะแล้วไม่มี login) — ห้องหมดอายุเองใน 6 ชม. อยู่แล้ว
+        $recent = (int) query_one('SELECT COUNT(*) FROM room WHERE created_at > (NOW() - INTERVAL 1 HOUR)', []);
+        if ($recent >= ROOM_MAX_NEW_PER_HOUR) {
+            send_json(['ok' => false, 'error' => 'too many rooms'], 429);
+        }
         $hostName = clean_team_name(require_string($body, 'hostName'));
         $rules = validate_rules($body['rules'] ?? []);
-        $code = create_room($hostName, $rules);
-        send_json(['ok' => true, 'code' => $code, 'rules' => $rules]);
+        $hostToken = bin2hex(random_bytes(16));
+        $code = create_room($hostName, $rules, $hostToken);
+        // สร้างทีมของเจ้าของห้องให้เลยในคำขอเดียว — ไม่ต้องให้ client วน join ตามอีกรอบ
+        get_db()->prepare(
+            'INSERT INTO room_team (room_code, team_token, team_name, last_seen) VALUES (?, ?, ?, ?)'
+        )->execute([$code, $hostToken, $hostName, time()]);
+        send_json(['ok' => true, 'code' => $code, 'teamToken' => $hostToken] + room_state($code));
 
     case 'join':
         $code = normalize_room_code((string) ($body['code'] ?? ''));
@@ -73,9 +92,8 @@ switch ($action) {
         send_json(['ok' => true, 'teamToken' => $token] + room_state($code));
 
     case 'start':
-        require_admin();
         $code = normalize_room_code((string) ($body['code'] ?? ''));
-        $room = load_room($code);
+        $room = require_host($code, (string) ($body['teamToken'] ?? ''));
         if ($room['status'] !== 'lobby') {
             send_json(['ok' => false, 'error' => 'room already started'], 409);
         }
@@ -134,7 +152,16 @@ switch ($action) {
         if ($finishedAt !== null && $room['status'] === 'running') {
             get_db()->prepare("UPDATE room SET status = 'ended' WHERE code = ?")->execute([$code]);
         }
-        send_json(['ok' => true] + room_state($code));
+
+        // ── การ์ดป่วน: ฝากไปกับ sync ที่วิ่งอยู่แล้ว ไม่มี endpoint แยก ──
+        // ส่งไม่สำเร็จ **ห้ามทำให้ sync ทั้งก้อนพัง** (มันคือชีพจรของเกม) → คืนเหตุผลมาเป็นฟิลด์แทน
+        $sendResult = null;
+        if (isset($body['send']) && is_array($body['send'])) {
+            $sendResult = try_send_effect($code, $rules, (string) $team['team_name'], $body['send'], $now);
+        }
+        $inbox = take_inbox($code, (string) $team['team_name']);
+
+        send_json(['ok' => true, 'incoming' => $inbox, 'sent' => $sendResult] + room_state($code));
 
     case 'leave':
         $code = normalize_room_code((string) ($body['code'] ?? ''));
@@ -144,14 +171,98 @@ switch ($action) {
         send_json(['ok' => true]);
 
     case 'end':
-        require_admin();
         $code = normalize_room_code((string) ($body['code'] ?? ''));
-        load_room($code);
+        require_host($code, (string) ($body['teamToken'] ?? ''));
         get_db()->prepare("UPDATE room SET status = 'ended' WHERE code = ?")->execute([$code]);
         send_json(['ok' => true] + room_state($code));
 
     default:
         send_json(['ok' => false, 'error' => 'unknown action'], 400);
+}
+
+// ─────────────────────────── การ์ดป่วน ───────────────────────────
+
+/**
+ * ตรวจกฎแล้วบันทึกการ์ดป่วน 1 ใบ — คืน ['ok'=>true] หรือ ['ok'=>false,'error'=>...]
+ * ⚠️ กฎทั้งหมดตรวจที่นี่ ห้ามเชื่อ client (เขาแก้ค่าที่ส่งมาได้หมด)
+ */
+function try_send_effect(string $code, array $rules, string $fromTeam, array $send, int $now): array
+{
+    if (empty($rules['sabotage'])) {
+        return ['ok' => false, 'error' => 'sabotage disabled'];
+    }
+    $kind = (string) ($send['kind'] ?? '');
+    $to = trim((string) ($send['to'] ?? ''));
+    if (!in_array($kind, EFFECT_KINDS, true) || $to === '' || $to === $fromTeam) {
+        return ['ok' => false, 'error' => 'invalid effect'];
+    }
+
+    // ── กฎหลัก: ยิงได้เฉพาะทีมที่ "อันดับสูงกว่าเรา" ──
+    // ถ้าปล่อยให้ยิงใครก็ได้ ทีมนำจะรุมทีมท้ายจนไม่มีวันตามทัน แล้วเด็กกลุ่มนั้นถอดใจกลางคาบ
+    // กฎนี้ทำให้การป่วนกลายเป็นกลไกไล่กวด และคนที่โดนบ่อยที่สุดคือ "ทีมที่นำ" ซึ่งตรงตามเจตนา
+    $ranked = ranked_team_names($code);
+    $myRank = array_search($fromTeam, $ranked, true);
+    $targetRank = array_search($to, $ranked, true);
+    if ($targetRank === false) {
+        return ['ok' => false, 'error' => 'target not in room'];
+    }
+    if ($myRank === false || $targetRank >= $myRank) {
+        return ['ok' => false, 'error' => 'target must rank above you'];
+    }
+
+    $lastSent = (int) query_one(
+        'SELECT COALESCE(MAX(created_at), 0) FROM room_effect WHERE room_code = ? AND from_team = ?',
+        [$code, $fromTeam]
+    );
+    if ($now - $lastSent < EFFECT_COOLDOWN_SEC) {
+        return ['ok' => false, 'error' => 'cooldown', 'waitSec' => EFFECT_COOLDOWN_SEC - ($now - $lastSent)];
+    }
+
+    $pending = (int) query_one(
+        'SELECT COUNT(*) FROM room_effect WHERE room_code = ? AND to_team = ? AND delivered = 0',
+        [$code, $to]
+    );
+    if ($pending >= EFFECT_INBOX_MAX) {
+        return ['ok' => false, 'error' => 'target inbox full'];
+    }
+
+    $stmt = get_db()->prepare(
+        'INSERT INTO room_effect (room_code, from_team, to_team, kind, created_at) VALUES (?, ?, ?, ?, ?)'
+    );
+    $stmt->execute([$code, $fromTeam, $to, $kind, $now]);
+    return ['ok' => true, 'kind' => $kind, 'to' => $to];
+}
+
+/** ดึงการ์ดป่วนที่ส่งมาถึงทีมนี้แล้วปิดเป็น delivered ในคำขอเดียวกัน (ส่งมอบครั้งเดียว) */
+function take_inbox(string $code, string $team): array
+{
+    $stmt = get_db()->prepare(
+        'SELECT id, from_team, kind FROM room_effect
+         WHERE room_code = ? AND to_team = ? AND delivered = 0 ORDER BY id'
+    );
+    $stmt->execute([$code, $team]);
+    $rows = $stmt->fetchAll();
+    if (!$rows) {
+        return [];
+    }
+    $ids = array_map(static fn (array $r): int => (int) $r['id'], $rows);
+    $marks = implode(',', array_fill(0, count($ids), '?'));
+    get_db()->prepare("UPDATE room_effect SET delivered = 1 WHERE id IN ({$marks})")->execute($ids);
+    return array_map(
+        static fn (array $r): array => ['from' => $r['from_team'], 'kind' => $r['kind']],
+        $rows
+    );
+}
+
+/** ชื่อทีมเรียงตามอันดับ (เกณฑ์เดียวกับ room_state) — ใช้ตรวจว่าเป้าหมายนำหน้าเราจริงไหม */
+function ranked_team_names(string $code): array
+{
+    $stmt = get_db()->prepare(
+        'SELECT team_name FROM room_team WHERE room_code = ?
+         ORDER BY king_coins DESC, coins DESC, COALESCE(finished_at, 9999999999) ASC'
+    );
+    $stmt->execute([$code]);
+    return $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
 
 // ─────────────────────────── helpers ───────────────────────────
@@ -215,16 +326,16 @@ function room_state(string $code): array
     ];
 }
 
-function create_room(string $hostName, array $rules): string
+function create_room(string $hostName, array $rules, string $hostToken): string
 {
     $payload = json_encode($rules, JSON_UNESCAPED_UNICODE);
     for ($attempt = 0; $attempt < 12; $attempt++) {
         $code = random_room_code();
         $stmt = get_db()->prepare(
-            "INSERT INTO room (code, host_name, status, rules) VALUES (?, ?, 'lobby', ?)"
+            "INSERT INTO room (code, host_name, status, rules, host_token) VALUES (?, ?, 'lobby', ?, ?)"
         );
         try {
-            $stmt->execute([$code, $hostName, $payload]);
+            $stmt->execute([$code, $hostName, $payload, $hostToken]);
             return $code;
         } catch (PDOException $e) {
             // รหัสชนกัน — สุ่มใหม่
@@ -259,6 +370,16 @@ function load_room(string $code): array
     $room = $stmt->fetch();
     if ($room === false) {
         send_json(['ok' => false, 'error' => 'room not found'], 404);
+    }
+    return $room;
+}
+
+/** เจ้าของห้องเท่านั้นที่กดเริ่ม/จบได้ — ใช้ token ของทีมเจ้าของห้อง ไม่ใช่รหัสครู */
+function require_host(string $code, string $token): array
+{
+    $room = load_room($code);
+    if ($token === '' || !hash_equals((string) $room['host_token'], $token)) {
+        send_json(['ok' => false, 'error' => 'only the room host can do this'], 403);
     }
     return $room;
 }
@@ -304,6 +425,8 @@ function validate_rules(mixed $raw): array
         // ล็อกจำนวนผู้เล่นต่อเครื่องให้เท่ากันทุกทีม ไม่งั้นทีม 4 คนได้ทอยเต๋าบ่อยกว่าทีม 2 คนเท่าตัว
         'playersPerTeam' => clamp_int($raw['playersPerTeam'] ?? 2, 1, 4),
         'difficulty' => $difficulty,
+        // การ์ดป่วนข้ามทีม — ครูบางคนไม่เอาแน่นอน จึงเป็นสวิตช์ตอนสร้างห้อง
+        'sabotage' => !empty($raw['sabotage']),
         // ล็อกเวอร์ชันคลังคำถามไว้ตั้งแต่สร้างห้อง — ผู้เข้าร่วมต้องมีเวอร์ชันเดียวกันเท่านั้น
         'contentVersion' => content_version(),
     ];
@@ -325,8 +448,9 @@ function query_one(string $sql, array $params): mixed
 function purge_old_rooms(): void
 {
     $db = get_db();
-    $db->exec('DELETE FROM room_team WHERE room_code IN
-        (SELECT code FROM room WHERE created_at < (NOW() - INTERVAL ' . ROOM_TTL_HOURS . ' HOUR))');
+    $stale = '(SELECT code FROM room WHERE created_at < (NOW() - INTERVAL ' . ROOM_TTL_HOURS . ' HOUR))';
+    $db->exec("DELETE FROM room_effect WHERE room_code IN {$stale}");
+    $db->exec("DELETE FROM room_team WHERE room_code IN {$stale}");
     $db->exec('DELETE FROM room WHERE created_at < (NOW() - INTERVAL ' . ROOM_TTL_HOURS . ' HOUR)');
 }
 
@@ -344,6 +468,7 @@ function ensure_room_tables(): void
             host_name VARCHAR(80) NOT NULL,
             status ENUM('lobby','running','ended') NOT NULL DEFAULT 'lobby',
             rules TEXT NOT NULL,
+            host_token VARCHAR(40) NOT NULL DEFAULT '',
             started_at INT NULL,
             ends_at INT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -363,6 +488,23 @@ function ensure_room_tables(): void
             last_seen INT NOT NULL DEFAULT 0,
             UNIQUE KEY uniq_room_team (room_code, team_name),
             INDEX idx_room (room_code)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+    // DB เดิมที่สร้างก่อนเลิกใช้ require_admin ยังไม่มีคอลัมน์นี้
+    if (!get_db()->query("SHOW COLUMNS FROM room LIKE 'host_token'")->fetch()) {
+        $db->exec("ALTER TABLE room ADD COLUMN host_token VARCHAR(40) NOT NULL DEFAULT '' AFTER rules");
+    }
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS room_effect (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            room_code VARCHAR(8) NOT NULL,
+            from_team VARCHAR(60) NOT NULL,
+            to_team VARCHAR(60) NOT NULL,
+            kind VARCHAR(20) NOT NULL,
+            created_at INT NOT NULL,
+            delivered TINYINT(1) NOT NULL DEFAULT 0,
+            INDEX idx_effect_inbox (room_code, to_team, delivered),
+            INDEX idx_effect_sender (room_code, from_team, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
     $done = true;

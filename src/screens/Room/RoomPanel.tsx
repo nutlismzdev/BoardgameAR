@@ -3,7 +3,6 @@ import type { CSSProperties } from 'react';
 import QRCode from 'qrcode';
 import { useGame } from '@/core/store';
 import { getContentVersion, syncContent } from '@/core/content';
-import { hasAdminToken, login } from '@/core/api';
 import {
   RoomError,
   createRoom,
@@ -42,8 +41,7 @@ export function RoomPanel({ onClose, initialCode }: { onClose: () => void; initi
   const [targetCoins, setTargetCoins] = useState(7);
   const [playersPerTeam, setPlayersPerTeam] = useState(2);
   const [difficulty, setDifficulty] = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
-  const [password, setPassword] = useState('');
-  const [needLogin, setNeedLogin] = useState(!hasAdminToken());
+  const [sabotage, setSabotage] = useState(true);
 
   // ฟอร์มเข้าร่วม
   const [code, setCode] = useState(initialCode ?? '');
@@ -92,28 +90,25 @@ export function RoomPanel({ onClose, initialCode }: { onClose: () => void; initi
     setError('');
     setBusy(true);
     try {
-      if (needLogin) {
-        await login(password);
-        setNeedLogin(false);
-      }
       // ห้องล็อกเวอร์ชันคลังการ์ด → ต้องซิงก์ให้เป็นเวอร์ชันล่าสุดก่อนสร้าง
       await syncContent();
-      const { code: newCode } = await createRoom(hostName, {
+      const created = await createRoom(hostName, {
         durationSec: durationMin * 60,
         targetCoins,
         playersPerTeam,
         difficulty,
+        sabotage,
       });
-      const joined = await joinRoom(newCode, hostName, getContentVersion());
+      // create คืน teamToken ของเจ้าของห้องมาแล้ว ไม่ต้อง join ตามอีกรอบ
       enterRoom({
-        code: newCode,
-        teamToken: joined.teamToken,
+        code: created.code,
+        teamToken: created.teamToken,
         teamName: hostName,
         isHost: true,
-        state: joined,
+        state: created,
         offline: false,
       });
-      setState(joined);
+      setState(created);
       setStep('lobby');
     } catch (e) {
       setError(e instanceof RoomError ? e.message : 'สร้างห้องไม่สำเร็จ');
@@ -149,7 +144,7 @@ export function RoomPanel({ onClose, initialCode }: { onClose: () => void; initi
     setError('');
     setBusy(true);
     try {
-      const next = await startRoom(roomCode);
+      const next = await startRoom(roomCode, session?.teamToken ?? '');
       setState(next);
       beginMatch(next);
     } catch (e) {
@@ -200,17 +195,6 @@ export function RoomPanel({ onClose, initialCode }: { onClose: () => void; initi
 
       {step === 'create' && (
         <div style={{ display: 'grid', gap: 12 }}>
-          {needLogin && (
-            <Field label="รหัสครู">
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={input}
-                placeholder="รหัสสำหรับเข้าหลังบ้าน"
-              />
-            </Field>
-          )}
           <Field label="ชื่อทีมของเรา">
             <input
               value={hostName}
@@ -246,6 +230,17 @@ export function RoomPanel({ onClose, initialCode }: { onClose: () => void; initi
               onChange={setDifficulty}
             />
           </Field>
+          <Field label="การ์ดป่วน">
+            <Segmented
+              value={sabotage ? 'on' : 'off'}
+              options={['on', 'off'] as const}
+              render={(v) => (v === 'on' ? '😈 เปิด' : 'ปิด')}
+              onChange={(v) => setSabotage(v === 'on')}
+            />
+          </Field>
+          <p style={note}>
+            😈 ให้ทีมที่ตามหลังจ่ายเหรียญเพื่อถ่วงทีมที่นำอยู่ (ยิงได้เฉพาะทีมที่อันดับนำหน้าเท่านั้น)
+          </p>
           <p style={note}>
             ⚖️ ทุกทีมต้องมีผู้เล่นต่อเครื่องเท่ากัน ไม่งั้นทีมที่คนเยอะกว่าจะได้ทอยเต๋าบ่อยกว่า · คะแนนทีม = เหรียญรวมของทุกคนในเครื่อง
           </p>

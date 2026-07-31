@@ -63,7 +63,10 @@ const ROYAL_BG = 'radial-gradient(125% 95% at 50% -12%, #FBF4E1 0%, #F3E7C9 52%,
 
 function screenStyle(): React.CSSProperties {
   return {
-    minHeight: '100dvh',
+    // ⚠️ ต้องเป็น `height` ไม่ใช่ `minHeight` — `lockViewport()` ล็อก body ไว้ (position:fixed +
+    // overflow:hidden) สกรอลล์ระดับหน้าจึงทำไม่ได้ ถ้าใช้ minHeight กล่องจะยืดเกินจอแล้ว
+    // **เนื้อหาส่วนเกินโดนตัดหาย** · จอประกาศผลห้องแข่งสูงราว 760px ซึ่งเกินแท็บเล็ตแนวนอน 640px
+    height: '100dvh',
     width: '100%',
     overflowY: 'auto',
     position: 'relative',
@@ -284,9 +287,12 @@ export function GameOver() {
   );
 }
 
-// สรุปผลโหมดเดี่ยว — ดาว + สถิติ
-// ── จอสรุปห้องแข่งออนไลน์ ──
-// อันดับมาจาก server แล้ว (เรียงตาม เหรียญกษัตริย์ → เหรียญปกติ → ใครถึงก่อน) ที่นี่แค่แสดง
+// ═══════════ จอประกาศผลห้องแข่งออนไลน์ ═══════════
+// แนวคิด: "ประกาศผลราชสำนัก" — ตราทองบนพื้นครีม แชมป์อยู่บนแท่นเดี่ยว ทีมที่เหลือเป็นบัญชีรายชื่อ
+// อันดับมาจาก server แล้ว (เหรียญกษัตริย์ → เหรียญปกติ → ใครถึงก่อน) ที่นี่แค่แสดงผล
+//
+// ⚠️ ต้องอยู่บนพื้นครีม (`screenStyle()` = ROYAL_BG) → สีตัวอักษรต้องเป็นโทนเข้ม
+//    (ของเดิมใช้สีทองอ่อนที่ออกแบบมาสำหรับพื้นเข้ม เลยแทบมองไม่เห็นบนจอจริง)
 function RoomResult({
   room,
   players,
@@ -297,80 +303,110 @@ function RoomResult({
   onHome: () => void;
 }) {
   const teams = room.state?.teams ?? [];
-  const medals = ['🥇', '🥈', '🥉', '🎖️'];
-  const weWon = teams[0]?.name === room.teamName;
+  const champion = teams[0];
+  const others = teams.slice(1);
+  const myRank = teams.findIndex((t) => t.name === room.teamName);
+  const weWon = myRank === 0;
+  const durationMin = Math.round((room.state?.room.rules.durationSec ?? 0) / 60);
 
   return (
     <div style={screenStyle()}>
       <RoyalBackdrop />
-      <div style={{ position: 'relative', zIndex: 1, width: 'min(620px, 94vw)', margin: '0 auto', padding: 18 }}>
-        <div style={{ textAlign: 'center', marginBottom: 14 }}>
-          <div style={{ fontSize: 15, color: '#E9D9A8', fontWeight: 700 }}>ผลการแข่ง · ห้อง {room.code}</div>
-          <h1 style={{ fontSize: 34, margin: '4px 0', color: '#FFE9A8' }}>
-            {weWon ? '🏆 ทีมเราชนะ!' : `🏫 ${teams[0]?.name ?? '—'} ชนะ`}
-          </h1>
-        </div>
+      <style>{ROOM_RESULT_CSS}</style>
 
-        <div style={{ display: 'grid', gap: 8 }}>
-          {teams.map((t, i) => {
-            const me = t.name === room.teamName;
-            return (
-              <div
-                key={t.name}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '12px 14px',
-                  borderRadius: 14,
-                  background: me ? 'rgba(255,233,168,.95)' : 'rgba(255,253,246,.9)',
-                  border: me ? '2px solid #C79A3A' : '1.5px solid rgba(199,154,58,.5)',
-                  fontWeight: me ? 800 : 600,
-                  color: '#3A2A12',
-                }}
-              >
-                <span style={{ fontSize: 22, width: 30 }}>{medals[i] ?? i + 1}</span>
-                <span style={{ flex: 1, minWidth: 0, fontSize: 18 }}>
-                  {t.name}
-                  {me && ' (ทีมเรา)'}
-                  {/* แต้มพุ่งผิดปกติ — ให้ครูดูเอง ระบบไม่ตัดสิทธิ์ใคร */}
-                  {t.suspect && <span title="แต้มเพิ่มเร็วผิดปกติ"> ⚠️</span>}
-                </span>
-                <span style={{ fontSize: 19, fontWeight: 900 }}>👑 {t.kingCoins}</span>
-                <span style={{ fontSize: 15, color: '#7A5B1E' }}>🪙 {t.coins}</span>
-              </div>
-            );
-          })}
-        </div>
+      <div style={{ position: 'relative', zIndex: 1, width: 'min(640px, 96vw)', display: 'grid', gap: 16 }}>
+        {/* ── หัวประกาศ ── */}
+        <header style={{ textAlign: 'center' }} className="rr-in">
+          <div style={rrSeal}>๗</div>
+          <div style={rrEyebrow}>ประกาศผลการแข่งขัน</div>
+          <div style={rrSubline}>
+            ห้อง {room.code} · {durationMin} นาที · {teams.length} ทีม
+          </div>
+        </header>
 
-        {/* สรุปของทีมเราเอง — ใครในเครื่องเก็บได้เท่าไร */}
-        <div style={{ marginTop: 16, padding: '12px 14px', borderRadius: 14, background: 'rgba(0,0,0,.35)' }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#E9D9A8', marginBottom: 6 }}>ทีมเรา ({room.teamName})</div>
+        {/* ── แท่นแชมป์ ── ตัวเอกของจอนี้: ใหญ่ ทอง เรืองแสง มีมงกุฎเป็นจุดนำสายตา */}
+        {champion && (
+          <section style={rrChampion(champion.name === room.teamName)} className="rr-in rr-d1">
+            <div style={rrCrown} className="rr-crown">
+              👑
+            </div>
+            <div style={rrWinChip}>ผู้ชนะ</div>
+            <h1 style={rrChampName}>{champion.name}</h1>
+            {champion.name === room.teamName && <div style={rrOursTag}>ทีมเรา</div>}
+            <div style={rrChampStats}>
+              <span>
+                <b style={{ fontSize: 26 }}>{champion.kingCoins}</b> เหรียญกษัตริย์
+              </span>
+              <span style={rrDot} />
+              <span>
+                🪙 <b>{champion.coins.toLocaleString('th-TH')}</b>
+              </span>
+            </div>
+          </section>
+        )}
+
+        {/* ── คำตัดสินของทีมเรา ── บอกตรง ๆ ว่าชนะหรือแพ้ ไม่ต้องให้เดาจากอันดับ */}
+        {myRank >= 0 && (
+          <div style={weWon ? rrVerdictWin : rrVerdictLose} className="rr-in rr-d2">
+            {weWon ? (
+              <>🎉 ทีมเราชนะ! · เก่งมากทุกคน</>
+            ) : (
+              <>
+                ทีมเราได้อันดับ {toThai(myRank + 1)} · <b>แพ้</b> — รอบหน้าเอาคืน!
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── บัญชีรายชื่อทีมที่เหลือ ── ทุกทีมที่ไม่ใช่อันดับ 1 ติดป้าย "แพ้" ชัดเจน */}
+        {others.length > 0 && (
+          <section style={{ display: 'grid', gap: 8 }}>
+            {others.map((t, i) => {
+              const rank = i + 1;
+              const me = t.name === room.teamName;
+              return (
+                <div
+                  key={t.name}
+                  style={rrRow(me)}
+                  className={`rr-in rr-d${Math.min(5, i + 3)}`}
+                >
+                  <span style={rrRank}>{rank === 1 ? '🥈' : rank === 2 ? '🥉' : toThai(rank + 1)}</span>
+                  <span style={rrRowName}>
+                    {t.name}
+                    {me && <span style={rrOursInline}>ทีมเรา</span>}
+                    {/* แต้มพุ่งผิดปกติ — ให้ครูดูเอง ระบบไม่ตัดสิทธิ์ใคร */}
+                    {t.suspect && <span title="แต้มเพิ่มเร็วผิดปกติ"> ⚠️</span>}
+                  </span>
+                  <span style={rrLoseChip}>แพ้</span>
+                  <span style={rrRowScore}>
+                    👑 <b>{t.kingCoins}</b>
+                  </span>
+                  <span style={rrRowCoins}>🪙 {t.coins.toLocaleString('th-TH')}</span>
+                </div>
+              );
+            })}
+          </section>
+        )}
+
+        {/* ── สรุปของเครื่องเราเอง — ใครในทีมเก็บได้เท่าไร ── */}
+        <section style={rrTeamBox} className="rr-in rr-d5">
+          <div style={rrTeamHead}>ทีมเรา · {room.teamName}</div>
           {players.map((p) => (
-            <div key={p.id} style={{ display: 'flex', gap: 8, color: '#FFF8E7', fontSize: 16, padding: '3px 0' }}>
-              <span style={{ flex: 1 }}>{p.name}</span>
-              <span>👑 {p.kingCoins.length}</span>
-              <span>🪙 {p.coins}</span>
+            <div key={p.id} style={rrPlayerRow}>
+              <img
+                src={getKingPawnImage(p.kingTokenId)}
+                alt=""
+                draggable={false}
+                style={{ width: 22, height: 28, objectFit: 'contain', flexShrink: 0 }}
+              />
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
+              <span style={rrPlayerStat}>👑 {p.kingCoins.length}</span>
+              <span style={rrPlayerStat}>🪙 {p.coins.toLocaleString('th-TH')}</span>
             </div>
           ))}
-        </div>
+        </section>
 
-        <button
-          onClick={onHome}
-          style={{
-            marginTop: 18,
-            width: '100%',
-            padding: 16,
-            borderRadius: 16,
-            border: 'none',
-            fontFamily: "'Trirong',serif",
-            fontWeight: 700,
-            fontSize: 20,
-            color: '#FBEECB',
-            background: 'linear-gradient(180deg,#A81E1E,#7E0F0F)',
-            cursor: 'pointer',
-          }}
-        >
+        <button onClick={onHome} style={rrHomeBtn} className="rr-in rr-d5">
           กลับหน้าแรก
         </button>
       </div>
@@ -378,6 +414,231 @@ function RoomResult({
   );
 }
 
+const ROOM_RESULT_CSS = `
+@keyframes rrIn { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
+@keyframes rrCrown { 0%,100% { transform: translateY(0) rotate(-3deg) } 50% { transform: translateY(-7px) rotate(3deg) } }
+@keyframes rrGlow { 0%,100% { box-shadow: 0 14px 40px rgba(150,110,20,.30), 0 0 0 rgba(233,206,126,0) }
+                    50% { box-shadow: 0 14px 46px rgba(150,110,20,.40), 0 0 34px rgba(233,206,126,.65) } }
+.rr-in { animation: rrIn .5s cubic-bezier(.2,.9,.3,1) both }
+.rr-d1 { animation-delay: .08s } .rr-d2 { animation-delay: .16s } .rr-d3 { animation-delay: .24s }
+.rr-d4 { animation-delay: .32s } .rr-d5 { animation-delay: .40s }
+.rr-crown { animation: rrCrown 3.2s ease-in-out infinite }
+@media (prefers-reduced-motion: reduce) { .rr-in, .rr-crown { animation: none } }
+`;
+
+const rrSeal: React.CSSProperties = {
+  width: 62,
+  height: 62,
+  display: 'grid',
+  placeItems: 'center',
+  margin: '0 auto 10px',
+  borderRadius: '50%',
+  background: '#8B0000',
+  border: '4px double #E6C35C',
+  color: '#FFF3CF',
+  fontFamily: "'Trirong',serif",
+  fontSize: 30,
+  fontWeight: 800,
+};
+
+const rrEyebrow: React.CSSProperties = {
+  fontFamily: "'Trirong',serif",
+  fontSize: 22,
+  fontWeight: 700,
+  letterSpacing: '.04em',
+  color: '#8B0000',
+};
+
+const rrSubline: React.CSSProperties = { marginTop: 2, fontSize: 14, color: '#8A7250' };
+
+function rrChampion(mine: boolean): React.CSSProperties {
+  return {
+    position: 'relative',
+    textAlign: 'center',
+    padding: '22px 20px 20px',
+    borderRadius: 22,
+    background: 'linear-gradient(168deg,#FFF8E2 0%,#FBEBBE 46%,#EFD79A 100%)',
+    border: `3px double ${mine ? '#8B0000' : '#C79A3A'}`,
+    animation: 'rrGlow 3.6s ease-in-out infinite',
+  };
+}
+
+const rrCrown: React.CSSProperties = {
+  fontSize: 56,
+  lineHeight: 1,
+  filter: 'drop-shadow(0 6px 14px rgba(150,110,20,.45))',
+};
+
+const rrWinChip: React.CSSProperties = {
+  display: 'inline-block',
+  marginTop: 8,
+  padding: '4px 18px',
+  borderRadius: 999,
+  background: '#8B0000',
+  color: '#FFF3CF',
+  fontSize: 14,
+  fontWeight: 800,
+  letterSpacing: '.14em',
+};
+
+const rrChampName: React.CSSProperties = {
+  fontFamily: "'Trirong',serif",
+  fontSize: 'clamp(26px, 5vw, 36px)',
+  fontWeight: 800,
+  margin: '8px 0 4px',
+  color: '#5A3A12',
+  lineHeight: 1.2,
+  overflowWrap: 'anywhere',
+};
+
+const rrOursTag: React.CSSProperties = {
+  display: 'inline-block',
+  padding: '2px 12px',
+  borderRadius: 999,
+  background: '#8B0000',
+  color: '#FFF3CF',
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const rrChampStats: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 12,
+  marginTop: 10,
+  fontSize: 16,
+  fontWeight: 700,
+  color: '#6B4E1E',
+  flexWrap: 'wrap',
+};
+
+const rrDot: React.CSSProperties = {
+  width: 5,
+  height: 5,
+  borderRadius: '50%',
+  background: '#C79A3A',
+};
+
+const rrVerdictWin: React.CSSProperties = {
+  textAlign: 'center',
+  padding: '11px 16px',
+  borderRadius: 14,
+  background: '#EAF6EC',
+  border: '1.5px solid #9CCBA4',
+  color: '#1F6B32',
+  fontSize: 17,
+  fontWeight: 800,
+};
+
+const rrVerdictLose: React.CSSProperties = {
+  textAlign: 'center',
+  padding: '11px 16px',
+  borderRadius: 14,
+  background: '#FDECEC',
+  border: '1.5px solid #E0A9A9',
+  color: '#8B0000',
+  fontSize: 17,
+  fontWeight: 700,
+};
+
+function rrRow(mine: boolean): React.CSSProperties {
+  return {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '11px 14px',
+    borderRadius: 14,
+    background: mine ? '#FFF3D6' : 'rgba(255,255,255,.72)',
+    border: `1.5px solid ${mine ? '#C79A3A' : 'rgba(199,154,58,.35)'}`,
+    color: '#4A3A22',
+  };
+}
+
+const rrRank: React.CSSProperties = {
+  width: 26,
+  textAlign: 'center',
+  fontSize: 19,
+  fontWeight: 800,
+  flexShrink: 0,
+};
+
+const rrRowName: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  fontSize: 17,
+  fontWeight: 700,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+
+const rrOursInline: React.CSSProperties = {
+  marginLeft: 7,
+  padding: '1px 8px',
+  borderRadius: 999,
+  background: '#8B0000',
+  color: '#FFF3CF',
+  fontSize: 11,
+  fontWeight: 800,
+};
+
+const rrLoseChip: React.CSSProperties = {
+  padding: '2px 11px',
+  borderRadius: 999,
+  border: '1.5px solid #D89A9A',
+  background: '#FDECEC',
+  color: '#8B0000',
+  fontSize: 12.5,
+  fontWeight: 800,
+  flexShrink: 0,
+};
+
+const rrRowScore: React.CSSProperties = { fontSize: 16, fontWeight: 900, flexShrink: 0 };
+const rrRowCoins: React.CSSProperties = { fontSize: 13.5, color: '#8A7250', flexShrink: 0 };
+
+const rrTeamBox: React.CSSProperties = {
+  display: 'grid',
+  gap: 4,
+  padding: '12px 14px',
+  borderRadius: 16,
+  background: 'rgba(255,255,255,.6)',
+  border: '1.5px dashed rgba(199,154,58,.55)',
+};
+
+const rrTeamHead: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 800,
+  color: '#8B0000',
+  marginBottom: 2,
+};
+
+const rrPlayerRow: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 9,
+  fontSize: 15.5,
+  padding: '3px 0',
+  color: '#4A3A22',
+};
+
+const rrPlayerStat: React.CSSProperties = { fontWeight: 800, flexShrink: 0 };
+
+const rrHomeBtn: React.CSSProperties = {
+  width: '100%',
+  padding: 16,
+  borderRadius: 16,
+  border: 'none',
+  fontFamily: "'Trirong',serif",
+  fontWeight: 700,
+  fontSize: 20,
+  color: '#FBEECB',
+  background: 'linear-gradient(180deg,#A81E1E,#7E0F0F)',
+  boxShadow: '0 10px 24px rgba(138,20,20,.32)',
+  cursor: 'pointer',
+};
+
+// สรุปผลโหมดเดี่ยว — ดาว + สถิติ
 function SoloSummary({
   player,
   badge,

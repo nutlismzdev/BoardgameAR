@@ -95,6 +95,20 @@ CREATE TABLE IF NOT EXISTS room_team (
   INDEX idx_room (room_code)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- การ์ดป่วนข้ามทีม — ส่ง/รับผ่าน action `sync` ที่วิ่งอยู่แล้ว (ไม่มี endpoint แยก)
+-- ยิงได้เฉพาะทีมที่ "อันดับสูงกว่าผู้ส่ง" เท่านั้น → กลายเป็นกลไกไล่กวดในตัว
+CREATE TABLE IF NOT EXISTS room_effect (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  room_code VARCHAR(8) NOT NULL,
+  from_team VARCHAR(60) NOT NULL,
+  to_team VARCHAR(60) NOT NULL,
+  kind VARCHAR(20) NOT NULL,          -- storm / block / tax / hardQuiz
+  created_at INT NOT NULL,            -- unix time จาก PHP (เหมือนตารางห้อง)
+  delivered TINYINT(1) NOT NULL DEFAULT 0,
+  INDEX idx_effect_inbox (room_code, to_team, delivered),
+  INDEX idx_effect_sender (room_code, from_team, created_at)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 INSERT INTO app_config (config_key, config_value)
 VALUES ('content_version', '1')
 ON DUPLICATE KEY UPDATE config_value = config_value;
