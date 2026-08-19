@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { challengeToQuizCard, decodeChallenge } from '@/core/qrChallenge';
+import { challengeToQuizCard, decodeChallenge, isKnowledgeChallenge } from '@/core/qrChallenge';
 import type { QuizItem } from '@/core/qrChallenge';
 import {
   challengeApiAvailable,
@@ -51,6 +51,11 @@ export function AnswerPage() {
   const [skipped, setSkipped] = useState(false);
   // ถอยจากโหมดลากไปตอบด้วยปุ่มกด (กล้องพัง/ลากไม่ไหว) — เกมต้องไม่ค้างเพราะมีวิธีตอบวิธีเดียว
   const [escapedDrag, setEscapedDrag] = useState(false);
+  // ── การ์ดความรู้: ไม่มีถูก/ผิด จึงไม่ใช้ `picked` ร่วมกับควิซ ──
+  // `picked` ผูกกับ `challenge.a` ทั้งเส้น (ส่งผล/แสดงเฉลย/50:50) ซึ่งการ์ดความรู้ไม่มี
+  // ยัดมาใช้ร่วมกันจะได้ผล "ตอบผิด" ส่งขึ้น server เพราะ a = -1
+  const isKnowledge = isKnowledgeChallenge(challenge);
+  const [collected, setCollected] = useState(false);
   const itemsLeft = challenge?.it;
   // ส่งผลอัตโนมัติได้ไหม (มี challenge id + backend) — ถ้าไม่ ใช้โหมดกดผลเองบน tablet
   const auto = !!challenge?.i && challengeApiAvailable();
@@ -84,7 +89,7 @@ export function AnswerPage() {
   // server รู้อยู่แล้วผ่าน `answered` แค่ไม่เคยมีใครถาม → ถามทุก 2 วิ แล้วล็อกจอเมื่อจบ
   // เช็กรอบแรกทันทีที่เปิดหน้า จึงกันเคส "กด back กลับมาข้อที่ตอบไปแล้ว" ไปในตัว
   useEffect(() => {
-    if (!auto || !challenge?.i || picked !== null || closed) return;
+    if (!auto || !challenge?.i || picked !== null || collected || closed) return;
     const id = challenge.i;
     let alive = true;
     const check = async () => {
@@ -101,7 +106,17 @@ export function AnswerPage() {
       alive = false;
       window.clearInterval(iv);
     };
-  }, [auto, challenge?.i, picked, closed]);
+  }, [auto, challenge?.i, picked, collected, closed]);
+
+  // กดเก็บการ์ดความรู้ → ส่งผลขึ้น server (correct = true แปลว่า "อ่านแล้วเก็บ")
+  // แท็บเล็ตเป็นคนเรียก collectKnowledge จริง — คลังการ์ดอยู่ที่ store ตามกฎ logic อยู่ core/
+  useEffect(() => {
+    if (!collected || !auto || !challenge?.i) return;
+    setSent('sending');
+    postChallengeResult(challenge.i, true, [])
+      .then(() => setSent('ok'))
+      .catch(() => setSent('fail'));
+  }, [auto, challenge?.i, collected]);
 
   // เริ่มนับเมื่อกล้องเปิดหน้าคำถามสำเร็จ ใช้ deadline จริงเพื่อไม่ให้เวลาเพี้ยนเมื่อ browser อยู่เบื้องหลัง
   // หยุดนับเมื่อข้อถูกปิดไปแล้ว ไม่งั้นหมดเวลาแล้วยิงผล "ตอบผิด" ใส่ข้อที่จบไปแล้ว
@@ -191,6 +206,68 @@ export function AnswerPage() {
           <p style={{ fontSize: 16, color: '#6B5E4E' }}>
             สแกน QR บนการ์ดจากจอกลางอีกครั้งนะ
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── การ์ดความรู้ (ชมพู): อ่านเกร็ดแล้วกดเก็บ ──
+  // ต้อง return ก่อนโค้ดควิซทั้งหมด เพราะจอผลด้านล่างอ่าน `challenge.c[challenge.a]`
+  // ซึ่งการ์ดชนิดนี้เป็น [] กับ -1 → จะได้ undefined โผล่บนจอเด็ก
+  if (isKnowledge) {
+    if (!collected) {
+      return (
+        <div style={shell}>
+          <div style={card}>
+            <div style={knowEyebrow}>💡 การ์ดความรู้</div>
+            <h1 style={{ fontSize: 23, color: '#8B0000', margin: 0, lineHeight: 1.3 }}>
+              📖 {challenge.q}
+            </h1>
+            <p style={{ fontSize: 18, lineHeight: 1.7, color: '#4A3A28', margin: 0 }}>{challenge.b}</p>
+            <button type="button" style={collectBtn} onClick={() => setCollected(true)}>
+              เก็บการ์ดความรู้! {challenge.r > 0 ? `รับ 🪙 ${challenge.r} ` : ''}→
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div style={shell}>
+        <div style={card}>
+          <div style={{ ...resultBanner, background: '#C2185B' }}>
+            <span style={{ fontSize: 30 }}>💡</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 20, fontWeight: 800 }}>เก็บการ์ดแล้ว!</div>
+              <div style={{ fontSize: 14, opacity: 0.95 }}>
+                {challenge.q}
+                {challenge.r > 0 ? ` · ได้เหรียญ 🪙 ${challenge.r}` : ''}
+              </div>
+            </div>
+          </div>
+
+          <div style={backToTablet}>
+            {auto ? (
+              sent === 'ok' ? (
+                <>✓ ส่งให้จอกลางแล้ว — เกมจะไปต่อให้เอง</>
+              ) : sent === 'fail' ? (
+                <>
+                  ส่งไม่สำเร็จ · กด <b>“เก็บการ์ดแล้ว”</b> ที่จอกลาง
+                </>
+              ) : (
+                <>⏳ กำลังส่ง…</>
+              )
+            ) : (
+              <>
+                👉 กด <b>“เก็บการ์ดแล้ว”</b> ที่จอกลาง
+              </>
+            )}
+          </div>
+
+          {sent !== 'sending' && (
+            <Suspense fallback={<div style={scannerLoading}>📷 กำลังเตรียมกล้อง…</div>}>
+              <QrRescanner onFound={goToChallenge} />
+            </Suspense>
+          )}
         </div>
       </div>
     );
@@ -477,6 +554,31 @@ const timerFill: CSSProperties = {
   height: '100%',
   borderRadius: 999,
   transition: 'width .25s linear, background .2s',
+};
+
+const knowEyebrow: CSSProperties = {
+  alignSelf: 'flex-start',
+  fontSize: 14,
+  fontWeight: 800,
+  color: '#C2185B',
+  background: '#FCE4EC',
+  border: '1.5px solid #F48FB1',
+  borderRadius: 999,
+  padding: '5px 14px',
+};
+
+const collectBtn: CSSProperties = {
+  fontFamily: 'inherit',
+  width: '100%',
+  fontSize: 19,
+  fontWeight: 800,
+  color: '#fff',
+  background: 'linear-gradient(160deg, #EC407A, #C2185B)',
+  border: 'none',
+  borderRadius: 14,
+  padding: '16px 18px',
+  cursor: 'pointer',
+  boxShadow: '0 6px 16px rgba(194,24,91,.32)',
 };
 
 const backToTablet: CSSProperties = {

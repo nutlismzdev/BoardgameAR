@@ -2,13 +2,17 @@
 // ถ้า API ใช้ไม่ได้ ฝัง payload ใน URL#hash เป็น fallback เพื่อให้เกมยังดำเนินต่อได้
 // การตรวจคำตอบทำบนมือถือในโหมดเชื่อใจ แล้วส่งเฉพาะผลกลับจอกลาง
 // ไฟล์นี้ต้อง standalone (ไม่ import store/UI) เพื่อให้ answer bundle เล็ก
-import type { King, QuizCard } from './types';
+import type { King, KnowledgeCard, QuizCard } from './types';
 
 export interface QrChallenge {
   i?: string; // challenge id — ใช้จับคู่ผลตอบระหว่างมือถือ↔tablet (โหมดอัตโนมัติผ่าน server)
-  q: string; // โจทย์
-  c: string[]; // ตัวเลือก
-  a: number; // index ตัวเลือกที่ถูก
+  // ── ชนิดของ payload ── ไม่ใส่ = การ์ดคำถาม (ค่าเดิม · QR ที่ค้างอยู่ก่อนหน้ายังอ่านได้)
+  // 'know' = การ์ดความรู้: อ่านเกร็ดแล้วกดเก็บ ไม่มีถูก/ผิด จึงไม่มีตัวเลือก/เฉลย
+  k?: 'know';
+  q: string; // โจทย์ · การ์ดความรู้ใช้ช่องนี้เป็น "หัวข้อ"
+  b?: string; // เนื้อหาเกร็ดความรู้ — มีเฉพาะ k = 'know'
+  c: string[]; // ตัวเลือก (การ์ดความรู้ = [])
+  a: number; // index ตัวเลือกที่ถูก (การ์ดความรู้ = -1)
   r: number; // เหรียญรางวัลเมื่อตอบถูก
   s?: number; // เวลาตอบ (วินาที) — เริ่มนับเมื่อหน้าคำถามเปิดบนมือถือ
   t?: string; // ป้ายบริบท (พระนาม/วิชา)
@@ -58,12 +62,18 @@ export function encodeChallenge(ch: QrChallenge): string {
   return b64urlEncode(JSON.stringify(ch));
 }
 
+/** การ์ดความรู้ — ตรวจก่อนแตะ `c`/`a` เสมอ เพราะสองช่องนั้นว่างเปล่าในชนิดนี้ */
+export function isKnowledgeChallenge(ch: QrChallenge | null | undefined): boolean {
+  return ch?.k === 'know';
+}
+
 export function decodeChallenge(s: string): QrChallenge | null {
   try {
     const obj = JSON.parse(b64urlDecode(s)) as QrChallenge;
-    if (typeof obj?.q === 'string' && Array.isArray(obj?.c) && typeof obj?.a === 'number') {
-      return obj;
-    }
+    if (typeof obj?.q !== 'string') return null;
+    // การ์ดความรู้ไม่มีตัวเลือก/เฉลยให้ตรวจ — ของที่ต้องมีคือเนื้อหาเกร็ด
+    if (isKnowledgeChallenge(obj)) return typeof obj.b === 'string' && obj.b !== '' ? obj : null;
+    if (Array.isArray(obj.c) && typeof obj.a === 'number') return obj;
     return null;
   } catch {
     return null;
@@ -108,6 +118,26 @@ export function buildQuizChallenge(quiz: QuizCard, opts: QuizChallengeOptions = 
     it: opts.items && (opts.items.f > 0 || opts.items.s > 0) ? opts.items : undefined,
     ui: opts.drag ? 'drag' : undefined,
     hd: opts.drag && opts.hand ? 1 : undefined,
+  };
+}
+
+// แปลง KnowledgeCard → payload สำหรับ QR
+// วัดจริง: ใบที่ body ยาวสุดในคลัง (126 ตัวอักษร) ได้ URL#hash 676 ตัวอักษร เทียบกับเพดาน
+// QR ECC M ที่ 2,331 → hash fallback ใช้ได้จริงแม้ไม่มี backend (ต่างจากการ์ดทองที่ 3,740 = เกิน)
+// แต่ครูแก้ body ผ่าน CMS/Excel ได้ ถ้าเขียนยาวมาก QR จะสร้างไม่ขึ้น → ผู้เรียกต้องมีทางถอย
+// ไปโชว์เนื้อหาบนแท็บเล็ตเสมอ (ดู onUnavailable ของ QrChallengePanel)
+export function buildKnowledgeChallenge(
+  card: KnowledgeCard,
+  opts: { id?: string; reward?: number } = {}
+): QrChallenge {
+  return {
+    i: opts.id,
+    k: 'know',
+    q: card.title,
+    b: card.body,
+    c: [],
+    a: -1,
+    r: opts.reward ?? 0,
   };
 }
 

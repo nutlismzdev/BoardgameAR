@@ -24,14 +24,25 @@ if ($method === 'POST') {
     }
     if (isset($body['challenge']) && is_array($body['challenge'])) {
         $challenge = $body['challenge'];
-        $choices = $challenge['c'] ?? null;
-        $answer = $challenge['a'] ?? null;
-        $validChoices = is_array($choices)
-            && count($choices) >= 2
-            && count($choices) <= 6
-            && count(array_filter($choices, 'is_string')) === count($choices);
-        if (!isset($challenge['q']) || !is_string($challenge['q']) || trim($challenge['q']) === '' || !$validChoices || !is_int($answer) || $answer < 0 || $answer >= count($choices)) {
+        // ทุกชนิดต้องมี q (การ์ดคำถาม = โจทย์ · การ์ดความรู้ = หัวข้อ)
+        if (!isset($challenge['q']) || !is_string($challenge['q']) || trim($challenge['q']) === '') {
             send_json(['ok' => false, 'error' => 'invalid challenge'], 400);
+        }
+        if (($challenge['k'] ?? null) === 'know') {
+            // การ์ดความรู้: อ่านแล้วเก็บ ไม่มีตัวเลือก/เฉลยให้ตรวจ — ของที่ต้องมีคือเนื้อหาเกร็ด
+            if (!isset($challenge['b']) || !is_string($challenge['b']) || trim($challenge['b']) === '') {
+                send_json(['ok' => false, 'error' => 'invalid knowledge challenge'], 400);
+            }
+        } else {
+            $choices = $challenge['c'] ?? null;
+            $answer = $challenge['a'] ?? null;
+            $validChoices = is_array($choices)
+                && count($choices) >= 2
+                && count($choices) <= 6
+                && count(array_filter($choices, 'is_string')) === count($choices);
+            if (!$validChoices || !is_int($answer) || $answer < 0 || $answer >= count($choices)) {
+                send_json(['ok' => false, 'error' => 'invalid challenge'], 400);
+            }
         }
         $payload = json_encode($challenge, JSON_UNESCAPED_UNICODE);
         if ($payload === false || strlen($payload) > 20000) {
@@ -58,6 +69,8 @@ if ($method === 'POST') {
     }
 
     // มือถือส่งผลการตอบขึ้นมา
+    // การ์ดความรู้ไม่มีถูก/ผิด — มือถือส่ง correct = true แปลว่า "อ่านแล้วกดเก็บ"
+    // (ฝั่งแท็บเล็ตแปลผลตามชนิดการ์ดที่ตัวเองเปิดอยู่ server ไม่ต้องรู้จักความต่างนี้)
     if (!array_key_exists('correct', $body) || !is_bool($body['correct'])) {
         send_json(['ok' => false, 'error' => 'invalid correct result'], 400);
     }

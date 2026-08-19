@@ -18,7 +18,12 @@ import { CardFrame } from './CardFrame';
 import { QuestionImage } from './QuestionImage';
 import { QrChallengePanel } from './QrChallengePanel';
 import { ResultStamp, STAMP_MS } from './ResultStamp';
-import { buildGoldArChallenge, buildQuizChallenge, genChallengeId } from '@/core/qrChallenge';
+import {
+  buildGoldArChallenge,
+  buildKnowledgeChallenge,
+  buildQuizChallenge,
+  genChallengeId,
+} from '@/core/qrChallenge';
 import { STORM_SECONDS } from '@/core/roomApi';
 import { getCardFront } from '@/core/cardAssets';
 import { sfx, startSuspense, stopSuspense } from '@/core/sfx';
@@ -32,6 +37,10 @@ const QUIZ_FX = `
 @keyframes quizPop{0%{transform:scale(1)}45%{transform:scale(1.05)}100%{transform:scale(1.02)}}
 @keyframes confettiFall{0%{opacity:0;transform:translateY(-12px) rotate(0)}20%{opacity:1}100%{opacity:0;transform:translateY(96px) rotate(220deg)}}
 `;
+
+// เหรียญที่ได้จากการเก็บการ์ดความรู้ใบใหม่ — ต้องใช้ 2 ที่ (payload ที่ส่งไปโชว์บนมือถือ
+// กับตอนเรียก collectKnowledge จริง) ถ้าแยกกันเมื่อไหร่ตัวเลขบนมือถือจะโกหกเด็กทันที
+const KNOWLEDGE_REWARD = 30;
 
 // Modal การ์ดรวม (question / goldking / knowledge / penalty / bonus)
 // แนวตั้ง = เด้งจากล่าง (bottom sheet), แนวนอน = กลางจอ (center dialog)
@@ -88,8 +97,11 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
   const dragEscaped = !!event && escapedEvent === event;
   // ช่องทอง: สร้าง QR ไม่ได้ (เน็ตสะดุดตอน registerChallenge → payload ยาวเกินความจุ QR)
   // → ถอยไปเล่น AR บนแท็บเล็ตเครื่องนี้เลย ซึ่งไม่ต้องใช้เน็ตและเด็กได้เห็น/ตอบคำถามจริง
+  // (การ์ดความรู้ใช้ state ตัวเดียวกัน — สองชนิดนี้ไม่มีทางเปิดพร้อมกัน และทางถอยเป็นเรื่องเดียวกัน
+  //  คือ "สร้าง QR ไม่ได้ → เล่นบนแท็บเล็ตเครื่องนี้แทน" ซึ่งจำเป็นเพราะครูแก้ body ยาวเกินได้)
   const [qrFailedEvent, setQrFailedEvent] = useState<TileEvent | null>(null);
   const goldQrFailed = !!event && qrFailedEvent === event;
+  const knowledgeQrFailed = goldQrFailed;
 
   const kind = event?.kind;
   const kingId = event?.tile.kingId ?? null;
@@ -156,6 +168,18 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
     setKnowledge(kind === 'knowledge' ? getRandomKnowledge(knowledgeCards) : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event]);
+
+  // ── การ์ดความรู้ผ่าน QR — ใช้สวิตช์ตัวเดียวกับช่องฟ้า/สาระ (`settings.qrAnswerMode`) ──
+  // ต้องอยู่ "หลัง" useState ของ knowledge เสมอ ไม่งั้น memo อ่านตัวแปรก่อนประกาศ (TDZ)
+  // `knowledge` ถูกเซ็ตใน effect จึงเป็น null ในเฟรมแรก → memo คำนวณรอบสองแล้วได้ id เดียวนิ่ง ๆ
+  const knowledgeQrMode = settings.qrAnswerMode && kind === 'knowledge';
+  const knowledgeChallenge = useMemo(
+    () =>
+      knowledgeQrMode && knowledge
+        ? buildKnowledgeChallenge(knowledge, { id: genChallengeId(), reward: KNOWLEDGE_REWARD })
+        : null,
+    [knowledgeQrMode, knowledge]
+  );
 
   // ── ตัวจับเวลาคำถาม (เปิด/ปิดได้ใน Teacher Mode; หมดเวลา = เฉลยอัตโนมัติ) ──
   const timerOn = settings.timerEnabled;
@@ -649,11 +673,27 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             bannerFrom="#EC407A"
             bannerTo="#C2185B"
             orientation={orientation}
-            artFront={getCardFront('knowledge')}
+            artFront={knowledgeQrMode && knowledgeChallenge && !knowledgeQrFailed ? undefined : getCardFront('knowledge')}
             artRatio="722 / 1019"
             contentInset={{ top: 20, right: 12, bottom: 9, left: 12 }}
             skipBackFlip
           >
+          {knowledgeQrMode && knowledgeChallenge && !knowledgeQrFailed ? (
+            /* เนื้อหาไม่โผล่บนจอกลาง — เจ้าของเทิร์นสแกนไปอ่านบนมือถือตัวเอง แล้วกดเก็บจากที่นั่น */
+            <QrChallengePanel
+              challenge={knowledgeChallenge}
+              variant="knowledge"
+              allowManual={settings.manualResultButtons}
+              onResult={() => {
+                collectKnowledge(knowledge.id, KNOWLEDGE_REWARD);
+                closeEvent();
+              }}
+              // ข้ามใบนี้ = ไม่เก็บ ไม่ได้เหรียญ (ต้องมีเสมอ เผื่อมือถือไม่ตอบ ไม่งั้นการ์ดค้างถาวร)
+              onCancel={closeEvent}
+              // body ที่ครูเขียนยาวเกินความจุ QR → ถอยมาอ่านบนแท็บเล็ตแบบเดิม ห้ามค้างที่กล่องพัง
+              onUnavailable={() => setQrFailedEvent(event)}
+            />
+          ) : (
           <div>
             <p
               style={{
@@ -676,12 +716,13 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
             {/* อ่านเกร็ดแล้วเก็บได้เลย — ไม่มีคำถามทบทวน ไม่มีสุ่มใหม่ */}
             <PrimaryButton
               onClick={() => {
-                collectKnowledge(knowledge.id, 30);
+                collectKnowledge(knowledge.id, KNOWLEDGE_REWARD);
                 closeEvent();
               }}
-              label="เก็บการ์ดความรู้! รับ 🪙 30 →"
+              label={`เก็บการ์ดความรู้! รับ 🪙 ${KNOWLEDGE_REWARD} →`}
             />
           </div>
+          )}
           </CardFrame>
         )}
 

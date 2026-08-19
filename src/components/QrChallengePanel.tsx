@@ -30,8 +30,10 @@ export function QrChallengePanel({
   // โชว์ปุ่ม "ตอบถูก/ตอบผิด" ที่ครูกดเองไหม (ปิดเพื่อกันเด็กกดข้ามคำถาม)
   // ⚠️ มีผลเฉพาะโหมดอัตโนมัติ — ไม่มี backend แล้วซ่อนปุ่มนี้ = เกมเดินต่อไม่ได้เลย
   allowManual?: boolean;
-  variant?: 'quiz' | 'gold-ar';
+  // 'knowledge' = การ์ดความรู้: อ่านแล้วเก็บ ไม่มีถูก/ผิด → ปุ่มสำรองเหลือปุ่มเดียว
+  variant?: 'quiz' | 'gold-ar' | 'knowledge';
 }) {
+  const isKnowledge = variant === 'knowledge';
   const [dataUrl, setDataUrl] = useState<string>('');
   const [err, setErr] = useState<string>('');
   const auto = challengeApiAvailable() && !!challenge.i;
@@ -54,7 +56,7 @@ export function QrChallengePanel({
     setDataUrl('');
 
     const generate = async () => {
-      const page = variant === 'gold-ar' ? 'ar.html' : 'answer.html';
+      const page = variant === 'gold-ar' ? 'ar.html' : 'answer.html'; // การ์ดความรู้ใช้หน้าเดียวกับควิซ
       let url = buildChallengeUrl(challenge, undefined, page);
       if (auto && challenge.i) {
         try {
@@ -140,8 +142,12 @@ export function QrChallengePanel({
   return (
     <div style={wrap}>
       <div style={eyebrow}>
-        <span aria-hidden>{variant === 'gold-ar' ? '🪙' : '🔒'}</span>{' '}
-        {variant === 'gold-ar' ? 'ภารกิจ AR การ์ดทอง' : 'คำถามส่วนตัว'}
+        <span aria-hidden>{variant === 'gold-ar' ? '🪙' : isKnowledge ? '💡' : '🔒'}</span>{' '}
+        {variant === 'gold-ar'
+          ? 'ภารกิจ AR การ์ดทอง'
+          : isKnowledge
+            ? 'การ์ดความรู้ส่วนตัว'
+            : 'คำถามส่วนตัว'}
       </div>
 
       {/* ตราประทับ: QR ในกรอบทอง + มุมกรอบแบบเอกสารราชการ/viewfinder */}
@@ -164,7 +170,9 @@ export function QrChallengePanel({
       <p style={caption}>
         {variant === 'gold-ar'
           ? 'สแกนด้วยกล้องมือถือ แล้วส่องการ์ดทองเพื่อเริ่มบทเรียน AR'
-          : 'สแกนด้วยมือถือเพื่อดูคำถามบนเครื่องของคุณ'}
+          : isKnowledge
+            ? 'สแกนด้วยมือถือเพื่อเปิดอ่านการ์ดความรู้ที่จั่วได้'
+            : 'สแกนด้วยมือถือเพื่อดูคำถามบนเครื่องของคุณ'}
       </p>
 
       {auto ? (
@@ -172,7 +180,7 @@ export function QrChallengePanel({
           {/* รอผลอัตโนมัติจากมือถือ */}
           <div style={waiting} className="qr-wait">
             <span style={dot} className="qr-dot" />
-            รอคำตอบจากมือถือ…
+            {isKnowledge ? 'รอมือถือเก็บการ์ด…' : 'รอคำตอบจากมือถือ…'}
           </div>
           {/* fallback เผื่อเน็ตหลุด/ผลไม่ขึ้น — ครูปิดได้ใน Teacher Mode ถ้ากลัวเด็กกดเอง */}
           {allowManual && (
@@ -180,11 +188,14 @@ export function QrChallengePanel({
               <span style={fallbackLabel}>ยังไม่ขึ้น? เลือกผลเอง</span>
               <div style={btnRow}>
                 <button style={ghostBtn(color.success)} onClick={() => manual(true)}>
-                  ตอบถูก
+                  {isKnowledge ? 'เก็บการ์ดแล้ว' : 'ตอบถูก'}
                 </button>
-                <button style={ghostBtn(color.danger)} onClick={() => manual(false)}>
-                  ตอบผิด
-                </button>
+                {/* การ์ดความรู้ไม่มี "ผิด" — ทางที่ไม่เก็บคือปุ่มข้ามด้านล่างซึ่งมีอยู่แล้ว */}
+                {!isKnowledge && (
+                  <button style={ghostBtn(color.danger)} onClick={() => manual(false)}>
+                    ตอบผิด
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -193,15 +204,17 @@ export function QrChallengePanel({
         <>
           {/* ไม่มี backend → กดผลเองเป็นหลัก */}
           <div style={divider}>
-            <span style={dividerLabel}>เมื่อตอบเสร็จ</span>
+            <span style={dividerLabel}>{isKnowledge ? 'เมื่ออ่านเสร็จ' : 'เมื่อตอบเสร็จ'}</span>
           </div>
           <div style={btnRow}>
             <button style={{ ...solidBtn, background: color.success }} onClick={() => manual(true)}>
-              ตอบถูก
+              {isKnowledge ? 'เก็บการ์ดแล้ว' : 'ตอบถูก'}
             </button>
-            <button style={{ ...solidBtn, background: color.danger }} onClick={() => manual(false)}>
-              ตอบผิด
-            </button>
+            {!isKnowledge && (
+              <button style={{ ...solidBtn, background: color.danger }} onClick={() => manual(false)}>
+                ตอบผิด
+              </button>
+            )}
           </div>
         </>
       )}
@@ -212,7 +225,11 @@ export function QrChallengePanel({
           (ข้าม = จบเทิร์น ไม่ได้เหรียญ ไม่เสียหัวใจ — ตรงกับการกดยกเลิกของการ์ดทอง) */}
       {onCancel ? (
         <button type="button" style={cancelBtn} onClick={onCancel}>
-          {variant === 'gold-ar' ? 'ยกเลิกภารกิจนี้' : 'ข้ามข้อนี้ (ไม่ได้เหรียญ)'}
+          {variant === 'gold-ar'
+            ? 'ยกเลิกภารกิจนี้'
+            : isKnowledge
+              ? 'ข้ามใบนี้ (ไม่เก็บการ์ด)'
+              : 'ข้ามข้อนี้ (ไม่ได้เหรียญ)'}
         </button>
       ) : null}
 
