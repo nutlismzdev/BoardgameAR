@@ -9,7 +9,8 @@
 //   - อย่างอื่น (API/POST/ข้ามโดเมน) → ปล่อยผ่าน ไม่แตะ
 // v3: precache หน้ามือถือ (answer/ar) ด้วย — ตั้งแต่ทั้งสอง entry เรียก registerServiceWorker()
 //     เครื่องที่สแกน QR เข้ามาจึงมี SW คุมจริง (ก่อนหน้านี้มีแต่ index.html ที่ลงทะเบียน)
-const VERSION = 'bg7-v3'; // v2: เลิกแคชวิดีโอ (206 Partial Content ใส่ Cache.put ไม่ได้)
+const VERSION = 'bg7-v4'; // v2: เลิกแคชวิดีโอ (206 Partial Content ใส่ Cache.put ไม่ได้)
+//                          v4: แคช /sound/ ได้ + กรองด้วย status 200 แทน res.ok
 const SHELL = `${VERSION}-shell`;
 const ASSETS = `${VERSION}-assets`;
 
@@ -60,7 +61,8 @@ const isStatic = (p) =>
   p.startsWith('/icons/') ||
   p.startsWith('/mediapipe/') ||
   p.startsWith('/ar/') ||
-  /\.(png|jpe?g|svg|webp|woff2?|json|wasm)$/.test(p);
+  p.startsWith('/sound/') || // soundtrack 5.3MB: ไม่แคช = ออฟไลน์เกมเงียบ + โหลดใหม่ทุก session
+  /\.(png|jpe?g|svg|webp|woff2?|json|wasm|mp3|ogg)$/.test(p);
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
@@ -94,7 +96,9 @@ self.addEventListener('fetch', (e) => {
     caches.match(req).then((hit) => {
       const fresh = fetch(req)
         .then((res) => {
-          if (res.ok) {
+          // ต้องเช็ก status 200 ตรง ๆ ไม่ใช่ res.ok — <audio>/<video> ขอด้วย Range แล้วได้ 206
+          // ซึ่ง res.ok เป็น true แต่ Cache.put() โยน TypeError กับ 206 ตามสเปก (กับดักเดิมของวิดีโอ)
+          if (res.status === 200) {
             const copy = res.clone();
             caches.open(ASSETS).then((c) => c.put(req, copy));
           }

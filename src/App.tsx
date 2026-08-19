@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useGame } from '@/core/store';
 import { syncContent } from '@/core/content';
 import { useRoomHeartbeat } from '@/core/useRoomHeartbeat';
-import { startBackgroundMusic, stopBackgroundMusic, setSoundEnabled } from '@/core/sfx';
+import { startBackgroundMusic, stopAllAudio, setSoundEnabled } from '@/core/sfx';
 import { Home } from '@/screens/Home/Home';
 import { GameBoard } from '@/screens/GameBoard';
 import { GameOver } from '@/screens/GameOver/GameOver';
@@ -30,7 +30,8 @@ export default function App() {
     if (wantMusic) {
       startBackgroundMusic();
     } else {
-      stopBackgroundMusic();
+      // เข้าหน้าจบเกม/ปิดเสียง: หยุดทุกชั้น ไม่งั้นเพลงฉลองใบสุดท้ายจะคาบมาทับเสียง sfx.win
+      stopAllAudio();
     }
   }, [wantMusic]);
 
@@ -42,7 +43,7 @@ export default function App() {
     return () => window.removeEventListener('pointerdown', kick);
   }, [wantMusic]);
 
-  useEffect(() => stopBackgroundMusic, []);
+  useEffect(() => stopAllAudio, []);
 
   // ดักปุ่ม back ของเบราว์เซอร์/แท็บเล็ตระหว่างเล่น → ถามยืนยันแทนออกจากแอปทันที
   // (SPA นี้ไม่มี router: วางหมุด history 1 อันตอนเข้าเกม แล้วดักซ้ำทุกครั้งที่กด back)

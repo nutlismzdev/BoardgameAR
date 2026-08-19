@@ -9,7 +9,7 @@ import type { Player, Tile, TileEvent, Difficulty } from './types';
 import { BLOCK_STEPS, EFFECTS, REWIND_STEPS, STEAL_GAIN, STEAL_LOSS, sendErrorMessage } from './roomApi';
 import type { EffectKind, RoomEffect, RoomState, SendResult } from './roomApi';
 import { rollDie } from './diceLogic';
-import { sfx, setSoundEnabled, startBackgroundMusic, stopBackgroundMusic } from './sfx';
+import { sfx, setSoundEnabled, startBackgroundMusic, stopAllAudio } from './sfx';
 
 const TILES = boardData.tiles as Tile[];
 const LOOP = boardData.loopSize as number;
@@ -521,7 +521,7 @@ export const useGame = create<GameState>()(
 
   backToHome: () => {
     gameGen++; // ออกจากเกม: ตัด loop เดินหมากที่ยัง await ค้างอยู่ ไม่ให้ไปอ่าน players ที่ถูกล้างแล้ว
-    stopBackgroundMusic();
+    stopAllAudio(); // ไม่ใช่แค่เพลงพื้นหลัง — เสียงลุ้น/เพลงฉลองต้องไม่ตามกลับไปที่หน้า Home
     // ออกจากเกม = ออกจากห้องแข่งด้วย (ไม่งั้น heartbeat จะยิงแต้มของเกมที่ไม่มีอยู่แล้วต่อไป)
     set({
       players: [],

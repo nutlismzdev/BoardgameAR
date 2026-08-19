@@ -226,6 +226,17 @@ finishTurn(): เช็กชนะ (kingCoins≥7) → ส่งเทิร์
 
 ## ระบบเสริม
 
+- **🔊 ระบบเสียง (`core/sfx.ts`) — 2 ชั้น: synth (Web Audio) + ไฟล์จริงใน `public/sound/`**
+  - **⚠️ ไฟล์ทั้งสองเป็น "เพลง" ไม่ใช่เสียงเอฟเฟกต์:** `success_card.mp3` = **74.9 วิ** · `wait_card.mp3` = **80.7 วิ** (วัดจาก MP3 header) · โค้ดเคยปฏิบัติกับ success เหมือน jingle สั้น ๆ แล้วพังเป็นชุด
+  - **`success` ถูกตัดเป็น stinger ในโค้ด** — เล่น `SUCCESS_STINGER_MS` (3 วิ) → fade 0.6 วิ → หยุด · **ต้องสั้นกว่า 1 เทิร์นเสมอ** ไม่งั้นคาบเกี่ยวการ์ดใบถัดไปแล้วกลืนเสียงของใบนั้นทั้งใบ
+  - **กับดัก: `sfx.correct()` ถูกเรียก 2 นัดต่อการตอบ 1 ข้อ** (ตอนเฉลย + ตอนกดปุ่มเดินเกมต่อ) — ตัวกัน "นัดซ้ำ" ต้องวัดจาก `el.currentTime < SUCCESS_RETRIGGER_SEC` (1.2 วิ) **ห้ามใช้ "เพลงยังเล่นอยู่ไหม"** เพราะเพลงยาว 75 วิ = ตอบถูกอีก 4–5 ครั้งถัดไปโดนกลืนหมด **โดยไม่มีแม้เสียง synth fallback** (วัดจริง: ตอบถูก 4 ใบติดกัน ได้ยินแค่ใบแรก)
+  - **ทุกจังหวะที่ "เรื่องเปลี่ยนไปแล้ว" ต้องเรียก `stopSuccess()`** — `startSuspense` (ใบใหม่) · `sfx.wrong()` (ตอบผิด) · `stopAllAudio()` (ออกจากเกม/จบเกม/ปิดเสียง) ไม่งั้นเพลงฉลองจะไปคลออยู่เบื้องหลังเหตุการณ์ที่ไม่ได้ฉลองอะไรเลย
+  - **เพลงพื้นหลังใช้ look-ahead scheduler ห้ามกลับไป `setInterval(playBar, 4000)`** — `setInterval` เป็นนาฬิกา wall-clock ที่สะดุดตาม main thread (React render / preload อาร์ตการ์ด / MindAR / decode ภาพ) ส่วนโน้ตอยู่บนนาฬิกา `AudioContext` · timer แค่มาถามทุก 200ms ว่าถึงเวลาวางบาร์ถัดไปหรือยัง เวลาจริงยึด `nextBarAt` (วัดด้วย jitter 30–900ms: แบบเดิม 10/11 บาร์ผิด · แบบใหม่ 0)
+    - `LOOKAHEAD_SEC = 1` กลืนการสะดุดได้ 1 วิ · **ต้องมีตัวข้ามบาร์ที่ตกขบวน** (`if (nextBarAt < currentTime) nextBarAt = currentTime`) ไม่งั้นแท็บถูกพักไว้แล้วกลับมา บาร์ที่ค้างจะถูกวางพร้อมกันหมดในเฟรมเดียว = เสียงถล่มทับกัน
+    - เบสยาว 900ms ล้นเข้าบาร์ถัดไป 400ms **เป็นการลากเสียงที่ตั้งใจ** (ระดับเสียงเดียวกันพอดี 196Hz) ไม่ใช่บั๊ก อย่าไปแก้
+  - **`duckBackground()` ต้อง guard `!enabled || !bgPlaying`** — การคืนเกนมาจาก callback ที่มาถึงทีหลังได้ (fade ของ stinger, event `ended`) ซึ่งอาจวิ่งมาหลังผู้เล่นกดปิดเสียง/ออกจากเกมไปแล้ว แล้วปลุกโน้ตที่ schedule ค้างไว้ให้ดังเต็มเสียง
+  - **ลำดับใน `setSoundEnabled(false)` สำคัญ:** หยุด sample ก่อน (ซึ่งคืนเกน bus) แล้วค่อยมิวต์ bus เป็นขั้นสุดท้าย · สลับลำดับเมื่อไหร่ = กดปิดเสียงแล้วเพลงกลับมาดังต่ออีกหลายวินาที
+  - **`sw.js` แคช `/sound/` ได้ตั้งแต่ v4** แต่ต้องกรองด้วย `res.status === 200` ไม่ใช่ `res.ok` — `<audio>` ขอด้วย Range แล้วได้ **206** ซึ่ง `res.ok` เป็น true แต่ `Cache.put()` โยน TypeError (กับดักเดียวกับวิดีโอ) · ไม่แคช = ออฟไลน์เกมเงียบ + รอโหลด 5.3 MB ใหม่ทุก session
 - **คอมโบ:** ตอบถูกติดกัน → ตัวคูณเหรียญ (`comboMult`, `streak`)
 - **ระบบหัวใจ:** `MAX_HEARTS=3`, `Player.hearts`; helper `damageCurrentPlayer` ลดหัวใจและตั้งพักฟื้นเมื่อเหลือ 0. HUD แสดงหัวใจผู้เล่นปัจจุบัน + แถบผู้เล่นหลายคนแสดงหัวใจแต่ละคน
   - **กับดักใน `finishTurn`: ต้องมีธง `found`** — loop หาคนถัดไปที่ `skipNext === 0` ถ้า**ทุกคนติดพักพร้อมกัน** (หัวใจหมดกันหมด/ลงช่องทำโทษพร้อมกัน) จะวนครบรอบโดยไม่ break แล้ว `nextIndex` **วนกลับมาเท่ากับ `currentPlayerIndex`** = คนเดิมได้เล่นซ้ำทั้งที่เพิ่งติดพัก ส่วนคนถัดไปโดนข้ามฟรี (เห็นชัดสุดตอนเล่น 2 คน) → เมื่อ `!found` ต้องบังคับ `nextIndex = (currentPlayerIndex + 1) % players.length`
@@ -317,7 +328,7 @@ src/
     registerSW.ts   ← ลงทะเบียน service worker (เรียกจากทั้ง 3 entry)
     roomApi.ts      ← client ห้องแข่งออนไลน์ (standalone ห้าม import store)
     useRoomHeartbeat.ts ← ส่งแต้มทีม + รับอันดับห้องทุก 3 วิ (เรียกที่ App.tsx ที่เดียว)
-    sfx.ts          ← เสียง (Web Audio) + เพลงพื้นหลัง (startBackgroundMusic ใน App.tsx)
+    sfx.ts          ← เสียง: synth (Web Audio) + ไฟล์จริงใน public/sound · startBackgroundMusic/stopAllAudio
   data/
     board-layout.json  ← ผังช่อง 0–76 + next[] (กราฟ) + penalty/label
     board-points.json  ← พิกัด % ของ 77 ช่อง (index-aligned)
