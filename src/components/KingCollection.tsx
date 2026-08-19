@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useGame, clampTargetCoins } from '@/core/store';
-import { KINGS } from '@/core/content';
+import { KINGS, kingShortLabel } from '@/core/content';
 import { getKingCoinImage } from '@/core/kingAssets';
 import { color, radius } from '@/theme/tokens';
 import { KingDetailModal } from './KingDetailModal';
@@ -135,12 +135,18 @@ export function KingCollection() {
                     fontSize: 12,
                     fontWeight: 800,
                     color: color.text,
-                    whiteSpace: 'nowrap',
+                    lineHeight: 1.15,
+                    // ยอมให้ขึ้นบรรทัดสองแทน nowrap+ellipsis — ช่องนี้กว้างแค่ ~73px
+                    // (sidebar 280px) บรรทัดเดียวตัดเหลือ ~10 ตัว ซึ่งสั้นกว่าจุดที่
+                    // พระนเรศวร/พระนารายณ์ เริ่มต่างกัน (ตัวที่ 11) แถวสูง 44px รับ 2 บรรทัดได้
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
                     overflow: 'hidden',
-                    textOverflow: 'ellipsis',
+                    wordBreak: 'break-word',
                   }}
                 >
-                  {won ? shortName(k.name) : '❓ ยังไม่ได้'}
+                  {won ? kingShortLabel(k.name) : '❓ ยังไม่ได้'}
                 </div>
                 <div style={{ fontSize: 11, color: color.textMuted, fontWeight: 700 }}>{k.era}</div>
               </div>
@@ -155,11 +161,6 @@ export function KingCollection() {
       {museumOpen && <CollectionMuseumModal onClose={() => setMuseumOpen(false)} />}
     </div>
   );
-}
-
-// ตัดพระนามยาวให้พอดีการ์ด (เอาส่วนก่อนวงเล็บ)
-function shortName(name: string): string {
-  return name.split('(')[0].trim();
 }
 
 const coinGrid: React.CSSProperties = {

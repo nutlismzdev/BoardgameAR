@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGame } from '@/core/store';
-import { KINGS } from '@/core/content';
+import { KINGS, kingShortLabel } from '@/core/content';
 import { getKingPawnImage } from '@/core/kingAssets';
 import { sfx } from '@/core/sfx';
 import { enterFullscreen } from '@/core/viewportLock';
@@ -623,7 +623,7 @@ export function Home() {
                           marginTop: 3,
                         }}
                       >
-                        {king ? splitKingName(king.name).main : 'ยังไม่เลือกกษัตริย์'}
+                        {king ? kingShortLabel(king.name) : 'ยังไม่เลือกกษัตริย์'}
                       </span>
                     </span>
                     <span style={{ flexShrink: 0, fontWeight: 700, fontSize: king ? 16 : 11, color: PC[i] }}>

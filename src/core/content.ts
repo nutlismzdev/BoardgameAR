@@ -22,6 +22,18 @@ const CACHE_KEY = 'bg7_content';
 export const OVERVIEW_KING_ID = 'king_overview';
 export const OVERVIEW_KING_LABEL = 'ภาพรวม 7 มหาราช';
 
+// ชื่อย่อสำหรับ "ช่องแคบที่ตัดด้วย ellipsis" เท่านั้น — ที่กว้างพอให้ใช้ king.name เต็ม
+// ⚠️ ร.๑/ร.๔/ร.๕ ใช้คำนำหน้า "พระบาทสมเด็จพระ" ร่วมกัน 15 ตัวอักษร และ ร.๔/ร.๕ ต่างกัน
+// แค่ "จุล" ที่ตัวที่ 16 → ช่องแคบ ๆ (เช่นการ์ดสะสมในแถบข้าง กว้าง ~84px ≈ 13 ตัว) จะตัด
+// ก่อนถึงตัวที่แยกความต่างเสมอ แล้วทั้งสามพระองค์แสดงเป็น "พระบาทสมเด็จพร…" เหมือนกันหมด
+// จึงตัดคำนำหน้าทิ้งแล้วเอาเลขรัชกาลขึ้นหน้า = ตัวแยกความต่างอยู่ในไม่กี่ตัวอักษรแรกเสมอ
+export function kingShortLabel(name: string): string {
+  const m = name.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+  const main = (m ? m[1] : name).replace(/^พระบาทสมเด็จพระ/, '').trim();
+  const rank = m ? m[2].replace('รัชกาลที่ ', 'ร.') : null;
+  return rank ? `${rank} ${main}` : main;
+}
+
 // ── กลุ่มสาระการเรียนรู้ (8 วิชาตามหลักสูตรแกนกลาง) — ป้าย/ไอคอนใช้ร่วมทั้งการ์ดในเกมและหลังบ้าน ──
 export const SUBJECTS: { id: SubjectArea; label: string; icon: string }[] = [
   { id: 'thai', label: 'ภาษาไทย', icon: '📖' },
