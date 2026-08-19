@@ -1,4 +1,6 @@
-// ระบบเสียง + haptic — สังเคราะห์เสียงด้วย Web Audio API (ไม่ต้องมีไฟล์เสียง)
+// ระบบเสียง + haptic — 2 ชั้น:
+//   1) เสียงสังเคราะห์ Web Audio (เพลงพื้นหลัง + sfx สั้น ๆ) — ไม่ต้องมีไฟล์
+//   2) ไฟล์เสียงจริงใน public/sound/ สำหรับจังหวะสำคัญ (ลุ้น/สำเร็จ) — มี fallback เป็นข้อ 1
 // เปิด/ปิดผ่าน settings.soundEnabled
 
 let ctx: AudioContext | null = null;
@@ -9,7 +11,11 @@ let bgPlaying = false;
 
 export function setSoundEnabled(on: boolean) {
   enabled = on;
-  if (!on) stopBackgroundMusic();
+  if (!on) {
+    stopBackgroundMusic();
+    stopSuspense();
+    stopSample('success');
+  }
 }
 
 function ac(): AudioContext | null {
@@ -118,6 +124,93 @@ function vibrate(pattern: number | number[]) {
   }
 }
 
+// ── เสียงจากไฟล์จริง (public/sound) ──
+// เสียงสังเคราะห์ด้านบนยังอยู่ครบและทำหน้าที่เป็น fallback: ถ้าไฟล์โหลดไม่ขึ้น
+// (ไฟล์หาย/ยังโหลดไม่เสร็จ/เบราว์เซอร์บล็อก) เกมต้องยังมีเสียงตอบสนอง ไม่ใช่เงียบไปเฉย ๆ
+type SampleName = 'success' | 'wait';
+
+const SAMPLE_SRC: Record<SampleName, string> = {
+  success: 'sound/success_card.mp3', // ตอบถูก / ได้เหรียญกษัตริย์จากการ์ด AR ทอง
+  wait: 'sound/wait_card.mp3', // ลุ้นระทึกระหว่างเข้าภารกิจ + คิดคำตอบ (วนซ้ำ)
+};
+
+const samples: Partial<Record<SampleName, HTMLAudioElement>> = {};
+const brokenSamples = new Set<SampleName>();
+
+function sample(name: SampleName): HTMLAudioElement | null {
+  if (typeof window === 'undefined' || typeof Audio === 'undefined') return null;
+  if (brokenSamples.has(name)) return null;
+  let el = samples[name];
+  if (!el) {
+    // BASE_URL กัน path พังถ้าวันหน้าเสิร์ฟใต้ subpath (ตอนนี้เป็น '/')
+    el = new Audio(`${import.meta.env.BASE_URL}${SAMPLE_SRC[name]}`);
+    el.preload = 'auto';
+    // โหลดไม่ได้ = เลิกพยายามถาวร แล้วปล่อยให้เสียงสังเคราะห์รับช่วงต่อ
+    el.addEventListener('error', () => brokenSamples.add(name));
+    if (name === 'success') el.addEventListener('ended', () => duckBackground(false));
+    samples[name] = el;
+  }
+  return el;
+}
+
+function stopSample(name: SampleName) {
+  const el = samples[name];
+  if (!el) return;
+  el.pause();
+  el.currentTime = 0;
+}
+
+function successPlaying() {
+  const el = samples.success;
+  return !!el && !el.paused && !el.ended;
+}
+
+// หรี่เพลงพื้นหลังสังเคราะห์ขณะเล่นไฟล์เสียง — ไม่หยุดเพลง (จะได้ไม่ต้องจำสถานะว่าต้องเปิดคืนไหม)
+// แค่ลดเกนของ bus เพลงอย่างเดียว เสียง sfx สั้น ๆ ต่อ destination ตรงจึงไม่โดนหรี่ไปด้วย
+function duckBackground(on: boolean) {
+  if (!ctx || !bgMaster) return;
+  bgMaster.gain.setTargetAtTime(on ? 0.018 : 0.095, ctx.currentTime, 0.12);
+}
+
+export function startSuspense() {
+  if (!enabled) return;
+  const el = sample('wait');
+  if (!el) return;
+  if (!el.paused) return; // เล่นค้างอยู่แล้ว — อย่ารีเซ็ตให้เสียงกระตุก
+  el.loop = true;
+  el.volume = 0.5;
+  el.currentTime = 0;
+  duckBackground(true);
+  // ยังไม่มี user gesture (autoplay policy) — ปล่อยผ่านเงียบ ๆ ไม่ throw ใส่เกม
+  el.play().catch(() => {});
+}
+
+export function stopSuspense() {
+  stopSample('wait');
+  // ถ้าเสียงฉลองกำลังเล่นต่อทันที อย่าเพิ่งเปิดเพลงคืน ไม่งั้นตีกับเสียงฉลอง
+  if (!successPlaying()) duckBackground(false);
+}
+
+// เสียงสำเร็จ (ครั้งเดียวจบ) — คืน false เมื่อเล่นไม่ได้ ให้ผู้เรียกถอยไปใช้เสียงสังเคราะห์
+function playSuccessSample(): boolean {
+  if (!enabled) return false;
+  const el = sample('success');
+  if (!el) return false;
+  // sfx.correct() โดนเรียก 2 จังหวะต่อการตอบ 1 ข้อ (ตอนเฉลย + ตอนกดรับเหรียญ)
+  // เสียงสังเคราะห์สั้น ๆ ซ้อนกันแล้วไม่รู้สึก แต่ soundtrack ยาวจะรีสตาร์ทกลางเพลง → ปล่อยให้เล่นจบ
+  if (successPlaying()) return true;
+  stopSample('wait'); // ลุ้นจบแล้ว
+  el.loop = false;
+  el.volume = 0.85;
+  el.currentTime = 0;
+  duckBackground(true);
+  el.play().catch(() => {
+    brokenSamples.add('success');
+    duckBackground(false);
+  });
+  return true;
+}
+
 export const sfx = {
   roll() {
     // เสียงกลิ้งลูกเต๋า + สั่นเป็นจังหวะให้รู้สึกลุ้น
@@ -140,20 +233,26 @@ export const sfx = {
     tone(1320, 90, 'sine', 0.12, 0.06);
   },
   correct() {
-    tone(659, 120, 'sine', 0.15); // E5
-    tone(784, 120, 'sine', 0.15, 0.1); // G5
-    tone(1047, 200, 'sine', 0.15, 0.2); // C6
+    // ไฟล์เสียงจริงก่อน — ถ้าใช้ไม่ได้ค่อยถอยไปอาร์เพจจิโอสังเคราะห์ (เกมต้องไม่เงียบ)
+    if (!playSuccessSample()) {
+      tone(659, 120, 'sine', 0.15); // E5
+      tone(784, 120, 'sine', 0.15, 0.1); // G5
+      tone(1047, 200, 'sine', 0.15, 0.2); // C6
+    }
     vibrate([30, 40, 30]);
   },
   wrong() {
+    stopSuspense(); // ลุ้นจบแล้ว (แค่จบแบบไม่สวย)
     tone(200, 250, 'sawtooth', 0.12);
     vibrate(120);
   },
   unlock() {
-    tone(523, 120, 'sine', 0.15); // C5
-    tone(659, 120, 'sine', 0.15, 0.1);
-    tone(784, 120, 'sine', 0.15, 0.2);
-    tone(1047, 300, 'sine', 0.16, 0.32);
+    if (!playSuccessSample()) {
+      tone(523, 120, 'sine', 0.15); // C5
+      tone(659, 120, 'sine', 0.15, 0.1);
+      tone(784, 120, 'sine', 0.15, 0.2);
+      tone(1047, 300, 'sine', 0.16, 0.32);
+    }
     vibrate([40, 30, 40, 30, 80]);
   },
   win() {

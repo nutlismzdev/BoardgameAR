@@ -21,7 +21,7 @@ import { ResultStamp, STAMP_MS } from './ResultStamp';
 import { buildGoldArChallenge, buildQuizChallenge, genChallengeId } from '@/core/qrChallenge';
 import { STORM_SECONDS } from '@/core/roomApi';
 import { getCardFront } from '@/core/cardAssets';
-import { sfx } from '@/core/sfx';
+import { sfx, startSuspense, stopSuspense } from '@/core/sfx';
 import type { Orientation, KnowledgeCard, SubjectQuizCard, TileEvent } from '@/core/types';
 
 // เอฟเฟกต์ตอนเฉลยคำถาม (แบนเนอร์เด้ง/ปุ่มถูกเด้ง/ปุ่มผิดสั่น/กระดาษหลากสีร่วง)
@@ -194,6 +194,19 @@ export function CardModal({ orientation }: { orientation: Orientation }) {
     stampSeq.current += 1;
     setStamp({ id: stampSeq.current, kind: correct ? 'correct' : 'wrong' });
   };
+
+  // ── เสียงลุ้นระทึก (wait_card.mp3) ──
+  // เล่นวนตอน "กำลังเข้าภารกิจ / กำลังคิดคำตอบ" แล้วหยุดทันทีที่เฉลยหรือปิดการ์ด
+  // ช่องทอง = ลุ้นยาวตั้งแต่สเตจส่องการ์ด AR ไปจนตอบผ่านมือถือเสร็จ (event ถูกปิด)
+  // ช่องฟ้า/สาระ = ลุ้นเฉพาะช่วงที่ยังไม่เฉลย · การ์ดความรู้/โบนัส/ปรับ ไม่ต้องลุ้น
+  // ปุ่ม stop อยู่ใน sfx.correct/wrong ด้วย เผื่อเฉลยมาจากทางอื่น (มือถือ/หมดเวลา)
+  const suspenseActive = isGold || (usesQuizUI && picked && answered === null);
+  useEffect(() => {
+    if (suspenseActive) startSuspense();
+    else stopSuspense();
+  }, [suspenseActive]);
+  // ออกจากหน้าเกมกลางคัน (ย้อนกลับ/รีเซ็ต) ต้องไม่ทิ้งเสียงลุ้นค้างวนไปเรื่อย ๆ
+  useEffect(() => stopSuspense, []);
 
   // ── ฟีดแบ็กทันทีตอนเฉลย (โหมดตอบบน tablet) ──
   useEffect(() => {
