@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useGame } from '@/core/store';
 import { syncContent } from '@/core/content';
 import { useRoomHeartbeat } from '@/core/useRoomHeartbeat';
+import { useTest } from '@/core/testStore';
 import { startBackgroundMusic, stopAllAudio, setSoundEnabled } from '@/core/sfx';
 import { Home } from '@/screens/Home/Home';
 import { GameBoard } from '@/screens/GameBoard';
@@ -17,6 +18,12 @@ export default function App() {
     void syncContent();
   }, []);
 
+  // ผลแบบทดสอบที่ส่งขึ้นส่วนกลางไม่สำเร็จ (เน็ตโรงเรียนหลุดกลางคาบ) — ลองส่งซ้ำตอนเปิดแอป
+  // ทำที่นี่ที่เดียว เพราะเป็นจุดเดียวที่รันแน่นอนไม่ว่าเด็กจะเข้าหน้าไหนต่อ
+  useEffect(() => {
+    void useTest.getState().flushQueue();
+  }, []);
+
   // ห้องแข่งออนไลน์: ส่งแต้มทีมเรา + รับอันดับทั้งห้อง (ไม่ทำอะไรเลยถ้าไม่ได้อยู่ในห้อง)
   useRoomHeartbeat();
 
@@ -26,6 +33,8 @@ export default function App() {
     setSoundEnabled(soundEnabled);
   }, [soundEnabled]);
 
+  // เรียกได้ตรง ๆ ไม่ต้องรอ gesture เอง — sfx จำเจตนาไว้แล้วลงมือตอนปลดล็อกได้
+  // (นโยบาย autoplay เป็นเรื่องของชั้นเสียง ไม่ใช่ของคอมโพเนนต์ ดู initAudioUnlock)
   useEffect(() => {
     if (wantMusic) {
       startBackgroundMusic();
@@ -33,14 +42,6 @@ export default function App() {
       // เข้าหน้าจบเกม/ปิดเสียง: หยุดทุกชั้น ไม่งั้นเพลงฉลองใบสุดท้ายจะคาบมาทับเสียง sfx.win
       stopAllAudio();
     }
-  }, [wantMusic]);
-
-  // เบราว์เซอร์บล็อกเสียงจนกว่าจะมี user gesture — เริ่มเพลงเมื่อแตะครั้งแรก
-  useEffect(() => {
-    if (!wantMusic) return;
-    const kick = () => startBackgroundMusic();
-    window.addEventListener('pointerdown', kick);
-    return () => window.removeEventListener('pointerdown', kick);
   }, [wantMusic]);
 
   useEffect(() => stopAllAudio, []);

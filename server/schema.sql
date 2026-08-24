@@ -111,6 +111,27 @@ CREATE TABLE IF NOT EXISTS room_effect (
   INDEX idx_effect_sender (room_code, from_team, created_at)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- ผลแบบทดสอบก่อนเรียน/หลังเรียน (30 ข้อ) — ครูดูเทียบพัฒนาการรายคนได้
+-- POST เปิดให้เด็กส่งได้เลย (ไม่ต้องมีรหัสครู) แต่ GET อ่านทั้งตารางต้องเป็นครูเท่านั้น
+-- student_name เป็น optional — ค่าเริ่มต้นส่งชื่อมาด้วย แต่ครูปิดสวิตช์ได้ (แล้วชื่ออยู่แค่ในแท็บเล็ต)
+CREATE TABLE IF NOT EXISTS test_result (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  mode ENUM('pre','post') NOT NULL,
+  student_key VARCHAR(64) NOT NULL,         -- "<ชั้น>|<เลขที่>" ตัวพิมพ์เล็ก — คำนวณฝั่ง server เท่านั้น
+  student_no VARCHAR(12) NOT NULL,
+  student_room VARCHAR(32) NOT NULL,
+  student_name VARCHAR(80) NOT NULL DEFAULT '',
+  score INT NOT NULL DEFAULT 0,
+  total INT NOT NULL DEFAULT 0,
+  duration_sec INT NOT NULL DEFAULT 0,
+  answers TEXT NULL,                        -- JSON: index ตัวเลือกที่ตอบ เรียงตามข้อ 1–30 (-1 = ไม่ได้ตอบ)
+  by_king TEXT NULL,                        -- JSON: สรุปถูก/ทั้งหมด รายพระองค์
+  attempts INT NOT NULL DEFAULT 1,          -- ทำซ้ำกี่ครั้ง (ทับผลเดิม แต่ให้ครูเห็นว่าซ้ำ)
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_mode_student (mode, student_key)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 INSERT INTO app_config (config_key, config_value)
 VALUES ('content_version', '1')
 ON DUPLICATE KEY UPDATE config_value = config_value;

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { useGame } from '@/core/store';
 import { KINGS, kingShortLabel } from '@/core/content';
 import { getKingPawnImage } from '@/core/kingAssets';
@@ -7,16 +8,28 @@ import { enterFullscreen } from '@/core/viewportLock';
 import { SettingsPanel } from '@/screens/Settings/Settings';
 import { RoomPanel } from '@/screens/Room/RoomPanel';
 import { MuseumShowcase } from '@/components/MuseumShowcase';
+import { TestPanel } from '@/screens/Test/TestPanel';
+import { useTest } from '@/core/testStore';
+import { eraColor, ERA_FALLBACK } from '@/theme/tokens';
+
+// ปุ่มแบบทดสอบ — เขียวอ่อนเมื่อมีผลบนเครื่องนี้แล้ว (บอกครูว่าเก็บไปกี่คน)
+const testBtn = (done: boolean): CSSProperties => ({
+  display: 'grid',
+  gap: 2,
+  padding: '9px 8px',
+  borderRadius: 11,
+  border: `1.5px solid ${done ? '#2E7D50' : '#C79A3A'}`,
+  background: done ? '#F1F8F0' : '#FFF6D8',
+  color: done ? '#2E5B3C' : '#7A5B1E',
+  fontFamily: "'Sarabun',sans-serif",
+  fontWeight: 700,
+  fontSize: 13.5,
+  cursor: 'pointer',
+  textAlign: 'center',
+});
 
 // สีประจำผู้เล่น 1–4 (ตามดีไซน์ "ตั้งค่าเกม")
 const PC = ['#C0912E', '#B23A2E', '#2C5AA0', '#2E7D50'];
-// สีป้ายยุคสมัย
-const ERA_COLOR: Record<string, string> = {
-  สุโขทัย: '#B5651D',
-  อยุธยา: '#9A7B24',
-  ธนบุรี: '#2E6E6E',
-  รัตนโกสินทร์: '#2C5AA0',
-};
 
 const TH = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
 const toThai = (s: string | number) => String(s).replace(/[0-9]/g, (d) => TH[+d]);
@@ -74,6 +87,18 @@ export function Home() {
     return /^[A-Za-z0-9]{4,8}$/.test(raw) ? raw.toUpperCase() : '';
   }, []);
   const [showRoom, setShowRoom] = useState(!!invitedCode);
+
+  // แบบทดสอบก่อน/หลังเรียน (state จริงอยู่ที่ testStore — ที่นี่แค่เปิดแผงกับโชว์สถานะ)
+  const testEnabled = useGame((s) => s.settings.testEnabled);
+  const openTest = useTest((s) => s.openTest);
+  const closeTest = useTest((s) => s.closeTest);
+  const testOpen = useTest((s) => s.phase !== 'idle');
+  const testResults = useTest((s) => s.results);
+  const finishedGames = useTest((s) => s.finishedGames);
+  const preCount = testResults.filter((r) => r.mode === 'pre').length;
+  const postCount = testResults.filter((r) => r.mode === 'post').length;
+  const donePre = preCount > 0;
+  const donePost = postCount > 0;
 
   const [playerCount, setPlayerCount] = useState(1);
   const [activePlayer, setActivePlayer] = useState(0);
@@ -407,7 +432,7 @@ export function Home() {
                           bottom: 8,
                           padding: '3px 9px',
                           borderRadius: 999,
-                          background: ERA_COLOR[king.era] || '#9A7B24',
+                          background: eraColor[king.era] || ERA_FALLBACK,
                           color: '#fff',
                           fontSize: 10.5,
                           fontWeight: 700,
@@ -677,6 +702,55 @@ export function Home() {
               🌐 แข่งกับผู้เล่นอื่น
             </button>
 
+            {/* แบบทดสอบก่อน/หลังเรียน — วางคู่กันเพราะอ่านเป็นคู่ "ก่อน → หลัง"
+                ไม่บล็อกการเล่น: ยังไม่เคยทำก่อนเรียนก็กด "เริ่มเล่น" ได้ตามปกติ */}
+            {testEnabled && (
+              <div
+                style={{
+                  border: '1.5px solid #C79A3A',
+                  borderRadius: 14,
+                  background: '#FFFDF6',
+                  padding: 11,
+                  display: 'grid',
+                  gap: 9,
+                }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#7A5B1E' }}>
+                  📋 แบบทดสอบ {toThai(30)} ข้อ
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
+                  <button
+                    onClick={() => {
+                      sfx.step();
+                      openTest('pre');
+                    }}
+                    style={testBtn(donePre)}
+                  >
+                    <span>📝 ก่อนเรียน</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 600, opacity: 0.85 }}>
+                      {donePre ? `ทำแล้ว ${toThai(preCount)} คน` : 'ยังไม่มีผู้ทำ'}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      sfx.step();
+                      openTest('post');
+                    }}
+                    style={testBtn(donePost)}
+                  >
+                    <span>🏅 หลังเรียน</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 600, opacity: 0.85 }}>
+                      {donePost
+                        ? `ทำแล้ว ${toThai(postCount)} คน`
+                        : finishedGames > 0
+                        ? 'พร้อมทำแบบทดสอบ'
+                        : 'ควรเล่นเกมให้จบก่อน'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
               <button
                 onClick={() => {
@@ -888,6 +962,7 @@ export function Home() {
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
       {showMuseum && <MuseumShowcase onClose={() => setShowMuseum(false)} />}
       {showRoom && <RoomPanel onClose={() => setShowRoom(false)} initialCode={invitedCode || undefined} />}
+      {testOpen && <TestPanel onClose={closeTest} />}
 
       {/* คู่มือเล่นเกม — เอกสาร HTML สำเร็จรูปใน public/guide/ โหลดผ่าน iframe
           (iframe มี scroll ของตัวเอง จึงไม่ชน viewport lock ที่ล็อก body เป็น position:fixed) */}

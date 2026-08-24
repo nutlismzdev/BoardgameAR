@@ -38,6 +38,13 @@ php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"
   - ตรวจทุกแถวให้ผ่านก่อนค่อยแตะ DB แล้วเขียนในทรานแซกชันเดียว (พังกลางทาง = rollback ทั้งชุด)
   - จำกัด 1000 แถว/ครั้ง · คืน `summary: { inserted, updated, total }`
 
+- `POST test.php` — เด็กส่งผลแบบทดสอบก่อน/หลังเรียน **ไม่ต้องมี token**
+  body: `{ "mode": "pre|post", "studentNo", "studentRoom", "studentName?", "score", "total": 30, "durationSec", "answers": [30 ตัว], "byKing": [...] }`
+  - `student_key` คำนวณฝั่งเซิร์ฟเวอร์จาก `ชั้น|เลขที่` เสมอ (ห้ามเชื่อ client) · คนเดิม+โหมดเดิม = ทับของเดิม + `attempts+1`
+  - `studentName` เป็น optional — ค่าเริ่มต้นแอปส่งชื่อมาด้วย (ครูต้องใช้คู่กับคะแนน) แต่ครูปิดสวิตช์ได้ แล้วชื่อจะอยู่แค่ในแท็บเล็ต
+- `GET test.php` ใช้ `Authorization: Bearer <token>` — ครูดึงผลทั้งห้อง (มีข้อมูลนักเรียน จึงต้องเป็นครูเท่านั้น)
+  - ตาราง `test_result` สร้างเองอัตโนมัติเมื่อเรียกครั้งแรก (ฐานข้อมูลเดิมไม่ต้องรัน migration)
+
 วิดีโอ AR ทองรองรับ MP4, WebM, MOV ขนาดไม่เกิน 200 MB และบันทึกใน `server/uploads/`.
 บนโฮสต์จริงต้องตั้ง permission ให้ PHP เขียนโฟลเดอร์นี้ได้.
 

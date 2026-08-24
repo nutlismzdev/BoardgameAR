@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react';
 import { useGame, clampTargetCoins } from '@/core/store';
+import { useTest } from '@/core/testStore';
 import type { RoomSession } from '@/core/store';
 import { KINGS } from '@/core/content';
 import { KingCoinRow } from '@/components/KingCoinRow';
@@ -87,6 +89,17 @@ export function GameOver() {
   const backToHome = useGame((s) => s.backToHome);
   const target = useGame((s) => clampTargetCoins(s.settings.targetCoins));
   const room = useGame((s) => s.room);
+  const testEnabled = useGame((s) => s.settings.testEnabled);
+  const openTest = useTest((s) => s.openTest);
+
+  // "เล่นเกมจบแล้ว" = จังหวะที่ควรทำแบบทดสอบหลังเรียนพอดี — บันทึกไว้เพื่อเลิกเตือนที่หน้าแรก
+  // ref กัน StrictMode ที่ mount effect ซ้ำ (ref อยู่รอดข้าม remount ของ StrictMode)
+  const counted = useRef(false);
+  useEffect(() => {
+    if (counted.current) return;
+    counted.current = true;
+    useTest.getState().noteGameFinished();
+  }, []);
 
   // อยู่ในห้องแข่ง → ผลที่คนทั้งห้องรอดูคือ "อันดับของทุกทีม" ไม่ใช่อันดับในเครื่อง
   if (room?.state) {
@@ -282,6 +295,18 @@ export function GameOver() {
         <button onClick={backToHome} style={ghostBtn()}>
           🏠 หน้าแรก
         </button>
+        {testEnabled && (
+          <button
+            onClick={() => {
+              // เปิดแบบทดสอบไว้ก่อนแล้วค่อยกลับหน้าแรก — Home เรนเดอร์แผงตาม phase ของ testStore
+              openTest('post');
+              backToHome();
+            }}
+            style={ghostBtn()}
+          >
+            🏅 ทำแบบทดสอบหลังเรียน
+          </button>
+        )}
       </div>
     </div>
   );

@@ -13,6 +13,15 @@ export const color = {
   info: '#1565C0',
 } as const;
 
+// สีประจำยุคสมัย (จาก King.era) — ใช้ที่ป้ายพระองค์หน้า Home และแถบไทม์ไลน์ของแบบทดสอบ
+export const eraColor: Record<string, string> = {
+  สุโขทัย: '#B5651D',
+  อยุธยา: '#9A7B24',
+  ธนบุรี: '#2E6E6E',
+  รัตนโกสินทร์: '#2C5AA0',
+};
+export const ERA_FALLBACK = '#9A7B24';
+
 export const radius = { sm: 8, md: 16, lg: 24, pill: 999 } as const;
 
 export const spacing = [4, 8, 12, 16, 24, 32, 48] as const;

@@ -94,8 +94,32 @@ export function adminLoginAvailable(): boolean {
   return !!API_BASE;
 }
 
+/**
+ * token หมดอายุแล้วหรือยัง — อ่าน `exp` จาก payload ตรง ๆ (ไม่ได้ตรวจลายเซ็น
+ * นั่นเป็นหน้าที่ของ server เสมอ ที่นี่แค่ดูวันหมดอายุเพื่อไม่ให้หน้าจอโกหกครู)
+ *
+ * ⚠️ ก่อนหน้านี้เช็กแค่ "มี token ไหม" → token หมดอายุแล้วหน้าตั้งค่าจะยังคิดว่าล็อกอินอยู่
+ * แล้วทุกคำขอจะได้ 401 เงียบ ๆ · อาการที่เห็นคือ **จอผลแบบทดสอบไม่ขึ้นรายชื่อ
+ * และลบข้อมูลในฐานข้อมูลแล้วของเก่ายังค้าง** เพราะระบบถอยไปแสดงผลที่ค้างในเครื่องแทน
+ */
+function tokenExpired(raw: string): boolean {
+  try {
+    const body = raw.split('.')[0];
+    const json = JSON.parse(atob(body.replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number };
+    return typeof json.exp === 'number' && json.exp * 1000 <= Date.now();
+  } catch {
+    return false; // อ่านไม่ออก = ปล่อยให้ server เป็นคนตัดสิน
+  }
+}
+
 export function hasAdminToken(): boolean {
-  return Boolean(token());
+  const raw = token();
+  if (!raw) return false;
+  if (tokenExpired(raw)) {
+    localStorage.removeItem(TOKEN_KEY); // หมดอายุแล้วเก็บไว้ก็มีแต่ทำให้เข้าใจผิด
+    return false;
+  }
+  return true;
 }
 
 export async function fetchContent<T extends ContentType>(type: T): Promise<{

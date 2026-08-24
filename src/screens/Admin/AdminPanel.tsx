@@ -18,6 +18,7 @@ import type { Difficulty, KnowledgeCard, QuizCard, QuizChoice, SubjectArea, Subj
 import { LESSON_VIDEO_POOL, shuffledVideoQueue } from '@/core/videoPool';
 import { color, elevation, radius, tileIcon } from '@/theme/tokens';
 import { ImportPanel } from './ImportPanel';
+import { TestResultsPanel } from './TestResultsPanel';
 import {
   badge,
   dangerButton,
@@ -68,6 +69,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [importOpen, setImportOpen] = useState(false);
+  const [resultsOpen, setResultsOpen] = useState(false);
 
   const cards = cardsByType[active];
   const activeTab = tabs.find((tab) => tab.type === active) ?? tabs[0];
@@ -304,6 +306,9 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                 <button onClick={() => setImportOpen(true)} style={secondaryButton}>
                   📥 นำเข้าจาก Excel
                 </button>
+                <button onClick={() => setResultsOpen(true)} style={secondaryButton}>
+                  📊 ผลแบบทดสอบ
+                </button>
                 {active === 'gold' && (
                   <button onClick={() => void fillGoldVideos()} disabled={busy} style={secondaryButton}>
                     🎬 แจกวิดีโอให้การ์ดที่ยังว่าง
@@ -375,6 +380,8 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
             </main>
           </div>
         )}
+
+        {resultsOpen && <TestResultsPanel onClose={() => setResultsOpen(false)} />}
 
         {importOpen && (
           <ImportPanel
